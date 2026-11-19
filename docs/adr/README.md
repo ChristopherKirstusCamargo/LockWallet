@@ -1,0 +1,27 @@
+# ADRs
+
+- [0001](0001-envelope-local.md) — Envelope local, hierarquia de chaves e contrato binário (LWLE v1)
+- [0002](0002-pin-argon2id.md) — PIN, codificação, Argon2id, autenticação por uso e limites sem biometria
+- [0003](0003-bip39-slip10.md) — BIP-39, SLIP-0010, caminhos e compatibilidade
+- [0004](0004-lwrp-v1.md) — LWRP binário v1, KDF, AAD e compatibilidade futura
+- [0005](0005-escopo-mvp.md) — Escopo, fases e ordem de entrega
+- [0006](0006-seed-vault.md) — Seed Vault somente com disponibilidade real (Fase G)
+- [0007](0007-parser-allowlist.md) — Parser por allowlist, transações desconhecidas e Token-2022
+- [0008](0008-distribuicao.md) — Sem telemetria/backend/updater; distribuição, assinatura e licença
+- [0009](0009-threat-model.md) — Threat model e adversários
+- [0010](0010-backoff.md) — Backoff local, rollback e limites anti-rollback
+- [0011](0011-maquina-de-estados.md) — Máquina de estados unificada, bytes assinados e expiração
+- [0012](0012-seguranca-base-dinamica.md) — Segurança base e dinâmica por capacidades
+- [0013](0013-memoria.md) — Política de memória e zeroization best-effort
+- [0014](0014-cadeia-de-fornecimento-e-dependencias.md) — Cadeia de fornecimento, versões fixadas e biblioteca criptográfica
+- [0015](0015-plataforma-android.md) — Gate 0 e endurecimento de plataforma
+- [0016](0016-custodia-multiprovedor.md) — Arquitetura de custódia multiprovedor, Lock Vault / Lock Connect e rede
+- [0017](0017-preco-publico.md) — Preço de mercado do SOL (fonte pública, sem chave, sem telemetria)
+- [0018](0018-ui-design.md) — Sistema de interface (Fase C+)
+- [0019](0019-analisador-allowlist-def.md) — Analisador: allowlist fechada D/E/F
+- [0020](0020-rede-rpc-coordenador.md) — Network Manager, RPC e coordenador de transações
+- [0021](0021-seed-vault-implementacao.md) — Seed Vault: implementação (Fase G)
+- [0022](0022-lock-connect-mwa.md) — Lock Connect: Mobile Wallet Adapter (Fase H)
+- [0023](0023-mainnet-dinheiro-real.md) — 2.0.0: Mainnet (dinheiro real), revisão de segurança e novo design
+- [0024](0024-desbloqueio-biometrico.md) — Desbloqueio por biometria (alternativa ao PIN)
+- [0025](0025-validadores-curados.md) — Validadores recomendados (bloco curado) e modo avançado no stake
