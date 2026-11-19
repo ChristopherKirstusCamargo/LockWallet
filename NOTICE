@@ -1,0 +1,10 @@
+Lock Wallet
+Copyright 2026 the Lock Wallet contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software developed by third parties, each under its own license:
+- Bouncy Castle (bcprov-jdk18on) — MIT-style Bouncy Castle License — https://www.bouncycastle.org/
+- AndroidX / Jetpack Compose — Apache License 2.0 — https://developer.android.com/jetpack
+- Kotlin standard library — Apache License 2.0 — https://kotlinlang.org/
+- BIP-39 English wordlist — from bitcoin/bips (BIP-0039), MIT-style — https://github.com/bitcoin/bips

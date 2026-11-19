@@ -1,0 +1,25 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+__pycache__/
+tools/oracle/venv/
+
+# Release signing material (kept outside the repo; belt and braces)
+lockwallet-signing/
+*.p12
+signing.properties
+dist/*.apk
+
+# Local scratch / release binaries never committed
+release/*.apk
+dist/*.apk
+*.idsig
