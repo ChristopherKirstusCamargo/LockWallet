@@ -1,0 +1,843 @@
+{
+  "meta": {
+    "id": "LW-ORACLE-DERIV-1",
+    "purpose": "Interop: entropy->mnemonic->seed->SLIP-0010->address for all 5 entropy sizes, both profiles, boundary account index 2^31-1. Random test entropy, never funded.",
+    "source": "python-mnemonic + bip_utils + solders (two independent derivation oracles agree)",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "vectors": [
+    {
+      "entropy_hex": "7e0fb72a897be6d4087f4f839a8fdb8c",
+      "mnemonic": "lawn laundry skirt base salmon head capable try logic stamp want border",
+      "seed_hex": "dce740085ffc0ee840699543c6d653081fab1f7204ef0673f0aec26415d18cc6f2f1d04dede5097075726baf427c04e24e75e2d1adab3c165f1b11394a2243ec",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "BEwy4AwdmXGN43sYbEm6Fwuy6zo1DQ25962Fx3xfQSwm"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "35rMYNoci8BSzJ1pPbxht5igmHcSMu6ZHhaNdjXjCtKC"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "HoRQEyzvRPtUL9Y9eSwiB299TVRsWVMtMH49XF4TW3ch"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "8BE1XL1j1QCJ2UADxXNYj3GXyA1r3Zunzc8cGPeDPFqQ"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "DPZsKDMbSj2HAVcdLw5cHeAx16RvZyi1gMcRQ6m2zRr4"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "8R3FjRZ54SfDGPVBPLFxiScMBAJXXzzAmjYjWnu2YzWc"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "U5mskxTSwuzUpNXG29qtxNKL8eG73kXaiAeTY9ozpHK"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "3jyufSebXmGr3PGwcXFTWH3Vwkjjs4PwqNT3BXVzKJt8"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "c6698408a132b46cb2be57c09229205d",
+      "mnemonic": "shoe equip acquire draw clip curve slab slab scene mule elite ritual",
+      "seed_hex": "81ac3891047d9796bf4bf4c034512f2b5ed9fbbe48e75194e029eee38fc73da6e25882527cb3fc912306dfd537b080932c54b7de16c40f8027a18a5e682d81f4",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "98d3ZgyEDGkAcnP7FgQK8rvpEFt7UyDcDPQ7sGXLeRvW"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "EcrFmw7JXGbqiaSMfvn9sMYmv19dLYEUjtWBkxhzkpWL"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "83cPqnD8hPhMjCxZZ4pssUhcJdcWLPTfAhvVrBL1nUj4"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "7jnTkckyiQxYnp3ACEYLoQ4jgAYgBwYWtWMrsAFeoJPp"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "Eqwp5Bi5JDmX5ZWNUHiiJuaP8kuKGPmGzSLUKKNNoijE"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "GqMS6kRZqD6f8cCT3eK7oxV11hNu4C5Vy516MY4Zoq1F"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "CdqhVs1uvdxBvcVzdbkzA2CCs6hzsYg1wDz7TSMj39yf"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "4V6REDpm5chZRcfB3CeMBKAT58ffUYR9KDF2pA9zi7cH"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "68d41eb3dc6790a0b88ffe7b26caf84a",
+      "mnemonic": "hand path provide rhythm jungle expect timber zone kite curve safe night",
+      "seed_hex": "1b043c72690bb668491c8cfde5268802bbf381c422cf733ed89a19e72476e28f20c7f6c586a1bf9262136b0d653275c081346b3729113d080d59fe2e74c11068",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "HAHC5UmRTdaBNGr9NcJsWxtKrpJ5GtYH3hsk9P4gt818"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "4gkBadjtDYv7HEYmbTr9VJ2ajUxiiaVCKVYf7BmMC54C"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "7D64tkZwCUZuy2umz9tcC9ae78gmBKtuE33UQbhMjLbe"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "7XjZRW1covgX5gj97K8H5QvbRdESn735kmQkRqhByjBu"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "2JzHrM41ng8E3fGonCytVsGsu2Po6wikXSGWSXyvgwkg"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "88fvVFufCbbZcxi63YtMcnN4rb19jkj3FgoWXzK2KxXr"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "542VcJNxky3M19exyoA6TfKBAztxWL5Svo7xaFzjFtsR"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "D5be2z593BBVBYPcJHgV6inhfKqv1crJpwXJcnUiieYp"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "1e11278295860382d3621f2819dff3ce012688a3",
+      "mnemonic": "bulk matrix thing climb gasp scrap eternal dumb chimney solve woman orchard bar dust month",
+      "seed_hex": "1ef27f7e6acee7f951080c745c4425f127a89dfe511b7f1c9b934785d70f160f464f9855c5c75fd97fa93c9745f173939190c12a70d0ec9bdb72d572a840950e",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "AjN15V5eQD7gsHoze6JVH8NgPGQ5nxhLdKDNh4qMFcQN"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "Au4DWjhaBs7vdkRrVZHF6KuHKHcSUqK5qwF5wF2kr7mX"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "AeLdKwfnJyuZq4YGhmgp9yTAzRfBzAaLJTAPkRnvaPtS"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "DtxSN6L3cNGETcvVQG3jeZtUVhnU4yM56MaZ26yvb6dk"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "9FbYvJKGtFGhiicZaT6gwXjT8FvK2TKT3CPzFGwCX64D"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "Hrrt95uRB9Xekq42fx3XxgxqUxW94HLAWwmgiEubsBd5"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "BNBxGpZ7TS3YMaaqtcCnYHys9H9qVgLEk2BTWyJ91HFQ"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "3QCKrefHBwevc1Q5D5srUNeCjvT12uMiyWud4kp9iWyK"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "0444240f72ebdcaf3e4110d9c13090f123830dee",
+      "mnemonic": "affair cancel adult total saddle fiscal weekend capital supply another category time deal manage review",
+      "seed_hex": "958b018befe81c352899bbdb3fc72ab214571d8a81da44e449c50c1b921404e59e66b4d92037bf7cf219f55d7e4940bbaaa32f0677d7e1d2412a242bf26f9541",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "E56jY4RYYDJ4vZr1Y5Ca31PLTXUM1Jna4qJLMPrKcJeT"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "FxLYGHH79EWs3yjbeUu1kU8JRnt29vsFxijisgKuLyDu"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "9sPG1QqXskjd2GMqNm6TroHdc5qWUmg87yKKKPtv7iLy"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "FAbQjC4xanZVXsumsB4c8RiVtk1hG3hCyTpUyrCqQSM3"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "DVbQ1ZPSXk5z1SDLu9eSZjj4hSBCEnDxj3Ha1GmLMP9R"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "8Nby62E2nSLM2GBhaSnPn1PCSo98SReziLztbMFCuUMW"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "6RoTdcRwiomm7UtAnhczpNVrdAoqoqnN7NYujwoZRAwY"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "63LZ7UPZTH7X4pgsaV2VbndLeLk3MRhqkWYigrhomvtA"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "f222dd75d9c0d385229e0837d4b8dd14ba9e95ab",
+      "mnemonic": "vendor black frost receive artwork secret media scissors daughter place dance city prepare enlist project",
+      "seed_hex": "5de3f04b3ea62c54063bf72eb3cdcc491538ca804dcf60486ef2aa4cdc6a02e965066125b37c6a263b888165ce25be50acf0eae2cf50a975791ef336a406f881",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "BpHBKuBRiw7ovpvjfAbQDaKjPSHNJP99vZydZmyL9TCZ"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "43utt7JLjhgDUAXEvKHPBe3pARHeKvfP6zhwcvNSRHbu"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "9QZTjBuMXkU3g2m8kz7Bk5bNt6ujio75Gbom8GGRzng5"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "AJu7LtPLaFy95gwsg81Xx62YhKT5Kf3s8gjqLKKM1GQL"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "DHVf1XCJ1P1Uj8TQ5rgBPQ6qqJoWx2URg65W3CA7PM5T"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "6eN8z3y7PHYHUGJwVimecKkHunAiUpzGczzLCBuU4Hpb"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "3GQYuBDcbez4CQzR9NwkjoXdxfSLX8pBFTo8ZQbKMkRb"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "GBYDy2wGDY8gNt1i3GsRw4CaoiKduohMk5a8WgkzNsUK"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "344f8237c8d922ef0f88d7c8e34759d958cbb93602c93fc3",
+      "mnemonic": "crowd lab mistake museum mutual jealous dilemma brain similar boss stool razor million symptom submit float divert boost",
+      "seed_hex": "3b6f099920b075e51c729b45ed13edebeaaefa7559e923ad0d1b7698799658c4dc502a27da8bc9f37925043b7b1789984efb2822b2f3b91402e20d4a3db7db9c",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "7cjdSAoiQXmNXz7t5jzYU6PQgF987cz1k8utMAaQuaNn"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "6mbGRzcmGd7wsyeXF7f96LepBmsLLqrLtKNcqsuQHicK"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "C4PZWQ1pQ9PrRnSfVh9uu6Sdwi3QDgY887n29MWffZHx"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "EQYzrWaHPoTejfKh6VXmUsguM3ojEwFxjG5HQW9FX7uV"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "GcyD5qVwdyXzcxYdFqVhMAYu42C3n9wkQ7PVAyCVrM7Q"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "EXstXkm7AQyF1hnz1m6rWyPVWJ6RV4zZ2thb4XGzYAFf"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "B65bzpfp843Bh2kLWv3jQAmka6JQ25gg6Ma93pZ4i2xz"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "gGsB3DmwT8eXsXWhX4STtV3NCFPpHdQedHeWYbSceTk"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "5d50b20376aba92cd71e1ad85ecf196c577791651d1da6dd",
+      "mnemonic": "front machine liar unhappy ritual nose fragile select success wait shock suffer jazz silly nerve photo plug typical",
+      "seed_hex": "108fb7b1c27941a283faa23f26b4e6698623e04dcb2b558a09378941907539b0f676e18b01c0e7bdc044ba901cbfceeb76935d7c94c9fb9f9915819345e565fe",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "47gxBtm9NSAWmPcBHZAFExVe8dENWahcrDiGXqDUNRQP"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "AmXCX32JUfeN8T364ndUYfefNhHNJnLazPzXgQiqmez9"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "J6hrA5kR3H7z2NGHtaTE4vGLfNnUp3q1hSd6MHVTo7h8"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "6vnUh7oBJ6XW4DvRDDzuDzjXkzYhhn3xCvDLFviPjBgg"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "ExrGzBZZLsm9NczzV1KDMLxPCNU1NepZGQuKDrqFF9gg"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "9794MBogk4U4RCDaB2geVSwGgs8hXXcKA46vcAWsUrSZ"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "DdjdQoQXV8Ec42EAAEqQCEDEV9mH1jX5yB96kHpP2y5b"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "8QZjKD3AxXH2NEPh4Wph2RVEhkKawhuNyjPQqt4B4eWR"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "5d2d535e06b2db6da4c1b85d4b1feb26b06caed5d3dd6df0",
+      "mnemonic": "frog hedgehog stuff aspect color replace narrow damage front flight width estate almost first firm knife hospital level",
+      "seed_hex": "5215ae62a31b4eb14bee1830b6deab52136a0fac7c8464020acee320c5414929077b90eb1c121ad169e4497e1d1dcc9ad7950245ea96de30f143dc92eea1d238",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "9PAQeRhDfc5KLr83NU4gs8m8Hw1tUPo1nJsY4NcrU847"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "J1juAcuJwxCPFs1XodcDZTPYZwBhTrvJmKV3ebVs7HcY"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "RCFan8AF98XgeG3mSYc4Nm42wDDABJUowgAR4koxbA3"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "HM8QftmaMgNVBFyi4jNahM1iothqJKkNwu5gzVFLAWmW"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "9G6fWTcwz3ScFv2T9WJ9AoXqY38maavCXBjoBoqhGN91"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "BTGwcwtSTjfy5ujHENYn26jEHiz4ugZg5HPfa4eyGW2V"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "GRJoBhAHYxnrJtLnF3kBxM2vbMHdq2QDFUJZGCP4qsBy"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "DLQgHhNxRxdRD3dKxry2MFoWgQVrpMAzcLVGNvqN1iiK"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "26d0aca21bee0cee93f2c9f5e7695f3cdacfded60c44ee8dcb51d914",
+      "mnemonic": "chat lyrics chuckle daughter this jar exist float vote deputy fit keen provide urge flag mass update hour stamp rate ethics",
+      "seed_hex": "d7d7de34bcddbc4f1ebe4a376e03b0c90d4ed5f96acf0b65722d565702961db3d45057b36fccd04983a065755b7fe93bf4bd2bd6db26fef826ca469b2db194c7",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "6WBATRLDkoD9FxBoMZLEDdbNuyJwuqQbzGfG1sjpg34x"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "HPurC9xtdKUKLhrwSaN1z26QuLcmPW346Axjv9zatUBs"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "4fKXGRJV4BQHaJ8rGxfLs1MjeQNN2skP1PMbkBegRqYW"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "9gv78FE5heyUF6EdAJnCiEcxHLugMK9gnRFp4AwGV5Gg"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "EFnNXcHjzL4H4REFySRpAUYQVr3VGqKeAvsLgPrBjM9M"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "FPVkEkp3P4FCJLeC9QqXhhPi8zs9DNc6Ayc3QpUkiqqY"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "BfsQMYGTFgG4Dvh11ue1Ta6RG5cCWc7tbnx4HkYvZtRz"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "6fQbtxFdv124Gep5VyJR15ezWWh37KeXPfnvQXkD8qNK"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "ed282e2e78256cb6a58e210cb31e43ff8771874ddf9d836d887fd3ac",
+      "mnemonic": "unfold door merit utility fine forget normal service arrow ocean movie yellow jacket senior danger victory lock hobby cable point shell",
+      "seed_hex": "560ab178f4d446868542f6e68acc1068b4ee872a8f2b6d1371211c3db08af20c455e9c477b4c8df5776a70b2d648f3540ead7be4c57f1fe8fa87ed7a040b45a4",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "7qPk8P1CwG2sjsKgxDN9MWgB8GapBm6hFkZjbPKS74MT"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "2aTHRZuwm48EsFfSBBi3D5FsebW9RtQV4h1mbeFxig7Y"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "DWURxnxusFRxi9xcVa7cPNvUDhycHXaNMqHueGWCE5m5"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "8FhmhGYU1H5s5QD3pYGE4iLQG46sMn2BF21Rf6oMiNQP"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "6nZtXtvtz9CoRGRpKTHPq78gQyAvwSmptoTN5ivAoVBJ"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "5zLLkGsiAk8TVoWM4QGje3sKCCpaU7K39goNRDksdNQz"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "FA49anVyJRMozhECzJnBMXu4nyoGvCszH4PuyskqVpgt"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "B13caoFxExt1D8ExA5FyFkuQRh1RxGsPaFMNMdBEoYv3"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "af1010f3ab75a762a843f648e3e9fa8768c48800578fcf577192092d",
+      "mnemonic": "pyramid letter diagram finger foil rally patient learn employ butter leaf attract middle dune access vehicle soon romance goose banner system",
+      "seed_hex": "944a95b478a1bcd6b5a03f61f74fbc2d500edd0723b7c92aaa77b6d7e638e56e06e3b9232a044e1fe0f3f0a9184a76dbecf290ce90a850d2ddeef79db74203ec",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "2ADqJtGmVVArtAPzjYtUTNcxiBtBvEYxRxSim6ktvorC"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "Dvi5qWaBqAXU3bHD6Jq4mPt5vjsJa7v553crFSS4aZfh"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "BKpT8RvEEaFH4CNRpHgMwWnpxGvYbmM2qwpwcA5nHhw8"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "AQFtpkRxdUaaNrnZ7D2LaVrJrTdvLbPELYLEAXnTiJcJ"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "E4g65KuASuvtSBk9XXEhL7oXEenyUiZ38ZMkjXKs9E93"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "GfXhHQTqP2gGGpnpxw3aGvHkTpTJawhZxJgPDcAc7ZcJ"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "891n1nJno5o9KkSkCgbX4ceJZ8awLYHaeqFgUDXDk1zp"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "4kaf23WgHy4Lf4ptuBcpKsjJZYHAJsAdvwcDJ2pJsCZH"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "8e4a468372d1566b0042acb5bb51e3b3b8fd217d3457c2210ff1a15c1675740e",
+      "mnemonic": "mixture fall patch toss betray culture absurd few remember surround jump guess more mouse visit memory season anchor wise dress scrap deny south shadow",
+      "seed_hex": "c2c85c199d156f58fb2b021c5ee511b5dbd6a5dbf10e08f2dabb5e0156182213dbb25a3136f6d8abd6dfe795d136c372d9101b71c11f7535bea48ee225dc2307",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "HB7SXjtjn7sLvvfJ1cRwuJrrMJq3qQw79cCHS7AHSAxS"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "DdUoGtWUq3unL3xED3RQUNh9De8kYVJJC3Bn6ktwmvNY"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "C16fANg2vGyEmnVubWi4f6CjQdnZt4te6ham6BasfJvn"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "EZg5MtXLFq85muQpujhhgFUJstZ8bdyYLL3D9yyPRCKJ"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "3AnRJ4UVEq2DunR3R714cFZ4i3cYbgarnXGAwJcqMktA"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "CqXbnP223jw6nHEGz7eWFHScKkGxsXUGeZxQqNisdDgR"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "9ECAZgmZeHwuXS79SjXpiVV1eiS5q62zZKMtdUJSKBuc"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "3McXXWF7pY5Wrxznjuz3Q7jP9HjetftQeuiGY7bqRkb4"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "ac8759eb8b2859dee0f61ac0b85e51d4db5af56e41959007f6b2262f7cb7fff9",
+      "mnemonic": "prosper depart kit bind machine urge long select scheme seed nerve predict remember kingdom ribbon crawl mosquito distance prosper era water fossil zoo cover",
+      "seed_hex": "b9505d2c516b5b499dd2cd72c783e085b17cf70f354b84337a51f47e532110cccd6906ff54a5719cd04a5a8f633a41101bd3558b5ffcc832272e19c199402f9e",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "5CKB1P5x9iRWoyMboS4HVUUrobyFi251xkFDXf3vm64q"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "Ap2gcPnMAjZBpVMajvob5kjWNtYfwayyibZWZDVvm8hW"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "D5bkaTi2FekecU7kV1Nr5jDRvu8dMdWM7tbRw4x2fgtw"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "HBkJLtj8JvtyPYViAeUuirTeapvZNcfVmwjC6bfBoE95"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "BE6A3g8qqpTPj33JVbkMXWndrKYtjTY8TameWQZm8XYm"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "A9h9m731iWXzEzDTPpk94hcnYt9u8xrqVJkLMmnYmi9Z"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "ERhZHpnorSGxhXPwTz4tEbkXkohEg7LU3A69ydUSGYBu"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "GDv2qy3e6LHKibSEESb2xjz9EknB1LaEwUHtf2TCDJxc"
+        }
+      ]
+    },
+    {
+      "entropy_hex": "a0a5b161384863df58b3f43d9120195e96aab357c4b87689f8ea1bed1cd85622",
+      "mnemonic": "pass collect flame identify mail use glare leader diesel math alien rule height fluid gallery novel isolate exist dentist daughter spike history flat furnace",
+      "seed_hex": "bdb88c55fa24082428a2a84efa3136302002fa8004ea1cee621411f7167521fb0657d03c8725745c69d9cf8c215e0f19d629ec742ea48141c30fd1ca34da6bc5",
+      "derivations": [
+        {
+          "profile": "PRIMARY",
+          "account_index": 0,
+          "path": "m/44'/501'/0'/0'",
+          "address": "DFLYK7m3oFsPq5YhcuhpQAycRgMLBTUuupfUDP6Nw6yf"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 0,
+          "path": "m/44'/501'/0'",
+          "address": "9rp4BGMRYuhK7oig5JRUDZWtGcPixLY226KSyqu475ia"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 1,
+          "path": "m/44'/501'/1'/0'",
+          "address": "Do5F4DCuDsxkw1vEWzwfryaZZKfhvKpRLJ1reJVKAzy8"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 1,
+          "path": "m/44'/501'/1'",
+          "address": "GZBWEhAfcHiraZctwz9iibcBzBKp9DWyMSQpqnjLNneC"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 7,
+          "path": "m/44'/501'/7'/0'",
+          "address": "3fyjR8fvWdNncqJpkMPBsQQWw8ABpXaJrYqianLKYxkd"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 7,
+          "path": "m/44'/501'/7'",
+          "address": "CQGVomgmdWYGMhGgoYsHfP4yj1Wr19pg8cp841RaRjLF"
+        },
+        {
+          "profile": "PRIMARY",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'/0'",
+          "address": "6cD6YAKukJs2hUqLJLX8x3jUZLjbMBeWHMf63dteofHa"
+        },
+        {
+          "profile": "LEGACY_LEDGER",
+          "account_index": 2147483647,
+          "path": "m/44'/501'/2147483647'",
+          "address": "BHw7tMcGLRAJ7iMJ3LaeBY8za6o2MVmz7uX6S6G9Epu8"
+        }
+      ]
+    }
+  ]
+}
