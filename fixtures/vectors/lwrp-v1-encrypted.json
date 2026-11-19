@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "id": "LW-LWRP-V1-ENC",
+    "purpose": "Complete encrypted LWRP v1 files (Argon2id + AES-256-GCM, AAD = 46-byte header)",
+    "source": "Spec \u00a710 + ADR 0004; libsodium Argon2id + pycryptodome AES-GCM + solders pubkeys",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2",
+      "pycryptodome": "3.24.1"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "cases": [
+    {
+      "id": "LWRP-ENC-12W-P1-0",
+      "password": "lunar orbit candle mosaic velvet harbor tiger sketch",
+      "kind": 1,
+      "profile": 1,
+      "account_index": 0,
+      "material_hex": "8672f46b5038ee6a234a5a27f7ba7466",
+      "pubkey_hex": "ad5e092b9a86b867cf37fb1855a84f8bea63224dd707bfce3504585528ec466f",
+      "salt_hex": "8d4703274a427ca6a285be1339fb64df",
+      "nonce_hex": "f575520fffaadf72f60742d1",
+      "file_hex": "4c57525001018d4703274a427ca6a285be1339fb64df00004c000000000200000001f575520fffaadf72f60742d1dcd740d9fbbdeecb1fa260082c0be9ffa313655d5460454551abc8ea03f4a2cc6eab46dede15ec715736482fe148a1de0ad2840d5dc1eb7b8a62f3585fa355f8b900aff313c7b04567a609c3e1ca7670"
+    },
+    {
+      "id": "LWRP-ENC-24W-P2-3",
+      "password": "senha forte com acentuac\u0327a\u0303o e\u0301 2026",
+      "kind": 1,
+      "profile": 2,
+      "account_index": 3,
+      "material_hex": "947c9c449cbb225187a83cca6b138e831b9a783e7c081edf675b1c9913a665b1",
+      "pubkey_hex": "7aba8c34d96b0803968cb403c5069c2ba628108db70a91e529bf589afaa8a812",
+      "salt_hex": "c24d04e66deb463065011385bba41551",
+      "nonce_hex": "3494b13df5637c19a5a6acfb",
+      "file_hex": "4c5752500101c24d04e66deb463065011385bba4155100004c0000000002000000013494b13df5637c19a5a6acfb1b94b947a54298f7d7163362bac06d4f751ace61db6c2e9c282a3808217f65ff8dbbdd9b959021e4e8d98120199bbc2706f2682349c726952c06a611dc39b1a117a8f876d8c577d797de9a252f9d30fb684eba875a4427665e018e3ac3e1fcf9"
+    },
+    {
+      "id": "LWRP-ENC-KEYPAIR",
+      "password": "keypair export password 0001",
+      "kind": 2,
+      "profile": 0,
+      "account_index": 0,
+      "material_hex": "075b39fcbe97004cb63069da108635a0cf2b0b9bdf0ca778c59b2e827df0ca3f80d38825563cae32dfd983cef141570d636e81ae1993773275a82ee52ab3ed60",
+      "pubkey_hex": "80d38825563cae32dfd983cef141570d636e81ae1993773275a82ee52ab3ed60",
+      "salt_hex": "0ae18caf46ccfeb82ff9e5e5c890e7fa",
+      "nonce_hex": "ff979db87847d5969ea45edc",
+      "file_hex": "4c57525001010ae18caf46ccfeb82ff9e5e5c890e7fa00004c000000000200000001ff979db87847d5969ea45edc8b8fdddb806e7f82c1b6a2645cad4da1b206412c7f138adad047df0f69251eed1841c0a741a84306a0a7cb7b8b00f24a1923c491165e7826e29fa0564efcbb91b02446ddac40d2b6c0108e7a40b3e12c2f2df6a7bf654dbb9dd81e907c40c01555fc000e01289f6943ee2669d3f3c4fcb8c3d8cae468cf7d81d4219634ac78d7"
+    }
+  ]
+}
