@@ -3,7 +3,7 @@
 - **Status:** Aceito
 - **Data:** 2026-11-19
 - **Spec:** v2.0 §17 (gates), §20 (rede), §23.4 (dApps); ADRs 0011, 0019, 0020, 0022; errata E-36..E-45.
-- **Decisão do dono:** “liberar rede principal para dinheiro, nada de testnet” após revisão de segurança agressiva.
+- **Decisão do projeto:** liberar a rede principal para dinheiro real, sem redes de teste, após revisão de segurança agressiva.
 
 ## Decisão
 1. **Somente Mainnet no app.** Devnet/Testnet, faucet e airdrop saem do app (`Cluster.usable` só MAINNET). Regra de CI

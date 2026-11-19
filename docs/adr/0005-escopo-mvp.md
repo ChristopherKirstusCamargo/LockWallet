@@ -20,7 +20,7 @@ A entrega é maior e chega de uma vez; funções de fases posteriores herdam par
 Funções de fases posteriores não têm auditoria até a fase I.
 
 ## Evidência
-Pedido do proprietário 2026-11-19; spec §18.
+Requisito de produto, 2026-11-19; spec §18.
 
 ## Teste
 Guarda `verifyForbiddenApis` impede endpoint mainnet no código.

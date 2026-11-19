@@ -1,7 +1,7 @@
 # ADR 0024 — Desbloqueio por biometria (alternativa ao PIN)
 
 - Estado: aceito (3.0.0)
-- Contexto: o dono pediu desbloquear com a digital em vez de digitar o PIN, sem abrir mão da segurança.
+- Contexto: requisito de produto — desbloquear com a digital em vez de digitar o PIN, sem abrir mão da segurança.
 
 ## Decisão
 
@@ -32,9 +32,9 @@
 ## Troca (trade-off)
 
 - O material passa a existir também cifrado sob uma segunda chave (biométrica). Um atacante precisa da biometria do
-  dono **ou** de comprometer o TEE/StrongBox — o mesmo nível que já protege o KEK. Em troca o PIN é digitado menos
+  usuário **ou** de comprometer o TEE/StrongBox — o mesmo nível que já protege o KEK. Em troca o PIN é digitado menos
   vezes, o que reduz exposição a olhares e gravação de tela.
-- Biometria é “algo que você é”: pode ser forçada (coação, dono dormindo). Mitigações: janela padrão de 24 h (configurável, ver adendo), “Bloquear agora”, PIN após
+- Biometria é “algo que você é”: pode ser forçada (coação, usuário dormindo). Mitigações: janela padrão de 24 h (configurável, ver adendo), “Bloquear agora”, PIN após
   reiniciar, PIN para frase/exportação, desligar a qualquer momento nos Ajustes. Quem teme coação deve deixar
   desligado (texto na Ajuda).
 - Alternativa rejeitada: envolver a chave do PIN com uma chave AES biométrica — no modo PIN+biometria exigiria dois

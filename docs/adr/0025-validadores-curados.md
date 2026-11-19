@@ -1,7 +1,7 @@
 # ADR 0025 — Validadores recomendados (bloco curado) e modo avançado no stake
 
 - Estado: aceito (4.0.0)
-- Contexto: o dono pediu que “Novo stake” não comece por uma busca em ~1 000 validadores, e sim por um bloco com pelo
+- Contexto: requisito de produto — “Novo stake” não começa por uma busca em ~1 000 validadores, e sim por um bloco com pelo
   menos cinco opções consolidadas e seguras; a lista completa/busca/colar endereço fica atrás de “Avançado”.
   Continua **só stake nativo** (programa Stake da Solana; nunca stake líquido, pool ou token de recibo).
 
