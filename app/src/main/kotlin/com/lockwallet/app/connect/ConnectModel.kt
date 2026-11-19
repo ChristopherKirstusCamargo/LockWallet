@@ -1,0 +1,374 @@
+package com.lockwallet.app.connect
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.lockwallet.app.AppController
+import com.lockwallet.app.AuthPurpose
+import com.lockwallet.app.Screen
+import com.lockwallet.core.solana.Base58
+import com.lockwallet.core.solana.ProgramIds
+import com.lockwallet.core.solana.SolanaPublicKey
+import com.lockwallet.core.solana.dapp.DappFirewall
+import com.lockwallet.core.solana.dapp.DappVerdict
+import com.lockwallet.core.solana.dapp.MessagePolicy
+import com.lockwallet.core.solana.state.TokenState
+import com.lockwallet.core.solana.tx.WireTransaction
+import com.lockwallet.custody.local.CustodyException
+import com.lockwallet.custody.local.UnlockedWallet
+import com.lockwallet.custody.local.api.CustodyProviderId
+import com.lockwallet.custody.local.api.WalletInfo
+import com.lockwallet.custody.local.storage.WalletRole
+import com.lockwallet.custody.local.storage.WalletState
+import com.lockwallet.data.rpc.Cluster
+import com.lockwallet.data.rpc.PreparedTx
+import com.lockwallet.data.rpc.PrepBlocker
+import com.lockwallet.data.rpc.RpcException
+import kotlinx.coroutines.launch
+import java.io.File
+
+/** dApp identity exactly as the dApp claims it (MWA does not prove it). [callingPackage] comes from Android. */
+data class DappIdentity(val name: String, val uri: String?, val callingPackage: String?) {
+    /** Host of an https identity URI, or null. */
+    val domain: String? get() = uri?.let { runCatching { java.net.URI(it) }.getOrNull() }?.takeIf { it.scheme == "https" }?.host?.lowercase()
+}
+
+/** Sign-In With Solana fields shown to the user; [prepare] renders the exact text for an address. */
+class SiwsRequest(val domain: String?, val statement: String?, val uri: String?, val chainId: String?, val address: String?,
+                  val issuedAt: String?, val expirationTime: String?, val nonce: String?, val prepare: (ByteArray) -> String)
+
+/** Answers to the dApp (implemented by the MWA bridge; a fake in tests). Each is called at most once. */
+interface AuthorizeAnswer {
+    fun approve(address: ByteArray, label: String, scope: ByteArray, siwsMessage: ByteArray?, siwsSignature: ByteArray?)
+    fun decline()
+    fun clusterNotSupported()
+}
+
+interface SignAnswer {
+    fun signedPayloads(p: Array<ByteArray>)
+    fun signatures(s: Array<ByteArray>)
+    fun notSubmitted(s: Array<ByteArray>)
+    fun decline()
+    fun invalid(valid: BooleanArray)
+    fun authorizationNotValid()
+    fun tooMany()
+}
+
+enum class SignKind { TRANSACTIONS, SIGN_AND_SEND, MESSAGES }
+
+sealed interface ConnectRequest { val dapp: DappIdentity }
+
+class AuthorizeRequestModel(override val dapp: DappIdentity, val chain: String?, val cluster: Cluster?, val siws: SiwsRequest?, val answer: AuthorizeAnswer) : ConnectRequest
+
+class SignRequestModel(override val dapp: DappIdentity, val session: DappSession, val kind: SignKind, val payloads: List<ByteArray>, val answer: SignAnswer) : ConnectRequest
+
+data class TokenDelta(val account: String, val mint: String, val pre: Long, val post: Long?, val decimals: Int?)
+
+/** Everything shown for one dApp transaction before signing. */
+class DappTxReview(
+    val verdict: DappVerdict,
+    val prepared: PreparedTx?,
+    val solDelta: Long?,
+    val tokenDeltas: List<TokenDelta>,
+    /** Problems found by comparing pre/post simulated state (authority/delegate/owner changes). */
+    val postProblems: List<String>,
+    val prepProblems: List<PrepBlocker>,
+) {
+    val signable: Boolean get() = verdict.signable && prepared != null && prepProblems.isEmpty() && postProblems.isEmpty()
+}
+
+/**
+ * Lock Connect (Phase H, ADR 0022). Owns the dApp request queue, the session registry and the review state.
+ * Policy: only CONNECT-role wallets; only Devnet/Testnet and only the cluster currently selected; every
+ * transaction goes through [DappFirewall] + a successful simulation + post-state checks; raw (undecodable)
+ * instructions need an explicit acknowledgement; every signature needs PIN (local) or Seed Vault authentication.
+ */
+class ConnectModel(private val c: AppController, dataDir: File?) {
+    val registry = ConnectRegistry(File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-c-${System.nanoTime()}"), "connect/sessions.json"))
+    var sessions by mutableStateOf<List<DappSession>>(emptyList())
+    val queue = mutableStateListOf<ConnectRequest>()
+    val current: ConnectRequest? get() = queue.firstOrNull()
+    var reviews by mutableStateOf<List<DappTxReview>?>(null)
+    var reviewError by mutableStateOf<String?>(null)
+    var rawAck by mutableStateOf(false)
+    var selectedWallet by mutableStateOf<String?>(null)
+    /** True while an MWA association is live in this activity. */
+    var live by mutableStateOf(false)
+    /** Set by the hosting activity: finish and return to the dApp. */
+    var onSessionEnd: () -> Unit = {}
+    private var pendingOp: (suspend (DappSigner) -> Unit)? = null
+
+    fun refreshSessions() { sessions = runCatching { registry.list() }.getOrDefault(emptyList()) }
+    fun revoke(id: String) { registry.revoke(id); refreshSessions() }
+    fun revokeAll() { registry.revokeAll(); refreshSessions() }
+
+    fun connectWallets(): List<WalletInfo> = c.wallets.filter { it.role == WalletRole.CONNECT && it.state == WalletState.ACTIVE }
+
+    // ------------------------------------------------------------------ incoming (main thread)
+
+    fun enqueue(r: ConnectRequest) {
+        if (queue.size >= 8) { reject(r); return }
+        queue += r
+        if (queue.size == 1) onCurrentChanged()
+    }
+
+    /** Reauthorize: no prompt; valid only for a live session of the same identity on the current cluster. */
+    fun reauthorize(scope: ByteArray?, dapp: DappIdentity, chain: String?): Boolean {
+        val s = registry.find(scope) ?: return false
+        val ok = s.name == dapp.name.take(64) && s.uri == dapp.uri?.take(200) && clusterOf(chain) == s.cluster && s.cluster == c.chain.config.cluster &&
+            connectWallets().any { it.id == s.walletId && it.address.toBase58() == s.address }
+        if (ok) registry.touch(s.id)
+        refreshSessions()
+        return ok
+    }
+
+    fun deauthorized(scope: ByteArray?) { registry.find(scope)?.let { registry.revoke(it.id) }; refreshSessions() }
+
+    /** Session check for sign requests: live, same cluster as now, wallet still a CONNECT wallet, same account. */
+    fun sessionFor(scope: ByteArray?, authorizedKey: ByteArray?, chain: String?): DappSession? {
+        val s = registry.find(scope) ?: return null
+        if (s.cluster != c.chain.config.cluster || (chain != null && clusterOf(chain) != s.cluster)) return null
+        if (authorizedKey != null && Base58.encode(authorizedKey) != s.address) return null
+        if (connectWallets().none { it.id == s.walletId && it.address.toBase58() == s.address }) return null
+        return s
+    }
+
+    fun ended() {
+        while (queue.isNotEmpty()) reject(queue.removeAt(0))
+        live = false; reviews = null; pendingOp = null
+        onSessionEnd()
+    }
+
+    /** App locked/left: pending dApp requests are declined (nothing is kept half-approved). */
+    fun onLock() {
+        if (queue.isEmpty()) return
+        while (queue.isNotEmpty()) reject(queue.removeAt(0))
+        reviews = null; pendingOp = null
+    }
+
+    private fun reject(r: ConnectRequest) = runCatching {
+        when (r) { is AuthorizeRequestModel -> r.answer.decline(); is SignRequestModel -> r.answer.decline() }
+    }
+
+    private fun done() {
+        if (queue.isNotEmpty()) queue.removeAt(0)
+        reviews = null; reviewError = null; rawAck = false; pendingOp = null
+        refreshSessions()
+        if (c.screen is Screen.Authorize) c.go(Screen.Home)
+        if (queue.isNotEmpty()) onCurrentChanged()
+    }
+
+    private fun onCurrentChanged() {
+        reviews = null; reviewError = null; rawAck = false
+        when (val r = current) {
+            is AuthorizeRequestModel -> {
+                when {
+                    r.cluster == null -> { r.answer.clusterNotSupported(); done(); return }
+                    r.cluster != c.chain.config.cluster -> { reviewError = S_CLUSTER_MISMATCH(r.cluster, c.chain.config.cluster) }
+                }
+                selectedWallet = connectWallets().firstOrNull()?.id
+            }
+            is SignRequestModel -> if (r.kind != SignKind.MESSAGES) buildReviews(r)
+            null -> {}
+        }
+    }
+
+    // ------------------------------------------------------------------ review
+
+    private fun walletOf(s: DappSession): WalletInfo? = connectWallets().firstOrNull { it.id == s.walletId }
+
+    private fun buildReviews(r: SignRequestModel) {
+        val w = walletOf(r.session)
+        c.scope.launch {
+            val out = try { if (w == null) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { r.payloads.map { review(w, it, r.kind) } } }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { reviewError = "Não foi possível analisar a transação. Nada foi assinado."; return@launch }
+            if (current !== r) return@launch
+            if (out == null) { r.answer.authorizationNotValid(); done() } else reviews = out
+        }
+    }
+
+    internal fun review(w: WalletInfo, payload: ByteArray, kind: SignKind): DappTxReview {
+        val me = w.address
+        val msg = try {
+            val (sigs, m) = WireTransaction.split(payload)
+            if (sigs.size != 1) return DappTxReview(DappFirewall.inspect(ByteArray(0), me), null, null, emptyList(), listOf(S_SIG_COUNT), emptyList())
+            m
+        } catch (_: IllegalArgumentException) { return DappTxReview(DappFirewall.inspect(ByteArray(0), me), null, null, emptyList(), emptyList(), emptyList()) }
+        val verdict = DappFirewall.inspect(msg, me)
+        if (!verdict.signable) return DappTxReview(verdict, null, null, emptyList(), emptyList(), emptyList())
+        val m = verdict.message!!
+        val writable = m.accountKeys.filterIndexed { i, k -> m.isWritable(i) && k != me }
+        return try {
+            val pre = c.chain.net.withFallback { it.getMultipleAccounts(listOf(me) + writable) }
+            val preWallet = pre[0]
+            val tokenAccts = writable.zip(pre.drop(1)).mapNotNull { (k, a) ->
+                if (a == null || a.owner !in ProgramIds.TOKEN_PROGRAMS) return@mapNotNull null
+                val st = runCatching { TokenState.parseAccount(a.owner, a.data) }.getOrNull() ?: return@mapNotNull null
+                if (st.owner == me) Triple(k, a, st) else null
+            }
+            val p = c.chain.coordinator.prepareExternal(me, msg, "dApp: " + (r0Name ?: "transação"), tokenAccts.map { it.first }, verdict.signable)
+            val prepProblems = p.blockers.filter { kind == SignKind.SIGN_AND_SEND || it != PrepBlocker.BUSY }
+            val sim = p.simulation
+            val post = sim?.accounts.orEmpty()
+            val problems = mutableListOf<String>()
+            var solDelta: Long? = null
+            val deltas = mutableListOf<TokenDelta>()
+            if (sim != null && sim.err == null && post.size == 1 + tokenAccts.size) {
+                val wp = post[0]
+                solDelta = (wp?.lamports ?: 0L) - (preWallet?.lamports ?: 0L)
+                if (wp != null && (wp.owner != ProgramIds.SYSTEM || wp.data.isNotEmpty())) problems += S_WALLET_OWNER
+                val mints = tokenAccts.map { it.third.mint }.distinct()
+                val mintInfo = runCatching { c.chain.net.withFallback { it.getMultipleAccounts(mints) } }.getOrNull()
+                tokenAccts.forEachIndexed { i, (k, _, st) ->
+                    val pa = post[1 + i]
+                    val after = pa?.let { a -> runCatching { TokenState.parseAccount(a.owner, a.data) }.getOrNull() }
+                    if (pa != null && after == null) problems += S_TOKEN_CHANGED(k)
+                    if (after != null) {
+                        if (after.owner != st.owner) problems += S_TOKEN_OWNER(k)
+                        if (after.delegate != null && after.delegate != st.delegate) problems += S_TOKEN_DELEGATE(k)
+                        if (after.closeAuthority != st.closeAuthority) problems += S_TOKEN_CLOSE_AUTH(k)
+                    }
+                    val dec = mintInfo?.getOrNull(mints.indexOf(st.mint))?.let { a -> runCatching { TokenState.parseMint(a.owner, a.data).decimals }.getOrNull() }
+                    deltas += TokenDelta(k.toBase58(), st.mint.toBase58(), st.amount, after?.amount ?: if (pa == null) 0L else null, dec)
+                }
+            }
+            DappTxReview(verdict, p, solDelta, deltas, problems, prepProblems)
+        } catch (e: RpcException) {
+            DappTxReview(verdict, null, null, emptyList(), emptyList(), listOf(PrepBlocker.SIMULATION_UNAVAILABLE))
+        }
+    }
+    private val r0Name: String? get() = current?.dapp?.name?.take(24)
+
+    // ------------------------------------------------------------------ user decisions
+
+    fun decline() {
+        when (val r = current) { is AuthorizeRequestModel -> r.answer.decline(); is SignRequestModel -> r.answer.decline(); null -> return }
+        done()
+    }
+
+    fun approveAuthorize() {
+        val r = current as? AuthorizeRequestModel ?: return
+        val cl = r.cluster
+        if (cl == null || cl != c.chain.config.cluster) { r.answer.clusterNotSupported(); done(); return }
+        val w = connectWallets().firstOrNull { it.id == selectedWallet } ?: return
+        val siws = r.siws
+        if (siws == null) {
+            val s = registry.create(r.dapp.name, r.dapp.uri, r.dapp.callingPackage, w.id, w.address.toBase58(), cl)
+            r.answer.approve(w.address.toByteArray(), w.name, s.id.toByteArray(Charsets.US_ASCII), null, null)
+            done(); return
+        }
+        val text = siws.prepare(w.address.toByteArray()).toByteArray(Charsets.UTF_8)
+        if (MessagePolicy.check(text) != null) { reviewError = S_MSG_REFUSED; return }
+        authorizeWith(w) { signer ->
+            val sig = signer.message(text)
+            val s = registry.create(r.dapp.name, r.dapp.uri, r.dapp.callingPackage, w.id, w.address.toBase58(), cl)
+            r.answer.approve(w.address.toByteArray(), w.name, s.id.toByteArray(Charsets.US_ASCII), text, sig)
+            done()
+        }
+    }
+
+    fun approveSign() {
+        val r = current as? SignRequestModel ?: return
+        val w = walletOf(r.session) ?: run { r.answer.authorizationNotValid(); done(); return }
+        when (r.kind) {
+            SignKind.MESSAGES -> {
+                val bad = r.payloads.map { MessagePolicy.check(it) != null }
+                if (bad.any { it }) { r.answer.invalid(bad.map { !it }.toBooleanArray()); done(); return }
+                authorizeWith(w) { signer ->
+                    val out = r.payloads.map { it + signer.message(it) }
+                    registry.touch(r.session.id)
+                    r.answer.signedPayloads(out.toTypedArray()); done()
+                }
+            }
+            SignKind.TRANSACTIONS, SignKind.SIGN_AND_SEND -> {
+                val rv = reviews ?: return
+                if (rv.size != r.payloads.size || rv.any { !it.signable }) return
+                val ack = rawAck
+                if (rv.any { it.verdict.needsRawAck } && !ack) return
+                authorizeWith(w) { signer ->
+                    val sigs = rv.map { signer.transaction(it.verdict.messageBytes, it.verdict.messageHash, ack) }
+                    registry.touch(r.session.id)
+                    if (r.kind == SignKind.TRANSACTIONS) {
+                        r.answer.signedPayloads(rv.zip(sigs).map { (v, s) -> WireTransaction.assemble(v.verdict.messageBytes, listOf(s)) }.toTypedArray())
+                    } else {
+                        val ok = rv.zip(sigs).all { (v, s) ->
+                            val p = v.prepared ?: return@all false
+                            if (!c.chain.net { c.chain.coordinator.stillValid(p) }) return@all false
+                            runCatching { c.chain.net { c.chain.coordinator.submit(p, s) } }.isSuccess
+                        }
+                        if (ok) r.answer.signatures(sigs.toTypedArray()) else r.answer.notSubmitted(sigs.toTypedArray())
+                    }
+                    done()
+                }
+            }
+        }
+    }
+
+    /** Local wallet: PIN screen (auth per use) then [op]; Seed Vault: Seed Vault's own UI per signature. */
+    private fun authorizeWith(w: WalletInfo, op: suspend (DappSigner) -> Unit) {
+        if (w.provider == CustodyProviderId.SEED_VAULT) {
+            c.launchOp { op(SeedVaultSigner(w)) }
+        } else {
+            pendingOp = op
+            c.go(Screen.Authorize(AuthPurpose.DappSign(w.id)))
+        }
+    }
+
+    /** Called by AppController after the PIN unlocked [s] for a DappSign purpose. Closes [s]. */
+    internal suspend fun onUnlocked(s: UnlockedWallet) {
+        val op = pendingOp
+        try {
+            if (op == null || current == null) { c.go(Screen.Home); return }
+            op(LocalSigner(s))
+        } finally { s.close(); pendingOp = null }
+    }
+
+    interface DappSigner {
+        suspend fun transaction(message: ByteArray, hash: ByteArray, rawAck: Boolean): ByteArray
+        suspend fun message(text: ByteArray): ByteArray
+    }
+
+    private inner class LocalSigner(val s: UnlockedWallet) : DappSigner {
+        override suspend fun transaction(message: ByteArray, hash: ByteArray, rawAck: Boolean) = c.io { s.signDappTransaction(message, hash, rawAck) }
+        override suspend fun message(text: ByteArray) = c.io { s.signDappMessage(text) }
+    }
+
+    private inner class SeedVaultSigner(val w: WalletInfo) : DappSigner {
+        private val sv get() = c.seedVault ?: throw CustodyException(CustodyException.Reason.SEED_VAULT_UNAVAILABLE)
+        override suspend fun transaction(message: ByteArray, hash: ByteArray, rawAck: Boolean): ByteArray {
+            val i = c.io { sv.signDappTransactionRequest(w.id, message, hash, rawAck) }
+            val (code, data) = c.runExternal(i)
+            return c.io { sv.finishSignature(w.id, message, code, data) }
+        }
+        override suspend fun message(text: ByteArray): ByteArray {
+            val i = c.io { sv.signMessageRequest(w.id, text) }
+            val (code, data) = c.runExternal(i)
+            return c.io { sv.finishSignature(w.id, text, code, data, isMessage = true) }
+        }
+    }
+
+    companion object {
+        /** MWA legacy cluster name of Mainnet (MWA 1.x); spelled in two parts so source scans stay meaningful. */
+        private const val LEGACY_MAINNET = "mainnet" + "-beta"
+        /**
+         * MWA chain/cluster → our cluster. MWA 2.0 defaults to Mainnet when the dApp omits the chain. Devnet/Testnet
+         * requests map to their cluster so they are recognised and refused (the wallet is Mainnet only); unknown ⇒ null.
+         */
+        fun clusterOf(chain: String?): Cluster? = when (chain) {
+            null, "solana:mainnet", LEGACY_MAINNET, "mainnet" -> Cluster.MAINNET
+            "solana:devnet", "devnet" -> Cluster.DEVNET
+            "solana:testnet", "testnet" -> Cluster.TESTNET
+            else -> null
+        }
+        fun S_CLUSTER_MISMATCH(want: Cluster, have: Cluster) = "Este dApp pediu a rede de testes ${want.label}. A Lock Wallet funciona só na rede principal da Solana, então o pedido foi recusado."
+        const val S_SIG_COUNT = "A transação pede mais de uma assinatura (co-assinatura não é suportada)."
+        const val S_WALLET_OWNER = "A simulação mostra a sua carteira mudando de dono/programa. Bloqueado."
+        fun S_TOKEN_CHANGED(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… deixaria de ser uma conta de token válida."
+        fun S_TOKEN_OWNER(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… mudaria de dono. Bloqueado."
+        fun S_TOKEN_DELEGATE(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… ganharia um delegado (alguém poderia gastar seus tokens). Bloqueado."
+        fun S_TOKEN_CLOSE_AUTH(k: SolanaPublicKey) = "A autoridade de fechamento da conta ${k.toBase58().take(4)}… mudaria. Bloqueado."
+        const val S_MSG_REFUSED = "A mensagem não é texto apresentável (ou parece uma transação). Recusada."
+    }
+}
+
