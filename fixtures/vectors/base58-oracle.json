@@ -1,0 +1,194 @@
+{
+  "meta": {
+    "id": "LW-ORACLE-B58-1",
+    "purpose": "Base58 (Bitcoin alphabet) round-trip incl. leading zeros",
+    "source": "bip_utils Base58Encoder; 32-byte cases cross-checked with solders Pubkey",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "vectors": [
+    {
+      "hex": "",
+      "base58": ""
+    },
+    {
+      "hex": "f1",
+      "base58": "5A"
+    },
+    {
+      "hex": "00",
+      "base58": "1"
+    },
+    {
+      "hex": "e65f",
+      "base58": "JXp"
+    },
+    {
+      "hex": "00a6",
+      "base58": "13s"
+    },
+    {
+      "hex": "1e6c4f",
+      "base58": "BDgz"
+    },
+    {
+      "hex": "003a5e",
+      "base58": "15Sd"
+    },
+    {
+      "hex": "000000",
+      "base58": "111"
+    },
+    {
+      "hex": "42333297",
+      "base58": "2h9P1Y"
+    },
+    {
+      "hex": "007bb6ee",
+      "base58": "1iZ9w"
+    },
+    {
+      "hex": "000000de",
+      "base58": "1114q"
+    },
+    {
+      "hex": "ab3cecedcf",
+      "base58": "LKXDn4E"
+    },
+    {
+      "hex": "0078b45813",
+      "base58": "145x6Ci"
+    },
+    {
+      "hex": "00000063a2",
+      "base58": "1118am"
+    },
+    {
+      "hex": "8858cb64c44d",
+      "base58": "2Au1frGfE"
+    },
+    {
+      "hex": "00749095441d",
+      "base58": "1E9m1e52"
+    },
+    {
+      "hex": "000000b124c8",
+      "base58": "11122W39"
+    },
+    {
+      "hex": "571665145c48f4",
+      "base58": "4JQxXzT8s5"
+    },
+    {
+      "hex": "00be796670bd3d",
+      "base58": "12drLQuVf2"
+    },
+    {
+      "hex": "000000aee57b95",
+      "base58": "1115UHvig"
+    },
+    {
+      "hex": "54e2157832104583",
+      "base58": "FCURTbNmySA"
+    },
+    {
+      "hex": "0033710bedabde19",
+      "base58": "12x4oSA6F68"
+    },
+    {
+      "hex": "00000078705c4b6f",
+      "base58": "111Eb7NDjL"
+    },
+    {
+      "hex": "d9814471e983c5b614",
+      "base58": "3maR3UM8dNXo9"
+    },
+    {
+      "hex": "00a3abf579fadcb5f8",
+      "base58": "1UNpbgLGsohH"
+    },
+    {
+      "hex": "000000d521aec4d30a",
+      "base58": "1112q8jR97eH"
+    },
+    {
+      "hex": "ceaa9ec6a89c27e2f0cfef3bc99be023189dfde060e73f460fe921a2046f1e",
+      "base58": "49n4T1yxbHt7SmoMdSufxjYjtLsMu3Pnpmn9cF7L6aR"
+    },
+    {
+      "hex": "0098af838418f0d41f1917ee42c08b146d0d45c223eb3a7452ffbae7690a66",
+      "base58": "1XbTUFC9SniofjVwTwmLoPuVDjEsd4xWwNBHnQ46WR"
+    },
+    {
+      "hex": "00000076a151907c8b8ea386b2ddf856c2ad721c2f10cc92bf09ebc255aec3",
+      "base58": "1112DmZMW7BwWxQBsRVC1nKTktcxVXLgBmsDqfwhBG"
+    },
+    {
+      "hex": "f1f2ae2bdd493a1e71877611b4effb609f49f27b7a760bcd309ed3e780fdcfb0",
+      "base58": "HHTtD53jU24sQgF1sbJ7XXYLhp2zQ8tKQ9vbLSEDogVD"
+    },
+    {
+      "hex": "003c96086cfbf950083f421fa94d2393ab1852ac8a59b6121f988d7355a28277",
+      "base58": "1vanwvkBj9dtDY3bgN9H8XWcDAuwdkG3wPeWTDmBGj8"
+    },
+    {
+      "hex": "000000ed3dd298549baaf568bc4dce2867c1cf7dec847965324292e963fb4163",
+      "base58": "111BmfU2BQfX2AzFtivVZm3NgVkLz8JD7xqipATr6RQ"
+    },
+    {
+      "hex": "88dec8d8f862441dc21f7ebc6e808cb2f2b2a915c55e80eb37ade397767d7ce2",
+      "base58": "ADHUmKEwjRB6Jr7anTzcsyqNUaATPd3bZq8eggzEVHt5"
+    },
+    {
+      "hex": "002596291ea609031f656b0920ff9871fe7a01fd3436d7eef32b480581335167",
+      "base58": "1aF2F3jizGGJnUkJjetvzvFftv5ehwhPSDkdaLB5wVQ"
+    },
+    {
+      "hex": "0000005c2b5dfebb9f6f0e581fafc1b05f21569a38ccd187e263a5c5e26d58e1",
+      "base58": "1115Bghg6VP2nkqqVfeVkhn883tfdQHck85ehuC8Set"
+    },
+    {
+      "hex": "81fe0d73501ceba1a264d0b2e13a8eecffe45e0bb27a3e1a4c694480fbe1ad0b",
+      "base58": "9kSH9RaYfZB3qSxDZtndd5tiobzCyCbu7tHecL7t8QLz"
+    },
+    {
+      "hex": "003881560969cdd4632a0e3442e4810ca3bbe93850510c130dd196a6b9c1e85d",
+      "base58": "1ryTrxdZG8xQ6P4G86eEo2jAEaiH5ajmTmUrt5ayh1n"
+    },
+    {
+      "hex": "0000006623c66bbb6aa25f29a00face69a9f5d75d70fbffa57805165d86a7bd6",
+      "base58": "1115dwL1e7dyiXozwQdFJ97AVvivN5yNet4mBekZu1w"
+    },
+    {
+      "hex": "224069096add6d23732fde09aab4b2f7f93fd3907cbf923b7433dfb57e5f8442b7",
+      "base58": "BB9CbAXGX9jB2Gs11y9kkszBBPwq4EEj2VLmpB5Jdjz2A"
+    },
+    {
+      "hex": "00f42d89755b50bbf35c3f7ac655c9480f1a844f128570aee1e65e593664c3b499",
+      "base58": "1HSAkaaSymnRjXDeVYuB82uFtLNKP6mrBqoXxgUFe7mUC"
+    },
+    {
+      "hex": "000000f0d01906eedf9446b9fc4d7c21795c8cb030b906f310a4c5eaee480419bf",
+      "base58": "111qFe6Hyw3yXpTJWgJfLwoyzNoKAwweK23g9isY5n2a"
+    },
+    {
+      "hex": "6d3eb8305185e0822f8a974060eb8f0e34e7f8c9cfb7d71c110ee544fdb76be554f485b82ee21999befe12efc5179653e3e1c9a40b347adecd489020632be356",
+      "base58": "3BgWKg3X2WVr3cUcMrzaJ5D53YzQvtms7uhxDFFQJUZNvUGQe5fnvdohYvHf7QTYDNNC7v6x5u4xAHHdiHEaTr45"
+    },
+    {
+      "hex": "006d4d1a49c3981b9b924573d2751537553383886fa77f030a324040cae9187ba95ef3425a5847f37eaf11c6b6af7e8b6f99a422bbe7df8ea9786cb2a43eae84",
+      "base58": "1ViXUKCWUw4Wy2p4vbC74LpXMES8EvzL9EUYSLibD3zttnLnGJ8gAv2w26cMFFomJSkVktYFYjMG3LVY29Wi13R"
+    },
+    {
+      "hex": "000000adb98d78cc4b5dea47a685fe8bed1dcc89bcce60ac1395494dbde4c7919e986f13cb61d2fc325d1bfd663e09355677b099f2195389e97415a7ff79584e",
+      "base58": "1113LtCYhQ2qZu7E46XomVHRiUAYV5qLTT7LgF4UaN8d6krKYXHPNqDVf8fq5a2XnHZfn6cU8Ar1v16zn4Q4WWZ"
+    }
+  ]
+}

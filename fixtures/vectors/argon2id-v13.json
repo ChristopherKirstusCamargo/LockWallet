@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "id": "LW-ORACLE-ARGON2ID-1",
+    "purpose": "Argon2id v0x13 32-byte output, allowlisted profile 0x01 (m=19456 KiB, t=2, p=1)",
+    "source": "libsodium crypto_pwhash_argon2id via PyNaCl",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2",
+      "pycryptodome": "3.24.1"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "cases": [
+    {
+      "password_hex": "343830393137",
+      "salt_hex": "baf28a6306adce549846ae4bec219a96",
+      "m_kib": 19456,
+      "t": 2,
+      "p": 1,
+      "out_hex": "440086f2102dba7ce9a3ff74f969e60cf54b4877a3bceb4a64ec2fc21f59d241"
+    },
+    {
+      "password_hex": "303030303030303030303030",
+      "salt_hex": "ea5d5ea336ebf3d7fb35678ed9b2a46b",
+      "m_kib": 19456,
+      "t": 2,
+      "p": 1,
+      "out_hex": "04bf0656cd3de9a07cb15d1534ea2dc8eb129c6a80398a88f8f5c8534f927777"
+    },
+    {
+      "password_hex": "636f727265637420686f727365206261747465727920737461706c6520c3a7c3a36f",
+      "salt_hex": "65ef3366f4b91101dd7b6ad52af0b93a",
+      "m_kib": 19456,
+      "t": 2,
+      "p": 1,
+      "out_hex": "929940fcf901aecb80d5476a525ee54f64d12823cb89945bbb649841d142b73e"
+    }
+  ]
+}
