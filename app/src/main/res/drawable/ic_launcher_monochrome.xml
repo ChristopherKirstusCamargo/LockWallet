@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- 86 % optical size: generous breathing room inside every mask -->
+    <group android:scaleX="0.86" android:scaleY="0.86" android:pivotX="54" android:pivotY="55">
+    <path android:pathData="M43,51L43,40A11,11 0 0,1 65,40L65,51" android:strokeWidth="5.4" android:strokeLineCap="round" android:strokeColor="#FFFFFFFF" android:fillColor="#00000000" />
+    <path android:fillType="evenOdd" android:fillColor="#FFFFFFFF" android:pathData="M44,51L64,51A8,8 0 0,1 72,59L72,70A8,8 0 0,1 64,78L44,78A8,8 0 0,1 36,70L36,59A8,8 0 0,1 44,51Z M54,58.2A3.8,3.8 0 0,0 52.1,65.3L52.1,70A1.9,1.9 0 0,0 55.9,70L55.9,65.3A3.8,3.8 0 0,0 54,58.2Z" />
+    </group>
+</vector>
