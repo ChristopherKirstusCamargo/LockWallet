@@ -63,7 +63,7 @@ cofre, PIN, biometria ou preferências. Invariantes de segurança mantidos sem a
 - **Baixo — resposta de RPC contraditória no bloco curado:** a mesma conta de voto repetida (uma inadimplente, outra
   saudável) podia ser lida como saudável. Agora duplicata/identidade trocada/comissão impossível ⇒ escondido.
 - **Baixo — estouro no cálculo de concentração** com stakes absurdos de RPC hostil: cálculo em ponto flutuante.
-- Relatório para o dono em linguagem simples: `docs/RELATORIO-SEGURANCA-v3.md` (hoje `docs/RELATORIO-SEGURANCA.md`).
+- Relatório de segurança em linguagem simples: `docs/RELATORIO-SEGURANCA-v3.md` (hoje `docs/RELATORIO-SEGURANCA.md`).
 
 ### Design 4.0 (“vidro de verdade”)
 - Vidro mais fino e transparente: painéis 6 % (antes 8 %), folhas/menus ~78 % (antes 92–94 %) sobre o conteúdo

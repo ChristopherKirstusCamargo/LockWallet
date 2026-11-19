@@ -1,6 +1,6 @@
 # Relatório de segurança — Lock Wallet
 
-Para: Christopher · Data: 19/11/2026 · App avaliado: **Lock Wallet (versão final)** — inclui tudo o que foi testado nas
+Público: usuários e revisores · Data: 19/11/2026 · App avaliado: **Lock Wallet (versão final)** — inclui tudo o que foi testado nas
 rodadas anteriores. (Internamente o build se chama 5.0.0; o app não mostra número de versão.)
 
 Este relatório explica, em linguagem simples, **quais ataques nós tentamos contra a Lock Wallet**, **como** cada um
@@ -118,7 +118,7 @@ O foco desta versão foi o **visual mais transparente** e o **novo stake com val
 
 ## 6. Ataques tentados — rodada final
 
-Foco: tudo de novo, com olhar de atacante, mais os pontos fracos apontados na nota 6,5/10 que dava para atacar no código.
+Foco: tudo de novo, com olhar de atacante, mais os pontos fracos apontados na avaliação anterior (nota 6,5/10) que podiam ser atacados no código.
 
 | # | Ataque | Como tentamos | Resultado | Proteção que existe hoje |
 |---|---|---|---|---|

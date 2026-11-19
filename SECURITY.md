@@ -1,12 +1,13 @@
 # Política de segurança
 
 Lock Wallet é uma carteira Solana **autocustodial para a rede principal (Mainnet, dinheiro real)** — decisão do
-mantenedor após revisão interna de segurança (ADR 0023; quatro rodadas de ataque, ver `docs/RELATORIO-SEGURANCA.md`).
+projeto após revisão interna de segurança (ADR 0023; quatro rodadas de ataque, ver `docs/RELATORIO-SEGURANCA.md`).
 Não houve auditoria externa independente, e os testes automáticos rodam em Android simulado: comece com valores
 pequenos.
 
 ## Como relatar
-- Relate vulnerabilidades **em privado** ao mantenedor (Christopher). Não abra issue pública com detalhes exploráveis.
+- Relate vulnerabilidades **em privado**, pelo recurso “Report a vulnerability” (aba *Security*) do repositório no
+  GitHub. Não abra issue pública com detalhes exploráveis.
 - Inclua o SHA-256 do APK, aparelho/Android e passos para reproduzir.
 - Escopo: app Android, `:core:*`, `:custody:*`, `:data:*`, ferramentas de build e scripts em `tools/`.
 
