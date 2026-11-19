@@ -50,7 +50,7 @@ python3 tools/sbom.py /tmp/deps.txt --version <versão> --apk-sha256 <sha> -o di
 - [ ] Capturas de tela bloqueadas (FLAG_SECURE); app some da lista de recentes com conteúdo oculto.
 
 ## 6. Publicação (manual, fora deste repositório)
-- Publicar APK + `.sha256` + SHA-256 do certificado + SBOM pelo canal escolhido pelo mantenedor.
+- Publicar APK + `.sha256` + SHA-256 do certificado + SBOM pelo canal oficial de releases do projeto.
 
 ## Registro de releases
 | Versão | Data | APK SHA-256 | Cert SHA-256 |

@@ -30,7 +30,7 @@ Precedência: requisitos inegociáveis v2.0 → v2.1 → v2.2 → ADRs → docs 
 | E-24 | Prompt 1.2: “nenhuma rede antes da Fase D” × exigência nova de preço ao vivo | `INTERNET` entra na Fase C só para preço público HTTPS (ADR 0017); RPC continua na Fase D | ADR 0017 |
 | E-25 | Restauração multi-conta de uma vez × auth-per-use (1 operação por biometria) | Escolhe-se 1 conta por vez; “Adicionar conta (mesma frase)” cria as seguintes | ADR 0002 |
 | E-26 | E-08 (“Token-2022 todo bloqueado no MVP”) × Fase E (portão Token-2022 do §18) | Token-2022 suportado com **default deny**: mint só com MetadataPointer(18)/TokenMetadata(19); conta só com ImmutableOwner(7); qualquer outra extensão (transfer hook, permanent delegate, transfer fee, confidential, pausable, default state, non-transferable, etc.) é exibida com o risco e bloqueia o envio; extensão desconhecida ⇒ bloqueio | `TokenPolicy`, ADR 0019 |
-| E-27 | Spec: staking fora do MVP × pedido explícito do dono (Fase F) | Só stake **nativo** (nunca líquido), contas derivadas `createWithSeed(owner,"stake:N",Stake)`, autoridades = a carteira, sem lockup | ADR 0019 |
+| E-27 | Spec: staking fora do MVP × requisito de produto (Fase F) | Só stake **nativo** (nunca líquido), contas derivadas `createWithSeed(owner,"stake:N",Stake)`, autoridades = a carteira, sem lockup | ADR 0019 |
 | E-28 | Airdrop Devnet pelo RPC público | Em 2026-11-19 o faucet do RPC público responde HTTP 410 “The RPC faucet is closed on this cluster” (Devnet e Testnet). O botão tenta `requestAirdrop`; em 410 orienta a usar faucet.solana.com (copiar endereço / abrir) | verification log G5-3 |
 | E-29 | Prompt: “Devnet only” × Fase D “Devnet/Testnet” | Ambas, cada uma conferida pelo genesis hash; Mainnet bloqueada | ADR 0020 |
 | E-30 | Segunda carteira pede 2 autenticações | Mantido: são 2 operações de Keystore distintas com auth-per-use; unir exigiria afrouxar a validade da KEK (não é “trivialmente seguro”) | ADR 0002 |
@@ -39,7 +39,7 @@ Precedência: requisitos inegociáveis v2.0 → v2.1 → v2.2 → ADRs → docs 
 | E-33 | MWA remoto (reflector) | Não oferecido na v1 (adversário; exigiria escolha explícita e revisão própria) | ADR 0022 |
 | E-34 | dApp com programa desconhecido: recusar × mostrar cru | Instrução de programa central fora da allowlist ⇒ recusa; programa desconhecido ⇒ visão crua (programa, contas, permissões, variação de SOL/token, fee payer) + reconhecimento explícito + simulação obrigatória com checagem de estado posterior (spec §23.4) | ADR 0022 |
 | E-35 | QR de endereço | CameraX + ZXing local (sem Google Play services), CAMERA pedida só ao tocar “Ler QR”; só o endereço é lido; pedidos de transação Solana Pay recusados | ADR 0022 |
-| E-36 | E-29 (“Devnet/Testnet; Mainnet bloqueada”) × decisão do dono 2.0.0 | Só Mainnet; Devnet/Testnet/faucet/airdrop removidos do app; regra de CI `TEST_CLUSTER` | ADR 0023 |
+| E-36 | E-29 (“Devnet/Testnet; Mainnet bloqueada”) × decisão do projeto 2.0.0 | Só Mainnet; Devnet/Testnet/faucet/airdrop removidos do app; regra de CI `TEST_CLUSTER` | ADR 0023 |
 | E-37 | E-28 (airdrop) | Removido (não existe na Mainnet) | ADR 0023 |
 | E-38 | ADR 0022 “só Devnet/Testnet” para dApps | Só Mainnet; rede de teste pedida por dApp ⇒ explicação e recusa | ADR 0023 |
 | E-39 | Taxa de prioridade ausente na 1.0.0 (não pousa na Mainnet congestionada) | Compute budget automático, p75, teto 0,001 SOL | ADR 0023 |
@@ -49,13 +49,13 @@ Precedência: requisitos inegociáveis v2.0 → v2.1 → v2.2 → ADRs → docs 
 | E-43 | ADR 0018 (UI 1.0) × redesign 2.0 | Dois temas monocromáticos, sheets na própria janela, ajuda “?” em pt-BR, animações | ADR 0023 |
 | E-44 | Notificações push | Não implementadas: exigiriam backend/terceiros (vedado); explicado na Ajuda | ADR 0008 |
 | E-45 | Logos de tokens | Não carregados (URL do metadado é controlada pelo emissor: rastreio/phishing); iniciais monocromáticas | ADR 0023 |
-| E-46 | “Biometria nunca substitui o PIN” (v1/v2) × pedido do dono 3.0.0 | Biometria opcional para desbloquear/assinar, com PIN após reboot, 72 h, erros e invalidação; frase/exportação/criação só com PIN | ADR 0024 |
+| E-46 | “Biometria nunca substitui o PIN” (v1/v2) × requisito de produto 3.0.0 | Biometria opcional para desbloquear/assinar, com PIN após reboot, 72 h, erros e invalidação; frase/exportação/criação só com PIN | ADR 0024 |
 | E-47 | Moedas USD/BRL × 10 moedas | USD, EUR, JPY, GBP, CNY, BRL, CAD, AUD, CHF, INR; Coinbase + Kraken (5 pares) | ADR 0017 |
 | E-48 | Variação de 24 h = variação do preço do SOL | Variação da carteira ponderada pelo valor; saldo zero ⇒ sem variação | CHANGELOG 3.0.0 |
 | E-49 | “Apps conectados” nos Ajustes | Removido (aba dApps) | CHANGELOG 3.0.0 |
-| E-50 | Seletor de validador por busca (Fase F) × pedido do dono 4.0.0 | Bloco curado de 6 validadores conferidos on-chain; busca/colar endereço em “Avançado” com avisos; só nativo | ADR 0025 |
-| E-51 | Vidro 3.0 (folhas ~92–94 %) × pedido do dono 4.0.0 “mais transparente” | Painéis 6 %, folhas ~78 % sobre desfoque 28 dp; contraste travado por teste | CHANGELOG 4.0.0 |
-| E-52 | Bloco curado ordenado pela lista fixa × pedido do dono (final) | Segurança primeiro; depois retorno estimado (comissão efetiva on-chain × desempenho = recompensa por SOL em stake, pós-Alpenglow); MEV não entra (RPC não informa) | ADR 0025 |
-| E-53 | Saldo = só SOL livre × pedido do dono (final) | Saldo central = livre + todo stake seu; detalhe Disponível/Em stake; recompensa da última época só se consistente; “Máximo” usa só o livre | CHANGELOG 5.0.0 |
-| E-54 | Biometria: janela fixa de 72 h × pedido do dono (final) | Padrão 24 h, escolhas 1/4/24/72 h, aumentar exige PIN, “Bloquear agora” | ADR 0024 |
-| E-55 | Versão visível em “Sobre” × pedido do dono (final) | Nenhuma versão na interface; versionName 5.0.0 só interno | CHANGELOG 5.0.0 |
+| E-50 | Seletor de validador por busca (Fase F) × requisito de produto 4.0.0 | Bloco curado de 6 validadores conferidos on-chain; busca/colar endereço em “Avançado” com avisos; só nativo | ADR 0025 |
+| E-51 | Vidro 3.0 (folhas ~92–94 %) × requisito de produto 4.0.0 “mais transparente” | Painéis 6 %, folhas ~78 % sobre desfoque 28 dp; contraste travado por teste | CHANGELOG 4.0.0 |
+| E-52 | Bloco curado ordenado pela lista fixa × requisito de produto (final) | Segurança primeiro; depois retorno estimado (comissão efetiva on-chain × desempenho = recompensa por SOL em stake, pós-Alpenglow); MEV não entra (RPC não informa) | ADR 0025 |
+| E-53 | Saldo = só SOL livre × requisito de produto (final) | Saldo central = livre + todo stake seu; detalhe Disponível/Em stake; recompensa da última época só se consistente; “Máximo” usa só o livre | CHANGELOG 5.0.0 |
+| E-54 | Biometria: janela fixa de 72 h × requisito de produto (final) | Padrão 24 h, escolhas 1/4/24/72 h, aumentar exige PIN, “Bloquear agora” | ADR 0024 |
+| E-55 | Versão visível em “Sobre” × requisito de produto (final) | Nenhuma versão na interface; versionName 5.0.0 só interno | CHANGELOG 5.0.0 |
