@@ -218,10 +218,15 @@ class BioVault(
         val s = state() ?: return null
         val f = recordFile(walletIdHex)
         val r = (if (f.exists()) BioRecord.parse(f.readBytes()) else null) ?: return null
-        if (hex(r.walletId) != walletIdHex || !r.headerHash.contentEquals(sha256(header))) { f.delete(); return null }
+        // A copied record under another filename is rejected without destroying the source wallet's key.
+        if (hex(r.walletId) != walletIdHex) return null
+        if (!r.headerHash.contentEquals(sha256(header))) { remove(walletIdHex); return null }
         // v5.0.2 records used the policy alias directly; accept them for backward compatibility. New records use
         // a unique alias and must still have their own private key present.
-        if (!r.aliasId.contentEquals(s.aliasId) && !keys.exists(r.aliasId)) { f.delete(); return null }
+        if (!r.aliasId.contentEquals(s.aliasId) && !keys.exists(r.aliasId)) {
+            if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
+            return null
+        }
         return r
     }
 
