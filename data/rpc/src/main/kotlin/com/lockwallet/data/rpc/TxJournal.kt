@@ -126,8 +126,19 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
             throw IllegalStateException("journal corrupted", e)
         }
 
-        // One-time, fail-safe migration from the v5.0.2 unsigned JSON-array format.
+        // One-time, fail-safe migration from the v5.0.2 unsigned JSON-array format. Once an HMAC key
+        // exists, an unsigned array is a downgrade/tamper attempt and must never be re-authenticated as legacy.
         if (root is List<*>) {
+            try {
+                authenticator.mac(FILE_PROBE, createIfMissing = false)
+                throw IllegalStateException("unauthenticated journal rejected after authentication was provisioned")
+            } catch (_: TxJournalKeyMissingException) {
+                // No key has ever authenticated a journal on this installation: eligible for legacy migration.
+            } catch (e: IllegalStateException) {
+                throw e
+            } catch (e: Exception) {
+                throw IllegalStateException("journal authentication key unavailable during legacy migration", e)
+            }
             val migrated = try {
                 J.arr(root).map { value ->
                     decode(J.obj(value)).copy(
