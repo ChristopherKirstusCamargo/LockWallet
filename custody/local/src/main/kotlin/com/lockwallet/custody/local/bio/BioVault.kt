@@ -95,9 +95,9 @@ class BioVault(
     }
 
     /**
-     * Crypto-erasure first, file cleanup second. Each v2 record has its own Keystore alias; legacy shared-key records
-     * are also covered by deleting the policy alias. If any key deletion cannot be verified, keep ciphertext files
-     * and fail rather than reporting that biometric material was erased.
+     * Crypto-erasure first, file cleanup second. New records have a per-wallet Keystore alias; legacy records may
+     * share the policy alias. If any key deletion cannot be verified, keep ciphertext files and fail rather than
+     * reporting that biometric material was erased.
      */
     fun disable() {
         val aliases = aliasesOnDisk().values
@@ -180,10 +180,14 @@ class BioVault(
         val record = BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
         if (hex(record.walletId) != walletIdHex) throw IllegalStateException("biometric record wallet mismatch")
         val policyAlias = state()?.aliasId
-        if (policyAlias == null || !record.aliasId.contentEquals(policyAlias)) {
-            keys.delete(record.aliasId)
-            if (keys.exists(record.aliasId)) throw IllegalStateException("wallet biometric key deletion could not be verified")
+        if (policyAlias != null && record.aliasId.contentEquals(policyAlias)) {
+            // v5.0.2 shared the policy key across wallets. It cannot erase one wallet in isolation, so erase the
+            // shared key and all biometric records rather than claiming that this single record was crypto-erased.
+            disable()
+            return
         }
+        keys.delete(record.aliasId)
+        if (keys.exists(record.aliasId)) throw IllegalStateException("wallet biometric key deletion could not be verified")
         if (!file.delete() && file.exists()) throw IllegalStateException("biometric record cleanup failed")
     }
 
