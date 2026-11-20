@@ -88,7 +88,7 @@ fun SettingsTab(c: AppController, p: Platform) {
     }
 }
 
-const val APP_VERSION = "5.0.0"
+const val APP_VERSION = "5.0.1"
 
 /** pt-BR currency names (settings list and value). */
 fun fiatName(f: Fiat): String = when (f) {
