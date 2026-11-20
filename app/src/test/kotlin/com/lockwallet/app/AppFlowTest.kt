@@ -82,7 +82,7 @@ class AppFlowTest {
 
     private fun controller(): AppController {
         val p = LocalSecureProvider(tmp.root, SoftKek().also { kek = it }, clock)
-        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> prompts++; biometricOk })
+        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> prompts++; biometricOk }, AppTestTxJournalAuthenticator)
             .also { it.start() }
     }
     private var kek: SoftKek? = null
