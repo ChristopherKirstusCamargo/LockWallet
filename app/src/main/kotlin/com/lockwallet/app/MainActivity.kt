@@ -57,6 +57,7 @@ open class MainActivity : FragmentActivity() {
             seedVaultOverride ?: com.lockwallet.custody.seedvault.SdkSeedVaultGateway(this))
         val caps = DeviceSecurityCapabilityManager(this, provider)
         controller = AppController(provider, caps, lifecycleScope, prefs, price, ::authenticate,
+            txJournalAuthenticator = txJournalAuthenticatorOverride ?: AndroidTxJournalAuthenticator(),
             transport = rpc, dataDir = noBackupFilesDir, seedVault = seedVault)
         caps.seedVaultAvailable = { controller.seedVaultAvailable }
         caps.clusterLabel = { controller.chain.config.cluster.label }
@@ -186,6 +187,8 @@ open class MainActivity : FragmentActivity() {
         /** Tests: a fake Seed Vault gateway. */
         @androidx.annotation.VisibleForTesting internal var seedVaultOverride: com.lockwallet.custody.seedvault.SeedVaultGateway? = null
         @androidx.annotation.VisibleForTesting internal var rpcOverride: (() -> com.lockwallet.data.rpc.RpcTransport?)? = null
+        /** Tests inject a deterministic MAC provider; production always uses Android Keystore. */
+        @androidx.annotation.VisibleForTesting internal var txJournalAuthenticatorOverride: com.lockwallet.data.rpc.TxJournalAuthenticator? = null
 
         /** Largest accepted import (keypair JSON); LWRP files are ≤ 174 bytes and size-checked exactly later. */
         const val MAX_IMPORT_BYTES = 1024
