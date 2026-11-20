@@ -102,7 +102,7 @@ class DappFirewallTest {
         assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check("abc\u202Edef".toByteArray()))
         assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(byteArrayOf(0xC3.toByte(), 0x28)))
         assertEquals(MessagePolicy.Refusal.TOO_LONG, MessagePolicy.check(ByteArray(3000) { 0x61 }))
-        assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(("hello\\n".repeat(9)).toByteArray()))
+        assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(("hello\n".repeat(9)).toByteArray()))
         assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(("a ".repeat(200)).toByteArray()))
         assertEquals(MessagePolicy.Refusal.EMPTY, MessagePolicy.check(ByteArray(0)))
     }
