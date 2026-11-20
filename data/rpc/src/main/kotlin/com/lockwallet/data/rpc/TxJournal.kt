@@ -12,7 +12,10 @@ import java.util.Base64
  * Keystore-backed authenticator for the transaction journal. Implementations must never create a key when
  * [createIfMissing] is false: a missing/invalidated key means existing journal data cannot be trusted.
  */
+class TxJournalKeyMissingException : IllegalStateException("transaction journal authentication key missing")
+
 fun interface TxJournalAuthenticator {
+    /** With createIfMissing=false, throw [TxJournalKeyMissingException] only when the alias truly does not exist. */
     fun mac(data: ByteArray, createIfMissing: Boolean): ByteArray
 }
 
@@ -68,6 +71,8 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
         private const val FORMAT_VERSION = 1L
         private val MAC_DOMAIN = "LockWallet/TxJournal/v1\u0000".toByteArray(Charsets.US_ASCII)
         private val ENVELOPE_KEYS = setOf("v", "payload", "mac")
+        private const val MAX_FILE_BYTES = 2 * 1024 * 1024
+        private val FILE_PROBE = "LockWallet/TxJournal/file-presence/v1".toByteArray(Charsets.US_ASCII)
     }
 
     private val lock = Any()
@@ -80,7 +85,19 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
     }
 
     private fun load(): List<TxRecord> {
-        if (!file.exists()) return emptyList()
+        if (!file.exists()) {
+            // A previously provisioned Keystore key is a durable witness that this journal existed.
+            // If the file vanished while the key remains, do not treat the wallet as having no pending transaction.
+            try {
+                authenticator.mac(FILE_PROBE, createIfMissing = false)
+            } catch (_: TxJournalKeyMissingException) {
+                return emptyList()
+            } catch (e: Exception) {
+                throw IllegalStateException("journal authentication key unavailable", e)
+            }
+            throw IllegalStateException("authenticated transaction journal is missing")
+        }
+        if (file.length() !in 1..MAX_FILE_BYTES.toLong()) throw IllegalStateException("journal size invalid")
         val root = try {
             MiniJson.parse(file.readText(Charsets.UTF_8))
         } catch (e: Exception) {
@@ -142,6 +159,7 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
         val tag = authenticator.mac(macInput(payload), createIfMissing = true)
         if (tag.size != 32) throw IllegalStateException("journal authenticator returned invalid tag")
         val encoded = """{"v":$FORMAT_VERSION,"payload":${JsonOut.str(payload)},"mac":${JsonOut.str(Base64.getEncoder().encodeToString(tag))}}"""
+        if (encoded.toByteArray(Charsets.UTF_8).size > MAX_FILE_BYTES) throw IllegalStateException("journal size limit exceeded")
 
         val parent = file.absoluteFile.parentFile
         if (!parent.exists() && !parent.mkdirs()) throw IllegalStateException("journal directory unavailable")
