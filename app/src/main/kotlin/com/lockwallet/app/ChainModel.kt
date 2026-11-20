@@ -21,6 +21,7 @@ import com.lockwallet.data.rpc.EndpointCheck
 import com.lockwallet.data.rpc.NetworkConfig
 import com.lockwallet.data.rpc.NetworkManager
 import com.lockwallet.data.rpc.PreparedTx
+import com.lockwallet.data.rpc.RpcClient
 import com.lockwallet.data.rpc.RpcException
 import com.lockwallet.data.rpc.RpcTransport
 import com.lockwallet.data.rpc.TransactionDetail
@@ -310,7 +311,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
      * Only the primary RPC is user-configurable. The secondary remains app-controlled to preserve the
      * independent cross-check; two user-controlled endpoints are not independent evidence.
      */
-    fun saveEndpoints(primary: String, secondary: String) = c.launchOp {
+    fun saveEndpoints(primary: String, secondary: String = "") = c.launchOp {
         val cl = Cluster.MAINNET
         val fixedSecondary = requireNotNull(cl.defaultSecondaryUrl)
         val requestedSecondary = secondary.trim()

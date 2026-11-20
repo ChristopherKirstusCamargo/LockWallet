@@ -121,7 +121,7 @@ fun NetworkScreen(c: AppController) {
         c.chain.notice?.let { Notice(it, Ic.INFO) }
         ErrorText(c.error)
         if (c.busy) Busy("Conferindo o servidor…") else {
-            Primary("Testar e salvar", tag = "rpc-save") { c.chain.saveEndpoints(primary, secondary) }
+            Primary("Testar e salvar", tag = "rpc-save") { c.chain.saveEndpoints(primary) }
             if (c.prefs.customRpc) Secondary("Voltar ao padrão") { c.chain.resetEndpoints() }
         }
     }) {
