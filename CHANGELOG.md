@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+
+## [5.0.1] — 2026-11-20 — correções de segurança
+
+- **Lock Connect:** bloqueia a preparação de transações dApp quando carteira + contas observadas excedem o limite de 16 contas da simulação. Remove o truncamento silencioso que poderia deixar contas fora da verificação de estado posterior.
+- **Android Keystore:** trata `UnrecoverableKeyException` como indisponibilidade, não como prova de alias ausente; evita colocar carteiras em quarentena por uma falha ambígua.
+- **Persistência:** solicita sincronização best-effort do diretório após renomeação atômica.
+- Inclui teste de regressão para o limite de contas observadas.
+
+**Assinatura:** esta versão usa um certificado novo (fingerprint SHA-256 documentado no README). Não atualiza por cima da 5.0.0 assinada pelo certificado anterior; exige backup verificado e reinstalação.
 ## 5.0.0 (versionCode 7)
 
 ### Segurança (auditoria estática externa)
