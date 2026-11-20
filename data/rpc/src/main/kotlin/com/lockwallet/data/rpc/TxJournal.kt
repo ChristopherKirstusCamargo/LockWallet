@@ -85,6 +85,20 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
     }
 
     private fun load(): List<TxRecord> {
+        val tmp = File(file.absoluteFile.parentFile, file.name + ".tmp")
+        if (tmp.exists()) {
+            try {
+                // A crash may have happened after fsync/read-back but before atomic rename. The temp file is
+                // accepted only after its Keystore HMAC and structure are verified.
+                val recovered = readAuthenticated(tmp)
+                Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                return recovered
+            } catch (e: Exception) {
+                if (!file.exists()) throw IllegalStateException("transaction journal recovery failed", e)
+                // An invalid temp cannot replace an existing authenticated journal; discard it and read main.
+                if (!tmp.delete() && tmp.exists()) throw IllegalStateException("transaction journal temp cleanup failed", e)
+            }
+        }
         if (!file.exists()) {
             // A previously provisioned Keystore key is a durable witness that this journal existed.
             // If the file vanished while the key remains, do not treat the wallet as having no pending transaction.
@@ -179,12 +193,30 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
     }
 
     private fun verifyWrittenEnvelope(encoded: String, expectedCount: Int) {
-        val outer = J.obj(MiniJson.parse(encoded))
-        val payload = J.str(outer["payload"])
-        val actual = Base64.getDecoder().decode(J.str(outer["mac"]))
-        val expected = authenticator.mac(macInput(payload), createIfMissing = false)
-        if (!MessageDigest.isEqual(actual, expected)) throw IllegalStateException("journal read-back authentication failed")
-        if (J.arr(MiniJson.parse(payload)).size != expectedCount) throw IllegalStateException("journal read-back count mismatch")
+        val records = decodeAuthenticatedEnvelope(encoded)
+        if (records.size != expectedCount) throw IllegalStateException("journal read-back count mismatch")
+    }
+
+    private fun readAuthenticated(source: File): List<TxRecord> {
+        if (source.length() !in 1..MAX_FILE_BYTES.toLong()) throw IllegalStateException("journal temp size invalid")
+        return decodeAuthenticatedEnvelope(source.readText(Charsets.UTF_8))
+    }
+
+    private fun decodeAuthenticatedEnvelope(encoded: String): List<TxRecord> {
+        val envelope = J.obj(MiniJson.parse(encoded))
+        if (envelope.keys != ENVELOPE_KEYS) throw IllegalStateException("journal temp format rejected")
+        val version = try { J.long(envelope["v"]) } catch (e: Exception) {
+            throw IllegalStateException("journal temp version malformed", e)
+        }
+        if (version != FORMAT_VERSION) throw IllegalStateException("journal temp version unsupported")
+        val payload = J.str(envelope["payload"])
+        val suppliedMac = Base64.getDecoder().decode(J.str(envelope["mac"]))
+        if (suppliedMac.size != 32) throw IllegalStateException("journal temp authentication tag malformed")
+        val expectedMac = authenticator.mac(macInput(payload), createIfMissing = false)
+        if (expectedMac.size != 32 || !MessageDigest.isEqual(expectedMac, suppliedMac)) {
+            throw IllegalStateException("journal temp authentication failed")
+        }
+        return J.arr(MiniJson.parse(payload)).map { decode(J.obj(it)) }
     }
 
     private fun macInput(payload: String): ByteArray =
