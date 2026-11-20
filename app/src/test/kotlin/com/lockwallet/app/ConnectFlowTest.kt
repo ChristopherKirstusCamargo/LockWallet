@@ -70,7 +70,7 @@ class ConnectFlowTest {
 
     private fun controller(role: WalletRole): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
-        val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true },
+        val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true }, AppTestTxJournalAuthenticator,
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.draft!!.role = role
