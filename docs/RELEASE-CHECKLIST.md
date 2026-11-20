@@ -52,7 +52,7 @@ python3 tools/sbom.py /tmp/deps.txt --version <versão> --apk-sha256 <sha> -o di
 ## 6. Publicação automatizada
 - A Release só é criada pelo workflow `.github/workflows/publish-release.yml` após `ciCheck`, build, assinatura e verificação do APK.
 - Segredos obrigatórios no GitHub Actions: `LOCKWALLET_KEYSTORE_BASE64` e `LOCKWALLET_KEYSTORE_PASSWORD`. Nunca gravar o keystore ou a senha no repositório.
-- Publicar `lockwallet.apk`, `lockwallet.apk.sha256` e `lockwallet-signing-certificate.pem` na página GitHub Releases.
+- Publicar `lockwallet.apk`, `lockwallet.apk.sha256`, `lockwallet-signing-certificate.pem`, verificação da assinatura e SBOM CycloneDX na página GitHub Releases.
 - Fazer backup offline cifrado do `lockwallet-release.p12`; perder essa chave impede atualizações futuras com o mesmo certificado.
 
 ## Registro de releases
