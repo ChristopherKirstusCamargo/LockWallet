@@ -19,8 +19,6 @@ jobs:
     timeout-minutes: 60
     env:
       RELEASE_TAG: v5.0.1
-      KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
-      KEYSTORE_BASE64: ${{ secrets.LOCKWALLET_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout release candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -59,6 +57,9 @@ jobs:
       - name: Sign APK and verify certificate
         id: sign
         shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.LOCKWALLET_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64" || { echo "Missing LOCKWALLET_KEYSTORE_BASE64 secret" >&2; exit 1; }
@@ -70,7 +71,9 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
           test -s "$KEYSTORE"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
           APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$ZIPALIGN" -f 4 "$UNSIGNED" "$RUNNER_TEMP/lockwallet-aligned.apk"
           "$APKSIGNER" sign \
             --ks "$KEYSTORE" \
             --ks-type PKCS12 \
@@ -81,7 +84,8 @@ jobs:
             --v2-signing-enabled true \
             --v3-signing-enabled true \
             --out dist/lockwallet.apk \
-            "$UNSIGNED"
+            "$RUNNER_TEMP/lockwallet-aligned.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='8' versionName='5.0.1'"
           "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 24 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
           CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           test "$CERT_SHA256" = "d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6"
