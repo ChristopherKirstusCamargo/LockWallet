@@ -1,0 +1,110 @@
+name: Lock Wallet — APK build (sem publicar Release)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/**"
+      - "custody/**"
+      - "data/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/build-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lockwallet-apk-build
+  cancel-in-progress: false
+
+jobs:
+  build-sign-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          packages: ""
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Compile Release APK
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:assembleRelease
+          python3 tools/verify_apk_manifest.py \
+            --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
+            --apk app/build/outputs/apk/release/app-release-unsigned.apk \
+            --release
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='9' versionName='Final'"
+
+      - name: Sign APK and verify release certificate
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing LOCKWALLET_KEYSTORE_PASSWORD Actions secret" >&2; exit 1; }
+          KEYSTORE_CIPHERTEXT="$RUNNER_TEMP/lockwallet-release.p12.enc"
+          KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
+          ALIGNED="$RUNNER_TEMP/lockwallet-aligned.apk"
+          trap 'rm -f "$KEYSTORE" "$KEYSTORE_CIPHERTEXT" "$ALIGNED"' EXIT
+          cp signing/lockwallet-release.p12.enc "$KEYSTORE_CIPHERTEXT"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 \
+            -pass env:KEYSTORE_PASSWORD \
+            -in "$KEYSTORE_CIPHERTEXT" \
+            -out "$KEYSTORE"
+          test -s "$KEYSTORE"
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          mkdir -p dist
+          "$ZIPALIGN" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "$ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-type PKCS12 \
+            --ks-key-alias lockwallet \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEYSTORE_PASSWORD \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out dist/LockWallet-Final.apk \
+            "$ALIGNED"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/LockWallet-Final.apk | grep -F "versionCode='9' versionName='Final'"
+          "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 31 dist/LockWallet-Final.apk | tee dist/apk-signature-verification.txt
+          CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$CERT_SHA256" = "ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13"
+          (cd dist && sha256sum LockWallet-Final.apk > LockWallet-Final.apk.sha256)
+
+      - name: Upload signed APK artifact (no Release publication)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: LockWallet-Final-signed-${{ github.sha }}
+          path: |
+            dist/LockWallet-Final.apk
+            dist/LockWallet-Final.apk.sha256
+            dist/apk-signature-verification.txt
+          if-no-files-found: error
+          retention-days: 14
