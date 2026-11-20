@@ -272,6 +272,10 @@ object Help {
         "O sistema do celular invalidou a chave do cofre (por exemplo, ao trocar a biometria ou o bloqueio de tela).",
         "Proteger você: a carteira não é apagada nem recriada às escondidas. Restaure pela frase ou pelo Recovery Package.",
         "Você cadastrou uma digital nova e a carteira entrou em quarentena: restaure com sua frase e siga normalmente.")
+    val DELETE_WALLET = t("Excluir carteira",
+        "Apaga deste aparelho a chave cifrada e os dados desta carteira. As outras carteiras não mudam. Os fundos continuam na blockchain.",
+        "Liberar o app de uma carteira que você não usa mais. Depois de excluída, ela só volta pela frase de recuperação ou pelo Recovery Package.",
+        "Você exclui a carteira “Antiga”: o saldo dela continua na rede; para usá-la de novo, restaure com a frase.")
     val LOCKOUT = t("Espera após erros",
         "Depois de vários PINs errados, o app espera um tempo crescente antes de aceitar outra tentativa.",
         "Tornar inviável adivinhar o PIN. A carteira nunca é apagada por erros — a frase sempre funciona.",

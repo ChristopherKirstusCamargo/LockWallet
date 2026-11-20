@@ -170,6 +170,8 @@ fun SecurityCenter(c: AppController) {
 fun Detail(c: AppController, p: Platform, id: String) {
     val w = c.wallets.firstOrNull { it.id == id } ?: return
     var renaming by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
     var name by remember { mutableStateOf(w.name) }
     val sv = w.provider == com.lockwallet.custody.local.api.CustodyProviderId.SEED_VAULT
     Screen("", onBack = { c.home() }) {
@@ -194,6 +196,12 @@ fun Detail(c: AppController, p: Platform, id: String) {
             Field(name, { if (it.length <= 32) name = it }, S.NAME_HINT)
             Primary("Salvar nome") { c.rename(w.id, name); renaming = false }
         }
+        if (confirmDelete) {
+            Notice("Excluir “${w.name}” deste aparelho? Os fundos continuam na blockchain; ela só volta pela frase ou pelo Recovery Package.", Ic.WARN, Help.DELETE_WALLET, strong = true)
+            Field(typed, { if (it.length <= 16) typed = it }, "Digite EXCLUIR")
+            if (typed.trim().uppercase() == "EXCLUIR") Primary("Excluir carteira", icon = Ic.TRASH) { confirmDelete = false; typed = ""; c.go(Screen.Authorize(AuthPurpose.DeleteWallet(w.id))) }
+            Primary("Cancelar") { confirmDelete = false; typed = "" }
+        }
         ErrorText(c.error)
         Group {
             if (!renaming) { ListRow(S.RENAME, Ic.PERSON) { renaming = true }; Divider() }
@@ -205,6 +213,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
                 if (w.isMnemonic) { ListRow(S.VIEW_PHRASE, Ic.EYE, help = Help.PHRASE, tag = "view-phrase") { c.go(Screen.Authorize(AuthPurpose.RevealPhrase(w.id))) }; Divider() }
                 ListRow(S.EXPORT_LWRP, Ic.FILE, help = Help.LWRP, tag = "export") { c.exportResult = null; c.go(Screen.Authorize(AuthPurpose.ExportLwrp(w.id))) }
                 if (w.isMnemonic) { Divider(); ListRow(S.ADD_ACCOUNT, Ic.PLUS, help = Help.ACCOUNT, tag = "add-account") { c.go(Screen.Authorize(AuthPurpose.AddAccount(w.id))) } }
+                Divider(); ListRow("Excluir carteira", Ic.TRASH, help = Help.DELETE_WALLET, tag = "delete-wallet") { confirmDelete = true }
             } else ListRow(S.REMOVE_QUARANTINED, Ic.TRASH, help = Help.QUARANTINE) { c.removeQuarantined(w.id) }
             c.chain.config.cluster.explorerAddress(w.address.toBase58())?.let { url -> Divider(); ListRow("Ver no explorador", Ic.GLOBE, help = Help.EXPLORER) { p.openUrl(url) } }
         }

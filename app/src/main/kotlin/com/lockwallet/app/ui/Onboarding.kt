@@ -437,6 +437,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
         is com.lockwallet.app.AuthPurpose.DappSign -> "Confirme o pedido do app"
         com.lockwallet.app.AuthPurpose.EnableBiometric -> "Confirme o PIN para ativar a digital"
         is com.lockwallet.app.AuthPurpose.SetBioWindow -> "Confirme o PIN para aumentar o prazo"
+        is com.lockwallet.app.AuthPurpose.DeleteWallet -> "Confirme o PIN para excluir a carteira"
     }
     val sub = when (purpose) {
         null -> S.PIN_ENTER
