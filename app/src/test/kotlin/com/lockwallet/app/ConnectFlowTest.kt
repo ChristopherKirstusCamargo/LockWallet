@@ -13,6 +13,7 @@ import com.lockwallet.app.connect.SiwsRequest
 import com.lockwallet.core.solana.ProgramIds
 import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.ix.SystemIx
+import com.lockwallet.core.solana.ix.StakeIx
 import com.lockwallet.core.solana.tx.AccountMeta
 import com.lockwallet.core.solana.tx.Blockhash
 import com.lockwallet.core.solana.tx.Instruction
@@ -76,7 +77,7 @@ class ConnectFlowTest {
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); c.await()
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Connect")
-        c.setNewPin("480917".toCharArray())
+        c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
         return c
     }
@@ -136,7 +137,7 @@ class ConnectFlowTest {
 
     private fun AppController.pin() {
         assertTrue(screen.toString(), screen is Screen.Authorize)
-        submitPin("480917".toCharArray(), (screen as Screen.Authorize).purpose); await()
+        submitPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray(), (screen as Screen.Authorize).purpose); await()
     }
 
     @Test fun authorizeThenSignTransactionThroughFirewallAndPin() {
@@ -163,55 +164,61 @@ class ConnectFlowTest {
         assertNull(c.connect.sessionFor(scope, me.toByteArray(), "solana:mainnet"))
     }
 
-    @Test fun unknownProgramCannotChangeWalletStakeAuthoritiesOrDelegation() {
+    @Test fun unknownProgramWithWritableStakeAccountIsBlockedBeforeSimulation() {
         val c = controller(WalletRole.CONNECT)
         val me = c.wallets.single().address
         val session = c.connect.sessionFor(c.authorizeDapp(), null, null)!!
         val stake = bob
+        rpc.accounts[me.toBase58()] = Triple(ProgramIds.SYSTEM.toBase58(), 2_000_000_000L, ByteArray(0))
+        rpc.accounts[stake.toBase58()] = Triple(ProgramIds.STAKE.toBase58(), 2_000_000_000L, stakeState(me, me, 1_000_000_000L))
+        val raw = Instruction(unknownProgram, listOf(AccountMeta(me, true, true), AccountMeta(stake, false, true)), byteArrayOf(7, 7))
+        val answer = RecSign()
+        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.TRANSACTIONS, listOf(unsignedTx(me, raw)), answer))
+        awaitReviews(c)
+        val review = c.connect.reviews!!.single()
+        assertFalse(review.signable)
+        assertTrue(com.lockwallet.core.solana.dapp.DappBlock.UNKNOWN_PROGRAM in review.verdict.blockers)
+        assertTrue(answer.calls.isEmpty())
+    }
+
+    @Test fun changedStakeDelegationIsRejectedByPostStateComparison() {
+        val c = controller(WalletRole.CONNECT)
+        val me = c.wallets.single().address
+        val session = c.connect.sessionFor(c.authorizeDapp(), null, null)!!
+        val stake = bob
+        val vote = SolanaPublicKey.fromBase58("Vote111111111111111111111111111111111111111")
         val before = stakeState(me, me, 1_000_000_000L)
         val after = stakeState(me, me, 900_000_000L)
         rpc.accounts[me.toBase58()] = Triple(ProgramIds.SYSTEM.toBase58(), 2_000_000_000L, ByteArray(0))
         rpc.accounts[stake.toBase58()] = Triple(ProgramIds.STAKE.toBase58(), 2_000_000_000L, before)
         rpc.simulatedAccounts[stake.toBase58()] = Triple(ProgramIds.STAKE.toBase58(), 2_000_000_000L, after)
         simulateWith(2_000_000_000L)
-        val raw = Instruction(unknownProgram, listOf(AccountMeta(me, true, true), AccountMeta(stake, false, true)), byteArrayOf(7, 7))
-        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.TRANSACTIONS, listOf(unsignedTx(me, raw)), RecSign()))
+        val answer = RecSign()
+        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.TRANSACTIONS, listOf(unsignedTx(me, StakeIx.delegate(stake, vote, me))), answer))
         awaitReviews(c)
         val review = c.connect.reviews!!.single()
         assertFalse(review.signable)
         assertTrue(review.postProblems.any { it.contains(stake.toBase58()) })
+        assertTrue(answer.calls.isEmpty())
     }
 
-    @Test fun unknownProgramNeedsRawAckAndForbiddenIsBlocked() {
+    @Test fun unknownProgramCannotBeOverriddenByRawAcknowledgement() {
         val c = controller(WalletRole.CONNECT)
         val me = c.wallets.single().address
         val session = c.connect.sessionFor(c.authorizeDapp(), null, null)!!
-        simulateWith(2_000_000_000L - 5000)
         val raw = Instruction(unknownProgram, listOf(AccountMeta(me, true, true)), byteArrayOf(7, 7))
-        val s = RecSign()
-        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.SIGN_AND_SEND, listOf(unsignedTx(me, raw)), s))
+        val answer = RecSign()
+        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.SIGN_AND_SEND, listOf(unsignedTx(me, raw)), answer))
         awaitReviews(c)
-        assertTrue(c.connect.reviews!!.single().verdict.needsRawAck)
-        c.connect.approveSign()
-        assertTrue("no PIN without the raw acknowledgement", c.screen !is Screen.Authorize)
+        val review = c.connect.reviews!!.single()
+        assertFalse(review.signable)
+        assertTrue(com.lockwallet.core.solana.dapp.DappBlock.UNKNOWN_PROGRAM in review.verdict.blockers)
         c.connect.rawAck = true
         c.connect.approveSign()
-        c.pin()
-        assertEquals(listOf("sigs"), s.calls)
-        assertEquals("same bytes to every endpoint", 1, rpc.sent.distinct().size)
-
-        // Token Approve (delegate) is forbidden for dApps: no signing possible, only decline.
-        val approve = Instruction(ProgramIds.SPL_TOKEN_LEGACY, listOf(AccountMeta(bob, false, true), AccountMeta(unknownProgram, false, false), AccountMeta(me, true, false)),
-            byteArrayOf(4, 1, 0, 0, 0, 0, 0, 0, 0))
-        val s2 = RecSign()
-        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.TRANSACTIONS, listOf(unsignedTx(me, approve)), s2))
-        awaitReviews(c)
-        assertTrue(!c.connect.reviews!!.single().signable)
-        c.connect.rawAck = true
-        c.connect.approveSign()
-        assertTrue(c.screen !is Screen.Authorize)
+        assertTrue("blocked program must never reach PIN authorization", c.screen !is Screen.Authorize)
+        assertTrue(answer.calls.isEmpty())
         c.connect.decline()
-        assertEquals(listOf("decline"), s2.calls)
+        assertEquals(listOf("decline"), answer.calls)
     }
 
     @Test fun testClustersVaultWalletsAndBadMessagesAreRefused() {

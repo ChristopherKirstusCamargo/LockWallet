@@ -102,7 +102,11 @@ fun AddressField(value: String, onChange: (String) -> Unit, tag: String, c: AppC
             }
         })
     if (value.length >= 32) Row(verticalAlignment = Alignment.CenterVertically) {
-        Body("Confira: começa com ${value.take(4)} e termina com ${value.takeLast(4)}", modifier = Modifier.weight(1f)); HelpIcon(Help.POISONING, 16.dp)
+        Column(Modifier.weight(1f)) {
+            Body("Confira o endereço completo:")
+            Mono(groupedAddress(value), C.text, 12)
+        }
+        HelpIcon(Help.POISONING, 16.dp)
     }
 }
 

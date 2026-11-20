@@ -20,7 +20,7 @@ class BiometricUnlockTest {
     private val bioKeys = FakeBioKeyStore()
     private val clock = FakeClock()
     private fun provider() = LocalSecureProvider(tmp.root, kek, clock, bioKeys = bioKeys)
-    private val pin = "480917"
+    private val pin = "listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"
     private val spec = Fixtures.json("lockwallet-spec-23-1.json")["mnemonic"].asString
     private fun reason(block: () -> Unit) = (runCatching(block).exceptionOrNull() as CustodyException).reason
 

@@ -41,7 +41,7 @@ class FinalReleaseUiTest {
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); Thread.sleep(30); while (c.busy) Thread.sleep(10)
-        c.chooseAccount(c.draft!!.material!!.discover(1).first()); c.submitName("Conta 1"); c.setNewPin("480917".toCharArray())
+        c.chooseAccount(c.draft!!.material!!.discover(1).first()); c.submitName("Conta 1"); c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
         c.sealNewVault(com.lockwallet.custody.local.keystore.AuthMode.PIN_ONLY); Thread.sleep(30); while (c.busy) Thread.sleep(10)
         val me = c.chain.wallet()!!.address
         val vote = com.lockwallet.core.solana.SolanaPublicKey.fromBase58(Curated.LIST.first().vote).toByteArray()

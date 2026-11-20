@@ -12,7 +12,13 @@ class NetworkTest {
 
     @Test fun customUrlSyntax() {
         assertNotNull(RpcClient.validateUrl("https://rpc.example.com/path?key=1"))
-        for (bad in listOf("http://rpc.example.com", "https://", "https://user:pw@host", "https://h/#f", "ftp://h", "https://h /x", "https://exämple.com", "x".repeat(600)))
+        for (bad in listOf(
+            "http://rpc.example.com", "https://", "https://user:pw@host", "https://h/#f", "ftp://h",
+            "https://h /x", "https://exämple.com", "x".repeat(600),
+            "https://localhost", "https://node.local", "https://service.internal",
+            "https://127.0.0.1", "https://10.0.0.2", "https://172.16.0.1",
+            "https://192.168.1.1", "https://169.254.169.254", "https://[::1]"
+        ))
             assertNull(bad, RpcClient.validateUrl(bad))
     }
 

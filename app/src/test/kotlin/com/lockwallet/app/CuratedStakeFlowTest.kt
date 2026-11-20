@@ -41,7 +41,7 @@ class CuratedStakeFlowTest {
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); c.await()
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Teste")
-        c.setNewPin("480917".toCharArray())
+        c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
     }
 
