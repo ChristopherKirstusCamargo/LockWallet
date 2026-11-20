@@ -65,7 +65,8 @@ class BioVault(
 ) {
     private val stateFile = File(dir, "state.lwbs")
 
-    init { if (dir.exists()) atomic.cleanup(dir) }
+    // Do not eagerly delete interrupted .tmp writes here: they may contain the only on-disk alias
+    // identifying a Keystore key that must be destroyed by disable().
 
     fun state(): BioState? = if (!stateFile.exists()) null else decodeState(runCatching { stateFile.readBytes() }.getOrNull())
 
@@ -105,13 +106,15 @@ class BioVault(
             keys.delete(alias)
             if (keys.exists(alias)) throw IllegalStateException("biometric key deletion could not be verified")
         }
-        dir.listFiles()?.filter { it == stateFile || it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX) }
-            ?.forEach { f ->
-                if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
-            }
-        if (stateFile.exists() || dir.listFiles()?.any { it.name.endsWith(".lwbio") } == true) {
-            throw IllegalStateException("biometric cleanup incomplete")
+        dir.listFiles()?.filter {
+            it == stateFile || it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX)
+        }?.forEach { f ->
+            if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
         }
+        if (stateFile.exists() || dir.listFiles()?.any {
+                it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX)
+            } == true
+        ) throw IllegalStateException("biometric cleanup incomplete")
     }
 
     /**
@@ -120,8 +123,9 @@ class BioVault(
      */
     private fun aliasesOnDisk(): Map<String, ByteArray> {
         val aliases = linkedMapOf<String, ByteArray>()
-        if (stateFile.exists()) {
-            val bytes = stateFile.readBytes()
+        val stateCandidates = listOf(stateFile, File(dir, stateFile.name + AtomicFiles.TMP_SUFFIX)).filter { it.exists() }
+        stateCandidates.forEach { candidate ->
+            val bytes = candidate.readBytes()
             val bodyLen = when (bytes.size) { V1_BODY + 32 -> V1_BODY; V2_BODY + 32 -> V2_BODY; else -> -1 }
             if (bodyLen < 0) throw IllegalStateException("biometric policy header unreadable")
             val bb = ByteBuffer.wrap(bytes)
@@ -133,7 +137,7 @@ class BioVault(
             val alias = ByteArray(16).also { bb.get(it) }
             aliases[hex(alias)] = alias
         }
-        dir.listFiles()?.filter { it.name.endsWith(".lwbio") }?.forEach { file ->
+        dir.listFiles()?.filter { it.name.endsWith(".lwbio") || it.name.endsWith(".lwbio" + AtomicFiles.TMP_SUFFIX) }?.forEach { file ->
             val bytes = file.readBytes()
             if (bytes.size < 37) throw IllegalStateException("biometric record header unreadable")
             val bb = ByteBuffer.wrap(bytes)
