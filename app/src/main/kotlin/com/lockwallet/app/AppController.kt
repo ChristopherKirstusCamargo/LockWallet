@@ -45,6 +45,8 @@ sealed interface AuthPurpose {
     /** Lock Connect: sign a dApp request (transaction(s), message(s) or SIWS) with a CONNECT wallet. */
     data class DappSign(val walletId: String) : AuthPurpose
     /** Turn on biometric unlock: needs the PIN right now (ADR 0024). */
+    /** Delete a local wallet: PIN only, never biometrics (not in [biometricAllowed]). */
+    data class DeleteWallet(val walletId: String) : AuthPurpose
     data object EnableBiometric : AuthPurpose
     /** Lengthen the max time without the PIN (shortening needs no PIN). PIN only — never biometrics. */
     data class SetBioWindow(val hours: Int) : AuthPurpose
@@ -419,6 +421,7 @@ class AppController(
             val walletId = when (purpose) {
                 is AuthPurpose.RevealPhrase -> purpose.walletId
                 is AuthPurpose.ExportLwrp -> purpose.walletId
+                is AuthPurpose.DeleteWallet -> purpose.walletId
                 is AuthPurpose.AddAccount -> purpose.walletId
                 is AuthPurpose.Sign -> purpose.walletId
                 is AuthPurpose.DappSign -> purpose.walletId
@@ -505,6 +508,10 @@ class AppController(
             AuthPurpose.SealDraft -> { val v = s.pinVerification(); s.close(); sealWithVerification(v) }
             is AuthPurpose.RevealPhrase -> { closeOpened(); opened = OpenedSession(s); go(Screen.Reveal(purpose.walletId)) }
             is AuthPurpose.ExportLwrp -> { closeOpened(); opened = OpenedSession(s); go(Screen.Export(purpose.walletId)) }
+            is AuthPurpose.DeleteWallet -> {
+                try { io { provider.removeWallet(s) } } finally { s.close() }
+                closeOpened(); refresh(); go(Screen.Home)
+            }
             is AuthPurpose.Sign -> chain.signAndSubmit(s)
             is AuthPurpose.DappSign -> connect.onUnlocked(s)
             is AuthPurpose.AddAccount -> {

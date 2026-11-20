@@ -95,6 +95,7 @@ class UnlockedWallet internal constructor(
     val isMnemonic: Boolean get() = info.isMnemonic
 
     /** Biometric sessions may sign only; revealing / exporting / deriving needs a PIN session (ADR 0024, enforced here). */
+    internal fun hasPin(): Boolean = pinKey != null
     private fun requirePin() { if (pinKey == null) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED) }
 
     /** Phrase words for re-view (each CharArray must be wiped by the caller). PIN sessions only. */
@@ -470,6 +471,24 @@ class LocalSecureProvider(
         val s = snapshot()
         if (s.wallets.none { it.walletIdHex == walletId }) throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
         registry.save(s.copy(wallets = s.wallets.map { if (it.walletIdHex == walletId) it.copy(name = clean) else it }))
+    }
+
+    /**
+     * Deletes the wallet [session] belongs to, on explicit user request, with a PIN session only (never biometrics).
+     * Order is crash-safe: the registry entry goes first (atomic rename), then the envelope is overwritten and deleted.
+     * Dying in between leaves an orphan ciphertext that no entry references — never a listed wallet without material.
+     * Other wallets, the vault key and the PIN/attempt counters are untouched. Biometrics are disabled with the last wallet.
+     */
+    fun removeWallet(session: UnlockedWallet) {
+        if (!session.hasPin()) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+        val id = session.info.id
+        val s = snapshot()
+        val e = s.wallets.firstOrNull { it.walletIdHex == id } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        registry.save(s.copy(wallets = s.wallets - e))
+        val f = envFile(id)
+        if (f.exists()) { runCatching { java.io.RandomAccessFile(f, "rws").use { r -> r.write(ByteArray(r.length().toInt())) } }; f.delete() }
+        runCatching { bio?.remove(id) }
+        if (snapshot().wallets.none { it.state == WalletState.ACTIVE }) runCatching { bio?.disable() }
     }
 
     /** Removes a QUARANTINED wallet entry and its unusable envelope, on explicit user request only. */
