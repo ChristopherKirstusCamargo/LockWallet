@@ -133,6 +133,16 @@ class TxJournalTest {
         assertFalse(temp.exists())
     }
 
+    @Test fun unauthenticatedArrayCannotDowngradeAnAlreadyAuthenticatedJournal() {
+        val file = File(tmp.root, "tx-journal.json")
+        val auth = TestAuthenticator()
+        TxJournal(file, auth).put(record())
+        file.writeText("[]")
+
+        val reopened = runCatching { TxJournal(file, auth).all() }
+        assertTrue("an authenticated journal must not be downgraded to legacy JSON", reopened.isFailure)
+    }
+
     @Test fun legacyUnsignedJournalDropsBearerBytesAndBecomesUnresolved() {
         val file = File(tmp.root, "tx-journal.json")
         file.writeText(
