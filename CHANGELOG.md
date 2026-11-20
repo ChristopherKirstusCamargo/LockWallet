@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## [Unreleased] — endurecimento de segurança
+
+- Lock Connect: bloquear a assinatura quando o conjunto de contas que precisa de verificação pós-simulação exceder o limite suportado; nunca truncar silenciosamente a lista observada.
+- Keystore: tratar `UnrecoverableKeyException` como indisponibilidade, não como prova de alias ausente; preservar carteiras em vez de colocá-las automaticamente em quarentena.
+- Armazenamento: tentar sincronizar a entrada do diretório após a renomeação atômica, quando o sistema de arquivos permitir.
+- Documentação: alinhar o SHA-256 publicado do APK ao arquivo `release/lockwallet.apk.sha256`.
+
 ## 5.0.0 (versionCode 7)
 
 ### Segurança (auditoria estática externa)
