@@ -1,14 +1,24 @@
 package com.lockwallet.custody.local.pin
 
 import com.lockwallet.core.crypto.SecretBytes
+import com.lockwallet.core.crypto.KdfProfile
 
 /** PIN encoding (ADR 0002): only ASCII '0'..'9'; other Unicode digits are rejected, never converted. */
 object Pin {
-    const val LENGTH = 6
-    const val MIN = 6
-    const val MAX = 12
+    const val LEGACY_LENGTH = 6
+    const val LENGTH = 12
+    const val MIN = LEGACY_LENGTH
+    const val MAX = LENGTH
 
+    /** Generic format check used by parsers; profile-aware validation is mandatory at vault boundaries. */
     fun isValid(pin: CharArray): Boolean = pin.size in MIN..MAX && pin.all { it in '0'..'9' }
+
+    /** Exact length is bound to the envelope KDF profile so legacy six-digit vaults remain readable. */
+    fun isValid(pin: CharArray, profile: KdfProfile): Boolean =
+        isValid(pin) && pin.size == when (profile) {
+            KdfProfile.OWASP_V1 -> LEGACY_LENGTH
+            KdfProfile.HARDENED_V2 -> LENGTH
+        }
 
     /** ASCII bytes of a valid PIN as an owned secret. Throws IllegalArgumentException otherwise. */
     fun encode(pin: CharArray): SecretBytes {
