@@ -90,6 +90,7 @@ jobs:
           (cd dist && sha256sum lockwallet.apk > lockwallet.apk.sha256)
           echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
+          trap 'rm -f "$KEYSTORE"' EXIT
 
       - name: Publish GitHub Release with downloadable APK
         env:
@@ -109,6 +110,8 @@ jobs:
 
           **Atenção à migração:** esta versão usa um novo certificado de assinatura. O Android não aceita atualização por cima da 5.0.0 assinada com o certificado anterior. Faça e confira backup da frase de recuperação/Recovery Package antes de remover a versão antiga.
           EOF
+          ./gradlew --no-daemon :app:dependencies --configuration releaseRuntimeClasspath -q > "$RUNNER_TEMP/deps.txt"
+          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version 5.0.1 --apk-sha256 "${{ steps.sign.outputs.apk_sha256 }}" -o dist/lockwallet.cdx.json
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
             --title "Lock Wallet 5.0.1" \
@@ -116,4 +119,5 @@ jobs:
             dist/lockwallet.apk \
             dist/lockwallet.apk.sha256 \
             dist/lockwallet-signing-certificate.pem \
-            dist/apk-signature-verification.txt
+            dist/apk-signature-verification.txt \
+            dist/lockwallet.cdx.json
