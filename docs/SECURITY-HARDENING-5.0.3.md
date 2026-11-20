@@ -14,8 +14,9 @@
 
 ### Cofre biométrico (BioVault)
 - Registros novos usam um alias Keystore exclusivo por carteira, em vez de compartilhar a chave RSA privada de todos os registros.
-- Ao remover uma carteira, a chave exclusiva é removida e a ausência confirmada antes da exclusão do ciphertext.
-- Ao desativar a biometria, todos os aliases identificáveis nos cabeçalhos dos registros e no estado são removidos e verificados antes da limpeza dos arquivos.
+- Cada registro mantém um arquivo de referência de chave por carteira (`.keyref`) durante todo o seu ciclo de vida. Isso permite localizar o alias mesmo quando o ciphertext está truncado ou corrompido.
+- Ao remover uma carteira, a referência e a chave exclusiva são processadas e a ausência da chave é confirmada antes da exclusão do ciphertext.
+- Ao desativar a biometria, aliases identificados pelo estado, arquivos `.keyref`, registros e temporários são coletados; as chaves são removidas e verificadas antes da limpeza dos arquivos.
 - A chave compartilhada dos registros legados da 5.0.2 não permite eliminação criptográfica individual. Ao remover um registro legado, a migração segura desativa a biometria e apaga os registros biométricos, sem apagar as carteiras; o PIN continua sendo o caminho de acesso.
 - **Limite explícito:** a API do Keystore confirma a remoção do alias, mas não permite prometer sobrescrita física de células de memória flash. Esta é eliminação criptográfica lógica, não uma garantia de sanitização física do armazenamento.
 
@@ -33,7 +34,7 @@
 
 ## Portões de validação
 - Fixtures de PIN corrigidos em `AppFlowTest`, `ConnectFlowTest` e `BiometricUnlockTest`.
-- Testes adicionados para adulteração, chave ausente, remoção do diário, migração do formato legado, eliminação biométrica por carteira e respostas DNS públicas/privadas/mistas.
+- Testes adicionados para adulteração, chave ausente, remoção do diário, recuperação de temporário autenticado, rejeição de downgrade, migração legada, eliminação biométrica por carteira e interrupções de escrita, além de respostas DNS públicas/privadas/mistas.
 - O workflow `security-ci.yml` executa `./gradlew ciCheck` em cada atualização da pull request.
 - **Aprovação pendente até que o workflow execute com sucesso no commit final**, incluindo todos os testes, compilação debug/release e verificações do projeto.
 
