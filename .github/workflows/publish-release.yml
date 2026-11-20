@@ -1,0 +1,119 @@
+name: Publish Lock Wallet release
+
+on:
+  push:
+    branches:
+      - 'release/v5.0.1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lockwallet-publish-v5.0.1
+  cancel-in-progress: false
+
+jobs:
+  verify-sign-and-publish:
+    name: Verify, sign and publish v5.0.1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: v5.0.1
+      KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
+      KEYSTORE_BASE64: ${{ secrets.LOCKWALLET_KEYSTORE_BASE64 }}
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          packages: ''
+
+      - name: Install required Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Run full checks and compile Release
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon ciCheck :app:assembleRelease
+
+      - name: Verify release manifest
+        run: |
+          python3 tools/verify_apk_manifest.py \
+            --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
+            --apk app/build/outputs/apk/release/app-release-unsigned.apk \
+            --release
+
+      - name: Sign APK and verify certificate
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "Missing LOCKWALLET_KEYSTORE_BASE64 secret" >&2; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing LOCKWALLET_KEYSTORE_PASSWORD secret" >&2; exit 1; }
+          mkdir -p dist
+          KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-type PKCS12 \
+            --ks-key-alias lockwallet \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEYSTORE_PASSWORD \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out dist/lockwallet.apk \
+            "$UNSIGNED"
+          "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 24 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
+          CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$CERT_SHA256" = "d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6"
+          keytool -exportcert -rfc \
+            -keystore "$KEYSTORE" -storetype PKCS12 \
+            -storepass "$KEYSTORE_PASSWORD" -alias lockwallet \
+            -file dist/lockwallet-signing-certificate.pem
+          (cd dist && sha256sum lockwallet.apk > lockwallet.apk.sha256)
+          echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release with downloadable APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > dist/RELEASE-NOTES.md <<EOF
+          ## Lock Wallet 5.0.1
+
+          - Segurança dApp: bloqueio fail-closed quando a simulação não pode cobrir todas as contas observadas.
+          - Keystore: falhas ambíguas não colocam carteiras automaticamente em quarentena.
+          - Persistência: sincronização best-effort após gravação atômica.
+
+          **SHA-256 do APK:** ${{ steps.sign.outputs.apk_sha256 }}
+
+          **SHA-256 do certificado:** ${{ steps.sign.outputs.cert_sha256 }}
+
+          **Atenção à migração:** esta versão usa um novo certificado de assinatura. O Android não aceita atualização por cima da 5.0.0 assinada com o certificado anterior. Faça e confira backup da frase de recuperação/Recovery Package antes de remover a versão antiga.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Lock Wallet 5.0.1" \
+            --notes-file dist/RELEASE-NOTES.md \
+            dist/lockwallet.apk \
+            dist/lockwallet.apk.sha256 \
+            dist/lockwallet-signing-certificate.pem \
+            dist/apk-signature-verification.txt
