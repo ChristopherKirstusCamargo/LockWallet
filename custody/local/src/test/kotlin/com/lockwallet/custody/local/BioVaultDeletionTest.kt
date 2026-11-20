@@ -96,8 +96,6 @@ class BioVaultDeletionTest {
         val record = requireNotNull(vault.record(walletHex, header))
         val marker = File(dir, "$walletHex.keyref")
         assertTrue("per-wallet key reference must remain for the record lifetime", marker.exists())
-        val bytes = ByteBuffer.allocate(36).putInt(0x4C57424B).put(wallet).put(record.aliasId).array()
-        AtomicFiles().write(marker, bytes) { require(it.contentEquals(bytes)) }
 
         vault.remove(walletHex)
 
