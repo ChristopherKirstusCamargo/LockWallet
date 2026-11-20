@@ -1,0 +1,37 @@
+name: Export Android APK verification tools
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: contains(github.event.head_commit.message, '[export-android-tools]')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          packages: ''
+
+      - name: Install Android build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "build-tools;36.0.0"
+
+      - name: Package verification tools
+        run: |
+          cd "$ANDROID_HOME/build-tools"
+          zip -qr "$RUNNER_TEMP/android-build-tools-36.0.0.zip" "36.0.0"
+
+      - name: Upload Android verification tools
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-build-tools-36.0.0
+          path: ${{ runner.temp }}/android-build-tools-36.0.0.zip
+          if-no-files-found: error
+          retention-days: 3
