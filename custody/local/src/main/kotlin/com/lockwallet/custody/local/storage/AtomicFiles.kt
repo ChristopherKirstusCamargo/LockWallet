@@ -3,9 +3,11 @@ package com.lockwallet.custody.local.storage
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.channels.FileChannel
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 
 /** Crash-injection points used by tests to prove the write protocol (ADR 0001 migration rules). */
 enum class WriteStep { TEMP_WRITTEN, TEMP_SYNCED, READ_BACK_VALIDATED, RENAMED }
@@ -36,6 +38,9 @@ class AtomicFiles(private val crashHook: (WriteStep) -> Unit = {}) {
         } catch (_: AtomicMoveNotSupportedException) {
             tmp.delete(); throw IOException("atomic rename unsupported")
         }
+        // Persist the directory entry update where the filesystem supports directory fsync.
+        // This is best-effort: some Android filesystems reject opening directories as FileChannels.
+        runCatching { FileChannel.open(dir.toPath(), StandardOpenOption.READ).use { it.force(true) } }
         crashHook(WriteStep.RENAMED)
     }
 
