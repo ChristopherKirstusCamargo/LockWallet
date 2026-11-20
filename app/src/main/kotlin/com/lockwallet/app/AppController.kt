@@ -30,6 +30,7 @@ import javax.crypto.Cipher
 import com.lockwallet.data.price.Fiat
 import com.lockwallet.data.price.PriceService
 import com.lockwallet.data.price.PriceState
+import com.lockwallet.data.rpc.TxJournalAuthenticator
 
 enum class FlowMode { CREATE, RESTORE }
 enum class RestoreKind { PHRASE, LWRP, PRIVATE_KEY, KEYPAIR_JSON }
@@ -120,6 +121,7 @@ class AppController(
     val prefs: Prefs,
     private val price: PriceService?,
     private val biometric: suspend (Cipher, String) -> Boolean,
+    private val txJournalAuthenticator: TxJournalAuthenticator,
     /** Null = offline (tests): every chain call reports "sem conexão"; nothing is invented. */
     transport: com.lockwallet.data.rpc.RpcTransport? = null,
     dataDir: java.io.File? = null,
@@ -131,7 +133,7 @@ class AppController(
     /** Requests a runtime permission at use time (Seed Vault access, camera). Installed by MainActivity. */
     var permissionRunner: (suspend (String) -> Boolean)? = null
 
-    val chain = ChainModel(this, prefs, transport, dataDir)
+    val chain = ChainModel(this, prefs, transport, dataDir, txJournalAuthenticator)
     val connect = com.lockwallet.app.connect.ConnectModel(this, dataDir)
 
     var tab by mutableStateOf(Tab.HOME)
