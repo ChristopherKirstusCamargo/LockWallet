@@ -2,12 +2,18 @@ package com.lockwallet.data.rpc
 
 import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.tx.Blockhash
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
-import java.net.URI
+import java.io.EOFException
 import java.net.InetAddress
-import java.net.URL
+import java.net.InetSocketAddress
+import java.net.URI
+import java.net.Socket
 import java.util.Base64
-import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 class RpcException(val kind: Kind, message: String, val rpcCode: Long? = null) : Exception(message) {
     enum class Kind { TRANSPORT, HTTP, RATE_LIMITED, RPC_ERROR, MALFORMED, WRONG_NETWORK }
@@ -23,39 +29,200 @@ fun interface RpcTransport {
  * User-Agent, bounded body, no retries here (callers decide). Only public data (addresses, signed
  * transactions) is ever sent — never seeds or keys (spec §12.1).
  */
-class HttpsRpcTransport(private val timeoutMs: Int = 12_000) : RpcTransport {
+class HttpsRpcTransport(
+    private val timeoutMs: Int = 12_000,
+    private val resolver: (String) -> Array<InetAddress> = { InetAddress.getAllByName(it) },
+) : RpcTransport {
     override fun post(url: String, body: String, maxBytes: Int): String {
-        require(url.startsWith("https://")) { "https only" }
-        val c = try { URL(url).openConnection() as HttpsURLConnection } catch (e: Exception) { throw RpcException(RpcException.Kind.TRANSPORT, "connect") }
-        try {
-            c.requestMethod = "POST"; c.doOutput = true
-            c.connectTimeout = timeoutMs; c.readTimeout = timeoutMs
-            c.instanceFollowRedirects = false; c.useCaches = false
-            c.setRequestProperty("User-Agent", "LockWallet")
-            c.setRequestProperty("Content-Type", "application/json")
-            c.setRequestProperty("Accept", "application/json")
-            c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            val code = c.responseCode
-            if (code == 429) throw RpcException(RpcException.Kind.RATE_LIMITED, "rate limited")
-            // Some nodes answer JSON-RPC errors with a non-200 status (e.g. 410 "faucet closed"): surface the error body.
-            val stream = if (code == 200) c.inputStream else (c.errorStream ?: throw RpcException(RpcException.Kind.HTTP, "http $code"))
-            stream.use { s ->
-                val out = ByteArrayOutputStream(); val buf = ByteArray(8192)
-                while (true) {
-                    val n = s.read(buf); if (n < 0) break
-                    out.write(buf, 0, n)
-                    if (out.size() > maxBytes) throw RpcException(RpcException.Kind.MALFORMED, "response too large")
-                }
-                val text = out.toString("UTF-8")
-                if (code != 200 && !text.contains("\"jsonrpc\"")) throw RpcException(RpcException.Kind.HTTP, "http $code")
-                return text
-            }
-        } catch (e: RpcException) { throw e } catch (e: Exception) {
-            throw RpcException(RpcException.Kind.TRANSPORT, "network error")
-        } finally { c.disconnect() }
-    }
-}
+        val accepted = RpcClient.validateUrl(url) ?: throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTPS endpoint")
+        val uri = URI(accepted)
+        val host = uri.host?.removePrefix("[")?.removeSuffix("]")?.lowercase()
+            ?: throw RpcException(RpcException.Kind.MALFORMED, "endpoint host missing")
+        val port = if (uri.port == -1) 443 else uri.port
+        if (port !in 1..65535 || maxBytes < 1) throw RpcException(RpcException.Kind.MALFORMED, "invalid endpoint limits")
 
+        // Resolve exactly once per request, validate every A/AAAA answer, then connect to those exact address objects.
+        // The TCP socket is never allowed to resolve the hostname a second time (DNS rebinding/TOCTOU).
+        val addresses = try { resolver(host) } catch (_: Exception) {
+            throw RpcException(RpcException.Kind.TRANSPORT, "DNS resolution failed")
+        }
+        val safeAddresses = RpcClient.validateResolvedAddresses(host, addresses)
+        val target = (uri.rawPath.takeUnless { it.isNullOrEmpty() } ?: "/") +
+            (uri.rawQuery?.let { "?$it" } ?: "")
+        val hostHeader = (if (host.contains(':')) "[$host]" else host) +
+            if (port == 443) "" else ":$port"
+        val bodyBytes = body.toByteArray(Charsets.UTF_8)
+        if (bodyBytes.size > 4 * 1024 * 1024) throw RpcException(RpcException.Kind.MALFORMED, "request too large")
+
+        var lastFailure: Exception? = null
+        for (address in safeAddresses) {
+            var plain: Socket? = null
+            var tls: SSLSocket? = null
+            try {
+                plain = Socket()
+                plain.connect(InetSocketAddress(address, port), timeoutMs)
+                plain.soTimeout = timeoutMs
+                tls = (SSLSocketFactory.getDefault() as SSLSocketFactory)
+                    .createSocket(plain, host, port, true) as SSLSocket
+                tls.soTimeout = timeoutMs
+
+                // Preserve the original DNS hostname for both SNI and certificate hostname verification,
+                // while the underlying TCP socket remains pinned to the already-validated IP address.
+                val parameters = tls.sslParameters
+                parameters.endpointIdentificationAlgorithm = "HTTPS"
+                if (!isIpLiteral(host)) parameters.serverNames = listOf(SNIHostName(host))
+                tls.sslParameters = parameters
+                tls.startHandshake()
+                return exchange(tls, hostHeader, target, bodyBytes, maxBytes)
+            } catch (e: RpcException) {
+                throw e
+            } catch (e: Exception) {
+                lastFailure = e
+            } finally {
+                runCatching { tls?.close() }
+                if (tls == null) runCatching { plain?.close() }
+            }
+        }
+        throw RpcException(RpcException.Kind.TRANSPORT, "pinned HTTPS connection failed", null).also {
+            lastFailure?.let { cause -> it.initCause(cause) }
+        }
+    }
+
+    private fun exchange(socket: SSLSocket, hostHeader: String, target: String, body: ByteArray, maxBytes: Int): String {
+        val output = BufferedOutputStream(socket.outputStream)
+        val requestHeaders = buildString {
+            append("POST ").append(target).append(" HTTP/1.1\r\n")
+            append("Host: ").append(hostHeader).append("\r\n")
+            append("User-Agent: LockWallet\r\n")
+            append("Content-Type: application/json\r\n")
+            append("Accept: application/json\r\n")
+            append("Accept-Encoding: identity\r\n")
+            append("Connection: close\r\n")
+            append("Content-Length: ").append(body.size).append("\r\n\r\n")
+        }
+        output.write(requestHeaders.toByteArray(Charsets.US_ASCII))
+        output.write(body)
+        output.flush()
+
+        val input = BufferedInputStream(socket.inputStream)
+        val statusLine = readLine(input, 8 * 1024) ?: throw RpcException(RpcException.Kind.TRANSPORT, "empty HTTPS response")
+        val statusMatch = Regex("^HTTP/1\\.[01] ([0-9]{3})(?: .*)?$").matchEntire(statusLine)
+            ?: throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP status line")
+        val status = statusMatch.groupValues[1].toInt()
+        val headers = linkedMapOf<String, MutableList<String>>()
+        var headerBytes = statusLine.length
+        while (true) {
+            val line = readLine(input, 8 * 1024) ?: throw RpcException(RpcException.Kind.MALFORMED, "truncated HTTP headers")
+            headerBytes += line.length + 2
+            if (headerBytes > 32 * 1024) throw RpcException(RpcException.Kind.MALFORMED, "HTTP headers too large")
+            if (line.isEmpty()) break
+            val colon = line.indexOf(':')
+            if (colon <= 0) throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP header")
+            val name = line.substring(0, colon).trim().lowercase()
+            if (!name.matches(Regex("[a-z0-9!#$%&'*+.^_`|~-]+"))) throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP header name")
+            val value = line.substring(colon + 1).trim()
+            headers.getOrPut(name) { mutableListOf() }.add(value)
+        }
+
+        if (headers["content-encoding"]?.any { !it.equals("identity", ignoreCase = true) } == true) {
+            throw RpcException(RpcException.Kind.MALFORMED, "unsupported HTTP content encoding")
+        }
+        val transfer = headers["transfer-encoding"]
+        val lengths = headers["content-length"]
+        if (transfer != null && lengths != null) throw RpcException(RpcException.Kind.MALFORMED, "ambiguous HTTP body framing")
+        val response = when {
+            transfer != null -> {
+                if (transfer.size != 1 || !transfer.single().equals("chunked", ignoreCase = true)) {
+                    throw RpcException(RpcException.Kind.MALFORMED, "unsupported HTTP transfer encoding")
+                }
+                readChunked(input, maxBytes)
+            }
+            lengths != null -> {
+                if (lengths.distinct().size != 1) throw RpcException(RpcException.Kind.MALFORMED, "conflicting HTTP content lengths")
+                val length = lengths.single().toLongOrNull() ?: throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP content length")
+                if (length < 0 || length > maxBytes) throw RpcException(RpcException.Kind.MALFORMED, "HTTP response too large")
+                readExact(input, length.toInt())
+            }
+            else -> readToEof(input, maxBytes)
+        }
+
+        if (status == 429) throw RpcException(RpcException.Kind.RATE_LIMITED, "rate limited")
+        val text = response.toString(Charsets.UTF_8.name())
+        // JSON-RPC errors may use non-200 status codes. Redirects are never followed.
+        if (status != 200 && !text.contains("\"jsonrpc\"")) {
+            throw RpcException(RpcException.Kind.HTTP, "http $status")
+        }
+        return text
+    }
+
+    private fun readLine(input: BufferedInputStream, maxLength: Int): String? {
+        val out = ByteArrayOutputStream()
+        while (out.size() <= maxLength) {
+            val value = input.read()
+            if (value < 0) {
+                if (out.size() == 0) return null
+                throw EOFException("truncated HTTP line")
+            }
+            if (value == 10) {
+                val bytes = out.toByteArray()
+                val size = if (bytes.isNotEmpty() && bytes.last() == 13.toByte()) bytes.size - 1 else bytes.size
+                return String(bytes, 0, size, Charsets.ISO_8859_1)
+            }
+            out.write(value)
+        }
+        throw RpcException(RpcException.Kind.MALFORMED, "HTTP line too long")
+    }
+
+    private fun readExact(input: BufferedInputStream, length: Int): ByteArray {
+        val result = ByteArray(length)
+        var offset = 0
+        while (offset < length) {
+            val count = input.read(result, offset, length - offset)
+            if (count < 0) throw EOFException("truncated HTTP body")
+            offset += count
+        }
+        return result
+    }
+
+    private fun readToEof(input: BufferedInputStream, maxBytes: Int): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) return out.toByteArray()
+            if (out.size().toLong() + count > maxBytes) throw RpcException(RpcException.Kind.MALFORMED, "HTTP response too large")
+            out.write(buffer, 0, count)
+        }
+    }
+
+    private fun readChunked(input: BufferedInputStream, maxBytes: Int): ByteArray {
+        val out = ByteArrayOutputStream()
+        var trailerBytes = 0
+        while (true) {
+            val line = readLine(input, 8 * 1024) ?: throw EOFException("truncated chunk header")
+            val sizeText = line.substringBefore(';')
+            if (!sizeText.matches(Regex("[0-9A-Fa-f]{1,16}"))) throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP chunk size")
+            val size = sizeText.toLongOrNull(16) ?: throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP chunk size")
+            if (size == 0L) {
+                while (true) {
+                    val trailer = readLine(input, 8 * 1024) ?: throw EOFException("truncated HTTP trailers")
+                    trailerBytes += trailer.length + 2
+                    if (trailerBytes > 16 * 1024) throw RpcException(RpcException.Kind.MALFORMED, "HTTP trailers too large")
+                    if (trailer.isEmpty()) return out.toByteArray()
+                    if (trailer.indexOf(':') <= 0) throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP trailer")
+                }
+            }
+            if (size > maxBytes || out.size().toLong() + size > maxBytes) {
+                throw RpcException(RpcException.Kind.MALFORMED, "HTTP response too large")
+            }
+            out.write(readExact(input, size.toInt()))
+            if (readLine(input, 2) != "") throw RpcException(RpcException.Kind.MALFORMED, "invalid HTTP chunk terminator")
+        }
+    }
+
+    private fun isIpLiteral(host: String): Boolean =
+        host.contains(':') || host.matches(Regex("[0-9.]+")) || host.matches(Regex("(?i)(0x[0-9a-f]+|[0-9a-f]+\\.[0-9a-f.]+)"))
+}
 data class AccountData(val address: SolanaPublicKey, val lamports: Long, val owner: SolanaPublicKey, val executable: Boolean, private val raw: ByteArray) {
     val data: ByteArray get() = raw.copyOf()
     override fun equals(other: Any?) = other is AccountData &&
@@ -285,38 +452,58 @@ class RpcClient(val url: String, private val transport: RpcTransport) {
             host == "localhost" || host.endsWith(".localhost") ||
                 host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".home.arpa")
 
-        /** Reject private/special-use IP literals. DNS names are not resolved here: DNS rebinding cannot be
-         * eliminated by syntax validation alone and remains a documented limitation for custom RPC URLs. */
+        /**
+         * Validate all DNS answers before the transport opens a socket. If even one A/AAAA answer is non-public,
+         * refuse the hostname rather than allowing resolver-order fallback to reach a private/special-use target.
+         */
+        internal fun validateResolvedAddresses(host: String, addresses: Array<InetAddress>): List<InetAddress> {
+            if (addresses.isEmpty() || addresses.any { !isPublicResolvedAddress(it) }) {
+                throw RpcException(RpcException.Kind.MALFORMED, "endpoint resolves to non-public address")
+            }
+            return addresses.toList()
+        }
+
+        internal fun isPublicResolvedAddress(address: InetAddress): Boolean {
+            if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress ||
+                address.isSiteLocalAddress || address.isMulticastAddress
+            ) return false
+            val bytes = address.address
+            if (bytes.size == 4) {
+                val a = bytes[0].toInt() and 0xff
+                val b = bytes[1].toInt() and 0xff
+                val c = bytes[2].toInt() and 0xff
+                return !(a == 0 || a == 10 || a == 127 || a >= 224 ||
+                    (a == 100 && b in 64..127) ||
+                    (a == 169 && b == 254) ||
+                    (a == 172 && b in 16..31) ||
+                    (a == 192 && (b == 0 || b == 2 || b == 168)) ||
+                    (a == 192 && b == 88 && c == 99) ||
+                    (a == 198 && (b in 18..19 || b == 51)) ||
+                    (a == 203 && b == 0 && c == 113))
+            }
+            if (bytes.size == 16) {
+                val first = bytes[0].toInt() and 0xff
+                val second = bytes[1].toInt() and 0xff
+                val third = bytes[2].toInt() and 0xff
+                // Only global-unicast 2000::/3 is accepted. This rejects unspecified, mapped, ULA,
+                // link-local, site-local, multicast, NAT64 well-known and other non-global prefixes.
+                if (first and 0xe0 != 0x20) return false
+                if (first == 0x20 && second == 0x01 && third and 0xfe == 0x00) return false // 2001::/23 special use
+                if (first == 0x20 && second == 0x01 && third == 0x0d && (bytes[3].toInt() and 0xff) == 0xb8) return false // documentation
+                if (first == 0x20 && second == 0x02) return false // deprecated 6to4
+                if (first == 0x3f && second == 0xfe) return false // deprecated 6bone
+                return true
+            }
+            return false
+        }
+
+        /** Private/special IP literals are rejected before any request is made. */
         private fun isPrivateIpLiteral(host: String): Boolean {
             val numeric = host.contains(':') || host.matches(Regex("[0-9.]+")) ||
                 host.matches(Regex("(?i)(0x[0-9a-f]+|[0-9a-f]+\\.[0-9a-f.]+)"))
             if (!numeric) return false
             val address = try { InetAddress.getByName(host) } catch (_: Exception) { return true }
-            if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress ||
-                address.isSiteLocalAddress || address.isMulticastAddress
-            ) return true
-            val bytes = address.address
-            if (bytes.size == 4) {
-                val a = bytes[0].toInt() and 0xff
-                val b = bytes[1].toInt() and 0xff
-                return a == 0 || a == 10 || a == 127 || a >= 224 ||
-                    (a == 100 && b in 64..127) ||
-                    (a == 169 && b == 254) ||
-                    (a == 172 && b in 16..31) ||
-                    (a == 192 && b == 168) ||
-                    (a == 198 && b in 18..19)
-            }
-            if (bytes.size == 16) {
-                val first = bytes[0].toInt() and 0xff
-                if (first and 0xfe == 0xfc) return true
-                if (bytes.take(10).all { it == 0.toByte() } &&
-                    bytes[10] == 0xff.toByte() && bytes[11] == 0xff.toByte()
-                ) {
-                    val v4 = InetAddress.getByAddress(bytes.copyOfRange(12, 16))
-                    return isPrivateIpLiteral(v4.hostAddress)
-                }
-            }
-            return false
+            return !isPublicResolvedAddress(address)
         }
     }
 }
