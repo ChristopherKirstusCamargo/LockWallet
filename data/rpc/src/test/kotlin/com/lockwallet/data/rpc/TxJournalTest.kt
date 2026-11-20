@@ -94,6 +94,21 @@ class TxJournalTest {
         assertTrue("deleted journal must not be treated as an empty wallet history", reopened.isFailure)
     }
 
+    @Test fun authenticatedTempFileIsRecoveredAfterInterruptedAtomicRename() {
+        val file = File(tmp.root, "tx-journal.json")
+        val auth = TestAuthenticator()
+        TxJournal(file, auth).put(record())
+        val temp = File(tmp.root, "tx-journal.json.tmp")
+        file.copyTo(temp, overwrite = true)
+        assertTrue(file.delete())
+
+        val recovered = TxJournal(file, auth).all()
+        assertEquals(1, recovered.size)
+        assertEquals(record(), recovered.single())
+        assertTrue(file.exists())
+        assertFalse(temp.exists())
+    }
+
     @Test fun legacyUnsignedJournalDropsBearerBytesAndBecomesUnresolved() {
         val file = File(tmp.root, "tx-journal.json")
         file.writeText(
