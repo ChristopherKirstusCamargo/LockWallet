@@ -13,6 +13,7 @@ import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.dapp.DappFirewall
 import com.lockwallet.core.solana.dapp.DappVerdict
 import com.lockwallet.core.solana.dapp.MessagePolicy
+import com.lockwallet.core.solana.state.StakeState
 import com.lockwallet.core.solana.state.TokenState
 import com.lockwallet.core.solana.tx.WireTransaction
 import com.lockwallet.custody.local.CustodyException
@@ -202,36 +203,121 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         val writable = m.accountKeys.filterIndexed { i, k -> m.isWritable(i) && k != me }
         return try {
             val pre = c.chain.net.withFallback { it.getMultipleAccounts(listOf(me) + writable) }
-            val preWallet = pre[0]
-            val tokenAccts = writable.zip(pre.drop(1)).mapNotNull { (k, a) ->
-                if (a == null || a.owner !in ProgramIds.TOKEN_PROGRAMS) return@mapNotNull null
-                val st = runCatching { TokenState.parseAccount(a.owner, a.data) }.getOrNull() ?: return@mapNotNull null
-                if (st.owner == me) Triple(k, a, st) else null
+            if (pre.size != 1 + writable.size) throw RpcException(RpcException.Kind.MALFORMED, "pre-state incompleto")
+            val preWallet = pre.first()
+            val inspectAllWritable = verdict.needsRawAck || m.instructions.any { ix ->
+                val program = m.accountKeys[ix.programIndex]
+                program == ProgramIds.STAKE || program in ProgramIds.TOKEN_PROGRAMS || program == ProgramIds.ASSOCIATED_TOKEN
             }
-            val p = c.chain.coordinator.prepareExternal(me, msg, "dApp: " + (r0Name ?: "transação"), tokenAccts.map { it.first }, verdict.signable, crossCheck = verdict.needsRawAck)
+            val watchIndexes = if (inspectAllWritable) writable.indices.toList() else writable.indices.filter { i ->
+                val owner = pre[i + 1]?.owner
+                owner == ProgramIds.STAKE || owner in ProgramIds.TOKEN_PROGRAMS
+            }
+            val watch = watchIndexes.map { writable[it] }
+            val p = c.chain.coordinator.prepareExternal(
+                me, msg, "dApp: " + (r0Name ?: "transação"), watch, verdict.signable, crossCheck = true,
+            )
             val prepProblems = p.blockers.filter { kind == SignKind.SIGN_AND_SEND || it != PrepBlocker.BUSY }
             val sim = p.simulation
             val post = sim?.accounts.orEmpty()
             val problems = mutableListOf<String>()
-            var solDelta: Long? = null
             val deltas = mutableListOf<TokenDelta>()
-            if (sim != null && sim.err == null && post.size == 1 + tokenAccts.size) {
-                val wp = post[0]
-                solDelta = (wp?.lamports ?: 0L) - (preWallet?.lamports ?: 0L)
-                if (wp != null && (wp.owner != ProgramIds.SYSTEM || wp.data.isNotEmpty())) problems += S_WALLET_OWNER
-                val mints = tokenAccts.map { it.third.mint }.distinct()
-                val mintInfo = runCatching { c.chain.net.withFallback { it.getMultipleAccounts(mints) } }.getOrNull()
-                tokenAccts.forEachIndexed { i, (k, _, st) ->
-                    val pa = post[1 + i]
-                    val after = pa?.let { a -> runCatching { TokenState.parseAccount(a.owner, a.data) }.getOrNull() }
-                    if (pa != null && after == null) problems += S_TOKEN_CHANGED(k)
-                    if (after != null) {
-                        if (after.owner != st.owner) problems += S_TOKEN_OWNER(k)
-                        if (after.delegate != null && after.delegate != st.delegate) problems += S_TOKEN_DELEGATE(k)
-                        if (after.closeAuthority != st.closeAuthority) problems += S_TOKEN_CLOSE_AUTH(k)
+            var solDelta: Long? = null
+            if (preWallet == null) problems += S_WALLET_STATE_UNKNOWN
+            if (sim != null && sim.err == null && post.size == 1 + watch.size) {
+                val walletAfter = post[0]
+                if (walletAfter == null) problems += S_WALLET_STATE_UNKNOWN
+                else if (walletAfter.owner != ProgramIds.SYSTEM || walletAfter.data.isNotEmpty()) problems += S_WALLET_OWNER
+
+                val watchedBefore = watchIndexes.map { pre[it + 1] }
+                var totalSolDelta = (walletAfter?.lamports ?: 0L) - (preWallet?.lamports ?: 0L)
+                var deltaOverflow = false
+                val mints = linkedSetOf<SolanaPublicKey>()
+                watchIndexes.forEachIndexed { pos, writableIndex ->
+                    val key = writable[writableIndex]
+                    val before = watchedBefore[pos]
+                    val afterAccount = post[pos + 1]
+                    val beforeToken = if (before != null && before.owner in ProgramIds.TOKEN_PROGRAMS) {
+                        runCatching { TokenState.parseAccount(before.owner, before.data) }.getOrElse {
+                            problems += S_TOKEN_CHANGED(key); null
+                        }
+                    } else null
+                    val afterToken = if (afterAccount != null && afterAccount.owner in ProgramIds.TOKEN_PROGRAMS) {
+                        runCatching { TokenState.parseAccount(afterAccount.owner, afterAccount.data) }.getOrElse {
+                            problems += S_TOKEN_CHANGED(key); null
+                        }
+                    } else null
+
+                    val beforeOwnedToken = beforeToken?.takeIf { it.owner == me }
+                    val afterOwnedToken = afterToken?.takeIf { it.owner == me }
+                    if (beforeOwnedToken != null || afterOwnedToken != null) {
+                        if (beforeOwnedToken != null && afterOwnedToken == null) {
+                            problems += S_TOKEN_CHANGED(key)
+                        } else if (beforeOwnedToken != null && afterOwnedToken != null) {
+                            if (afterOwnedToken.mint != beforeOwnedToken.mint ||
+                                afterOwnedToken.owner != beforeOwnedToken.owner ||
+                                afterOwnedToken.delegate != beforeOwnedToken.delegate ||
+                                afterOwnedToken.delegatedAmount != beforeOwnedToken.delegatedAmount ||
+                                afterOwnedToken.closeAuthority != beforeOwnedToken.closeAuthority ||
+                                afterOwnedToken.state != beforeOwnedToken.state ||
+                                afterOwnedToken.isNative != beforeOwnedToken.isNative ||
+                                afterOwnedToken.extensions != beforeOwnedToken.extensions
+                            ) problems += S_TOKEN_AUTHORITY_CHANGED(key)
+                        } else if (afterOwnedToken != null) {
+                            // A newly-created token account is acceptable only with the default, unprivileged authorities.
+                            if (afterOwnedToken.delegate != null || afterOwnedToken.delegatedAmount != 0L ||
+                                afterOwnedToken.closeAuthority != null || afterOwnedToken.state != 1
+                            ) problems += S_TOKEN_AUTHORITY_CHANGED(key)
+                        }
+                        val mint = afterOwnedToken?.mint ?: beforeOwnedToken!!.mint
+                        mints += mint
+                        val delta = afterOwnedToken?.amount ?: 0L
+                        val old = beforeOwnedToken?.amount ?: 0L
+                        val decimals: Int? = null // Filled from the separately fetched mint account below.
+                        // Mint data is fetched separately below; a token-account byte layout is not a mint layout.
+                        deltas += TokenDelta(key.toBase58(), mint.toBase58(), old, delta, decimals)
                     }
-                    val dec = mintInfo?.getOrNull(mints.indexOf(st.mint))?.let { a -> runCatching { TokenState.parseMint(a.owner, a.data).decimals }.getOrNull() }
-                    deltas += TokenDelta(k.toBase58(), st.mint.toBase58(), st.amount, after?.amount ?: if (pa == null) 0L else null, dec)
+
+                    val beforeStake = if (before != null && before.owner == ProgramIds.STAKE) {
+                        runCatching { StakeState.parse(before.data) }.getOrElse {
+                            problems += S_STAKE_STATE_UNKNOWN(key); null
+                        }
+                    } else null
+                    val afterStake = if (afterAccount != null && afterAccount.owner == ProgramIds.STAKE) {
+                        runCatching { StakeState.parse(afterAccount.data) }.getOrElse {
+                            problems += S_STAKE_STATE_UNKNOWN(key); null
+                        }
+                    } else null
+                    val beforeControlled = beforeStake?.let { it.staker == me || it.withdrawer == me } == true
+                    val afterControlled = afterStake?.let { it.staker == me || it.withdrawer == me } == true
+                    if (beforeControlled || afterControlled) {
+                        if (before == null || afterAccount == null || beforeStake == null || afterStake == null ||
+                            beforeStake != afterStake || before.lamports != afterAccount.lamports
+                        ) {
+                            problems += S_STAKE_CHANGED(key)
+                        }
+                        if (before != null && afterAccount != null) {
+                            val change = afterAccount.lamports - before.lamports
+                            try { totalSolDelta = Math.addExact(totalSolDelta, change) } catch (_: ArithmeticException) {
+                                deltaOverflow = true
+                            }
+                        }
+                    }
+                }
+                if (deltaOverflow) problems += S_ACCOUNT_DELTA_OVERFLOW else solDelta = totalSolDelta
+
+                if (mints.isNotEmpty()) {
+                    val mintInfo = runCatching { c.chain.net.withFallback { it.getMultipleAccounts(mints.toList()) } }.getOrNull()
+                    deltas.indices.forEach { i ->
+                        val mint = SolanaPublicKey.fromBase58(deltas[i].mint)
+                        val dec = mintInfo?.getOrNull(mints.indexOf(mint))?.let { account ->
+                            runCatching { TokenState.parseMint(account.owner, account.data).decimals }.getOrNull()
+                        }
+                        if (dec != deltas[i].decimals) {
+                            val d = deltas[i]
+                            deltas[i] = d.copy(decimals = dec)
+                        }
+                    }
                 }
             }
             DappTxReview(verdict, p, solDelta, deltas, problems, prepProblems)
@@ -376,9 +462,14 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         const val S_SIG_COUNT = "A transação pede mais de uma assinatura (co-assinatura não é suportada)."
         const val S_WALLET_OWNER = "A simulação mostra a sua carteira mudando de dono/programa. Bloqueado."
         fun S_TOKEN_CHANGED(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… deixaria de ser uma conta de token válida."
-        fun S_TOKEN_OWNER(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… mudaria de dono. Bloqueado."
-        fun S_TOKEN_DELEGATE(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… ganharia um delegado (alguém poderia gastar seus tokens). Bloqueado."
-        fun S_TOKEN_CLOSE_AUTH(k: SolanaPublicKey) = "A autoridade de fechamento da conta ${k.toBase58().take(4)}… mudaria. Bloqueado."
+        fun S_TOKEN_OWNER(k: SolanaPublicKey) = "A conta de token ${k.toBase58()} mudaria de dono. Bloqueado."
+        fun S_TOKEN_DELEGATE(k: SolanaPublicKey) = "A conta de token ${k.toBase58()} teria a delegação alterada. Bloqueado."
+        fun S_TOKEN_CLOSE_AUTH(k: SolanaPublicKey) = "A autoridade de fechamento da conta ${k.toBase58()} mudaria. Bloqueado."
+        fun S_TOKEN_AUTHORITY_CHANGED(k: SolanaPublicKey) = "As permissões da conta de token ${k.toBase58()} mudariam. Bloqueado."
+        fun S_STAKE_CHANGED(k: SolanaPublicKey) = "A conta de stake ${k.toBase58()} mudaria de saldo, delegação ou autoridade. Bloqueado."
+        fun S_STAKE_STATE_UNKNOWN(k: SolanaPublicKey) = "Não foi possível validar o estado da conta de stake ${k.toBase58()}. Bloqueado."
+        const val S_WALLET_STATE_UNKNOWN = "Não foi possível validar o estado pós-simulação da sua carteira. Bloqueado."
+        const val S_ACCOUNT_DELTA_OVERFLOW = "A variação simulada ultrapassa o intervalo numérico permitido. Bloqueado."
         const val S_MSG_REFUSED = "A mensagem não é texto apresentável (ou parece uma transação). Recusada."
         const val S_SIWS_DOMAIN_MISMATCH = "Domínio da mensagem de login não corresponde ao endereço informado pelo app. Conexão recusada."
     }

@@ -31,6 +31,10 @@ class AppFakeRpc : RpcTransport {
     val sent = mutableListOf<String>()
     /** address → (owner program, lamports, data) */
     val accounts = HashMap<String, Triple<String, Long, ByteArray>>()
+    val simulatedAccounts = HashMap<String, Triple<String, Long, ByteArray>>()
+    fun simulatedAccountJson(k: String): String = simulatedAccounts[k]?.let { (o, l, d) ->
+        """{"lamports":$l,"owner":"$o","data":["${java.util.Base64.getEncoder().encodeToString(d)}","base64"],"executable":false,"rentEpoch":0}"""
+    } ?: acct(k)
     private fun keys(body: String): List<String> = Regex("\"([1-9A-HJ-NP-Za-km-z]{32,44})\"").findAll(body.substringAfter("\"params\"")).map { it.groupValues[1] }.toList()
     private fun acct(k: String): String = accounts[k]?.let { (o, l, d) ->
         """{"lamports":$l,"owner":"$o","data":["${java.util.Base64.getEncoder().encodeToString(d)}","base64"],"executable":false,"rentEpoch":0}"""

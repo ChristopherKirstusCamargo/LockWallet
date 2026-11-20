@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import org.bouncycastle.math.ec.rfc8032.Ed25519
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -100,9 +101,31 @@ class ConnectFlowTest {
 
     private fun simulateWith(walletPostLamports: Long) {
         rpc.handlers["isBlockhashValid"] = { """{"context":{"slot":1},"value":true}""" }
-        rpc.handlers["simulateTransaction"] = {
-            """{"context":{"slot":1},"value":{"err":null,"logs":[],"unitsConsumed":300,"accounts":[{"lamports":$walletPostLamports,"owner":"11111111111111111111111111111111","data":["","base64"],"executable":false,"rentEpoch":0}]}}"""
+        rpc.handlers["simulateTransaction"] = { body ->
+            val raw = body.substringAfter("\"addresses\":[", "").substringBefore("]")
+            val addresses = Regex("\"([1-9A-HJ-NP-Za-km-z]{32,44})\"").findAll(raw).map { it.groupValues[1] }.toList()
+            val accounts = addresses.mapIndexed { index, address ->
+                if (index == 0) """{"lamports":$walletPostLamports,"owner":"11111111111111111111111111111111","data":["","base64"],"executable":false,"rentEpoch":0}"""
+                else rpc.simulatedAccountJson(address)
+            }
+            """{"context":{"slot":1},"value":{"err":null,"logs":[],"unitsConsumed":300,"accounts":[${accounts.joinToString(",")}]}}"""
         }
+    }
+
+    private fun stakeState(staker: SolanaPublicKey, withdrawer: SolanaPublicKey, delegated: Long): ByteArray {
+        val b = java.nio.ByteBuffer.allocate(200).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        b.putInt(2)
+        b.putLong(2_282_880L)
+        b.put(staker.toByteArray())
+        b.put(withdrawer.toByteArray())
+        b.putLong(0L)
+        b.putLong(-1L)
+        b.put(SolanaPublicKey.fromBase58("11111111111111111111111111111111").toByteArray())
+        b.put(SolanaPublicKey.fromBase58("Vote111111111111111111111111111111111111111").toByteArray())
+        b.putLong(delegated)
+        b.putLong(1L)
+        b.putLong(-1L)
+        return b.array()
     }
 
     private fun awaitReviews(c: AppController) {
@@ -138,6 +161,25 @@ class ConnectFlowTest {
         // Revoked in the app ⇒ the next request with that token is not valid.
         c.connect.revoke(session.id)
         assertNull(c.connect.sessionFor(scope, me.toByteArray(), "solana:mainnet"))
+    }
+
+    @Test fun unknownProgramCannotChangeWalletStakeAuthoritiesOrDelegation() {
+        val c = controller(WalletRole.CONNECT)
+        val me = c.wallets.single().address
+        val session = c.connect.sessionFor(c.authorizeDapp(), null, null)!!
+        val stake = bob
+        val before = stakeState(me, me, 1_000_000_000L)
+        val after = stakeState(me, me, 900_000_000L)
+        rpc.accounts[me.toBase58()] = Triple(ProgramIds.SYSTEM.toBase58(), 2_000_000_000L, ByteArray(0))
+        rpc.accounts[stake.toBase58()] = Triple(ProgramIds.STAKE.toBase58(), 2_000_000_000L, before)
+        rpc.simulatedAccounts[stake.toBase58()] = Triple(ProgramIds.STAKE.toBase58(), 2_000_000_000L, after)
+        simulateWith(2_000_000_000L)
+        val raw = Instruction(unknownProgram, listOf(AccountMeta(me, true, true), AccountMeta(stake, false, true)), byteArrayOf(7, 7))
+        c.connect.enqueue(SignRequestModel(dapp, session, SignKind.TRANSACTIONS, listOf(unsignedTx(me, raw)), RecSign()))
+        awaitReviews(c)
+        val review = c.connect.reviews!!.single()
+        assertFalse(review.signable)
+        assertTrue(review.postProblems.any { it.contains(stake.toBase58()) })
     }
 
     @Test fun unknownProgramNeedsRawAckAndForbiddenIsBlocked() {
