@@ -1,24 +1,36 @@
-name: Lock Wallet 5.0.1 signed release
+name: Lock Wallet — Versão Final
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'custody/**'
+      - 'data/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'settings.gradle.kts'
+      - 'gradlew'
+      - 'tools/**'
+      - '.github/workflows/publish-release.yml'
+      - 'signing/lockwallet-release.p12.enc'
 
 permissions:
   contents: write
 
 concurrency:
-  group: lockwallet-release-v5.0.1
+  group: lockwallet-final-release
   cancel-in-progress: false
 
 jobs:
   build-test-sign-publish:
-    if: contains(github.event.head_commit.message, '[trigger-5.0.1-release]')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      RELEASE_TAG: v5.0.1
+      RELEASE_TAG: final
     steps:
       - name: Checkout main release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -47,28 +59,28 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon ciCheck :app:assembleRelease
 
-      - name: Verify Release manifest and version
+      - name: Verify Release manifest and public version
         run: |
           python3 tools/verify_apk_manifest.py \
             --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
             --apk app/build/outputs/apk/release/app-release-unsigned.apk \
             --release
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='8' versionName='5.0.1'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='9' versionName='Final'"
 
       - name: Preserve unsigned build for inspection
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release-unsigned.apk dist/LockWallet-5.0.1-unsigned.apk
-          (cd dist && sha256sum LockWallet-5.0.1-unsigned.apk > LockWallet-5.0.1-unsigned.apk.sha256)
+          cp app/build/outputs/apk/release/app-release-unsigned.apk dist/LockWallet-Final-unsigned.apk
+          (cd dist && sha256sum LockWallet-Final-unsigned.apk > LockWallet-Final-unsigned.apk.sha256)
 
       - name: Upload unsigned validation build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: LockWallet-5.0.1-unsigned-validation
+          name: LockWallet-Final-unsigned-validation
           path: |
-            dist/LockWallet-5.0.1-unsigned.apk
-            dist/LockWallet-5.0.1-unsigned.apk.sha256
+            dist/LockWallet-Final-unsigned.apk
+            dist/LockWallet-Final-unsigned.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -76,7 +88,7 @@ jobs:
         id: sign
         shell: bash
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: \${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_PASSWORD" || { echo "Missing LOCKWALLET_KEYSTORE_PASSWORD Actions secret" >&2; exit 1; }
@@ -92,7 +104,7 @@ jobs:
           test -s "$KEYSTORE"
           ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
           APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
-          "$ZIPALIGN" -f -p 4 dist/LockWallet-5.0.1-unsigned.apk "$RUNNER_TEMP/lockwallet-aligned.apk"
+          "$ZIPALIGN" -f -p 4 dist/LockWallet-Final-unsigned.apk "$RUNNER_TEMP/lockwallet-aligned.apk"
           "$APKSIGNER" sign \
             --ks "$KEYSTORE" \
             --ks-type PKCS12 \
@@ -104,7 +116,7 @@ jobs:
             --v3-signing-enabled true \
             --out dist/lockwallet.apk \
             "$RUNNER_TEMP/lockwallet-aligned.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='8' versionName='5.0.1'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='9' versionName='Final'"
           "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 31 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
           CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           test "$CERT_SHA256" = "ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13"
@@ -116,34 +128,47 @@ jobs:
           echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
 
-      - name: Generate SBOM and publish GitHub Release
+      - name: Generate SBOM and publish the single stable Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: \${{ github.token }}
         run: |
           set -euo pipefail
           ./gradlew --no-daemon :app:dependencies --configuration releaseRuntimeClasspath -q > "$RUNNER_TEMP/deps.txt"
-          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version 5.0.1 --apk-sha256 "${{ steps.sign.outputs.apk_sha256 }}" -o dist/lockwallet.cdx.json
+          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version Final --apk-sha256 "\${{ steps.sign.outputs.apk_sha256 }}" -o dist/lockwallet.cdx.json
+
           cat > dist/RELEASE-NOTES.md <<EOF
-          ## Lock Wallet 5.0.1
+          # Lock Wallet — Versão Final
 
-          Correções de segurança:
-          - Lock Connect bloqueia transações dApp quando carteira + contas observadas excedem as 16 contas suportadas pela simulação, sem truncamento silencioso.
-          - Android Keystore trata falhas ambíguas como indisponibilidade e evita quarentena indevida das carteiras.
-          - Persistência solicita sincronização best-effort do diretório após renomeação atômica.
-          - Testes automatizados de regressão incluídos.
+          Esta é a única Release oficial do projeto. O APK disponível aqui é sempre a versão estável mais recente.
 
-          **SHA-256 do APK:** ${{ steps.sign.outputs.apk_sha256 }}
-          **SHA-256 do certificado:** ${{ steps.sign.outputs.cert_sha256 }}
+          **SHA-256 do APK:** \${{ steps.sign.outputs.apk_sha256 }}
+          **SHA-256 do certificado:** \${{ steps.sign.outputs.cert_sha256 }}
 
-          **IMPORTANTE — migração da 5.0.0:** esta versão usa um novo certificado de assinatura. O Android não aceita instalá-la sobre a 5.0.0. Antes de desinstalar a versão anterior, faça backup e confirme que a frase de recuperação ou Recovery Package pode ser restaurado. Nunca desinstale a versão anterior antes de verificar o backup.
+          **Atenção:** instalações antigas assinadas por um certificado diferente podem não aceitar a atualização direta. Antes de desinstalar uma instalação anterior, faça backup e confirme que a recuperação da carteira funciona. Nunca compartilhe a frase de recuperação ou o Recovery Package.
           EOF
+
+          mapfile -t EXISTING_RELEASES < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
+          for tag in "\${EXISTING_RELEASES[@]}"; do
+            [ -z "$tag" ] && continue
+            gh release delete "$tag" --yes --cleanup-tag
+          done
+
+          # Remove the stable tag if it exists without an associated Release.
+          gh api --method DELETE "repos/\${GITHUB_REPOSITORY}/git/refs/tags/$RELEASE_TAG" >/dev/null 2>&1 || true
+
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
-            --title "Lock Wallet 5.0.1" \
+            --title "Lock Wallet — Versão Final" \
             --notes-file dist/RELEASE-NOTES.md \
             --latest \
-            dist/lockwallet.apk \
-            dist/lockwallet.apk.sha256 \
-            dist/lockwallet-signing-certificate.pem \
-            dist/apk-signature-verification.txt \
-            dist/lockwallet.cdx.json
+            dist/lockwallet.apk
+
+      - name: Remove obsolete audit branch
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          if gh api --silent --method DELETE "repos/\${GITHUB_REPOSITORY}/git/refs/heads/security%2Faudit-hardening-2026-11-20"; then
+            echo "Obsolete audit branch removed; main remains the sole maintained branch."
+          else
+            echo "::warning::The obsolete audit branch could not be removed automatically."
+          fi

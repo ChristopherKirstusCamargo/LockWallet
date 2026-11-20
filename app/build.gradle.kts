@@ -18,8 +18,8 @@ android {
         applicationId = "com.lockwallet.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 8
-        versionName = "5.0.1"
+        versionCode = 9
+        versionName = "Final"
     }
 
     // Release signing is opt-in: pass -Plockwallet.signingProps=/path/outside/repo/signing.properties.

@@ -10,8 +10,9 @@
 | Plataforma | Android 12+ (API 31) |
 | Rede | Solana Mainnet |
 | Pacote | `com.lockwallet.app` |
-| SHA-256 do APK | Consulte `lockwallet.apk.sha256` na Release mais recente |
-| SHA-256 do certificado | `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13` (5.0.1) |
+| Versão pública | Final (a Release é atualizada a cada publicação) |
+| SHA-256 do APK | Confira o hash informado na descrição da Release final |
+| SHA-256 do certificado | `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13` |
 | Licença | Apache-2.0 |
 
 ---
@@ -58,11 +59,11 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 
 ### Instalação
 
-1. Baixe `lockwallet.apk` na [página de Releases](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) ou pelo [download direto da versão mais recente](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
-2. Baixe também `lockwallet.apk.sha256` na mesma Release e confira o arquivo com `sha256sum`, `shasum -a 256` ou `Get-FileHash -Algorithm SHA256`.
-3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado da 5.0.1 é `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+1. Baixe o único arquivo `lockwallet.apk` na [Release oficial](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) ou pelo [link direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
+2. Confira o SHA-256 do arquivo com o hash informado na descrição da Release.
+3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado atual é `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
-**Migração da 5.0.0:** a 5.0.1 usa um novo certificado de assinatura. O Android não permite instalá-la como atualização sobre a 5.0.0. Antes de desinstalar a versão antiga, faça backup da frase de recuperação ou Recovery Package e confirme que consegue restaurá-lo. Não desinstale antes de verificar o backup; nunca compartilhe as palavras ou o pacote de recuperação.
+**Migração de instalações antigas:** se o Android informar incompatibilidade de assinatura ao atualizar, a instalação anterior foi assinada por outro certificado. Antes de desinstalar a versão antiga, faça backup da frase de recuperação ou do Recovery Package e confirme que consegue restaurá-lo. Não desinstale antes de verificar o backup; nunca compartilhe as palavras ou o pacote de recuperação.
 
 ### Como usar
 
@@ -208,11 +209,11 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 
 ### Installation
 
-1. Download `lockwallet.apk` from the [GitHub Releases page](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) or the [direct download for the latest release](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
-2. Download `lockwallet.apk.sha256` from the same Release and verify the APK with `sha256sum`, `shasum -a 256`, or `Get-FileHash -Algorithm SHA256`.
-3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint for 5.0.1 is `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+1. Download the only file, `lockwallet.apk`, from the [official Release](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) or the [direct download link](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
+2. Compare the APK's SHA-256 with the hash shown in the Release description.
+3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint is `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
-**Migration from 5.0.0:** 5.0.1 uses a new signing certificate. Android will not install it as an update over 5.0.0. Before uninstalling the old version, back up the recovery phrase or Recovery Package and confirm that it can be restored. Do not uninstall before verifying the backup; never share the recovery words or package.
+**Migrating older installations:** if Android reports a signature mismatch during an update, the previous installation was signed with a different certificate. Before uninstalling it, back up the recovery phrase or Recovery Package and confirm that it can be restored. Never uninstall before verifying the backup, and never share recovery words or the package.
 
 ### Usage
 
