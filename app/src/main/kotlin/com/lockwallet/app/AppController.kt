@@ -15,6 +15,7 @@ import com.lockwallet.custody.local.api.RecoveryException
 import com.lockwallet.custody.local.api.CustodyProviderId
 import com.lockwallet.custody.local.api.WalletInfo
 import com.lockwallet.custody.local.keystore.AuthMode
+import com.lockwallet.custody.local.material.AccountProfile
 import com.lockwallet.custody.local.material.DiscoveredAccount
 import com.lockwallet.custody.local.material.MaterialException
 import com.lockwallet.custody.local.material.PendingMaterial
@@ -70,7 +71,6 @@ sealed interface Screen {
     data object Quiz : Screen
     data object RestoreMethod : Screen
     data class RestoreInput(val kind: RestoreKind) : Screen
-    data object Discovery : Screen
     data object Name : Screen
     data object PinCreate : Screen
     data object BioChoice : Screen
@@ -329,7 +329,7 @@ class AppController(
 
     fun quizPassed() {
         val d = draft ?: return
-        d.account = d.material!!.discover(1).first()
+        d.account = d.material!!.account(AccountProfile.PRIMARY, 0)
         d.quiz.forEach { it.wipe() }; d.quiz = emptyList()
         go(Screen.Name)
     }
@@ -339,15 +339,24 @@ class AppController(
         val d = draft ?: return@launchOp
         try {
             d.material?.close()
-            d.material = io {
-                when (kind) {
+            val restored = io {
+                val material = when (kind) {
                     RestoreKind.PHRASE -> PendingMaterial.fromPhrase(input)
                     RestoreKind.PRIVATE_KEY -> PendingMaterial.fromBase58PrivateKey(input)
                     RestoreKind.KEYPAIR_JSON -> PendingMaterial.fromKeypairJson(input)
                     RestoreKind.LWRP -> throw IllegalStateException("LWRP uses submitLwrp")
                 }
+                try {
+                    val profile = if (material.isMnemonic) AccountProfile.PRIMARY else AccountProfile.NONE
+                    material to material.account(profile, 0)
+                } catch (e: Exception) {
+                    material.close()
+                    throw e
+                }
             }
-            go(Screen.Discovery)
+            d.material = restored.first
+            d.account = restored.second
+            go(Screen.Name)
         } finally {
             input.fill('\u0000')
         }
@@ -365,8 +374,6 @@ class AppController(
             password.fill('\u0000')
         }
     }
-
-    fun chooseAccount(a: DiscoveredAccount) { draft?.account = a; go(Screen.Name) }
 
     fun submitName(name: String) {
         val d = draft ?: return

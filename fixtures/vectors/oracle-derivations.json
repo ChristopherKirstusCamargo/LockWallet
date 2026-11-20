@@ -26,7 +26,7 @@
           "address": "BEwy4AwdmXGN43sYbEm6Fwuy6zo1DQ25962Fx3xfQSwm"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "35rMYNoci8BSzJ1pPbxht5igmHcSMu6ZHhaNdjXjCtKC"
@@ -38,7 +38,7 @@
           "address": "HoRQEyzvRPtUL9Y9eSwiB299TVRsWVMtMH49XF4TW3ch"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "8BE1XL1j1QCJ2UADxXNYj3GXyA1r3Zunzc8cGPeDPFqQ"
@@ -50,7 +50,7 @@
           "address": "DPZsKDMbSj2HAVcdLw5cHeAx16RvZyi1gMcRQ6m2zRr4"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "8R3FjRZ54SfDGPVBPLFxiScMBAJXXzzAmjYjWnu2YzWc"
@@ -62,7 +62,7 @@
           "address": "U5mskxTSwuzUpNXG29qtxNKL8eG73kXaiAeTY9ozpHK"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "3jyufSebXmGr3PGwcXFTWH3Vwkjjs4PwqNT3BXVzKJt8"
@@ -81,7 +81,7 @@
           "address": "98d3ZgyEDGkAcnP7FgQK8rvpEFt7UyDcDPQ7sGXLeRvW"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "EcrFmw7JXGbqiaSMfvn9sMYmv19dLYEUjtWBkxhzkpWL"
@@ -93,7 +93,7 @@
           "address": "83cPqnD8hPhMjCxZZ4pssUhcJdcWLPTfAhvVrBL1nUj4"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "7jnTkckyiQxYnp3ACEYLoQ4jgAYgBwYWtWMrsAFeoJPp"
@@ -105,7 +105,7 @@
           "address": "Eqwp5Bi5JDmX5ZWNUHiiJuaP8kuKGPmGzSLUKKNNoijE"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "GqMS6kRZqD6f8cCT3eK7oxV11hNu4C5Vy516MY4Zoq1F"
@@ -117,7 +117,7 @@
           "address": "CdqhVs1uvdxBvcVzdbkzA2CCs6hzsYg1wDz7TSMj39yf"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "4V6REDpm5chZRcfB3CeMBKAT58ffUYR9KDF2pA9zi7cH"
@@ -136,7 +136,7 @@
           "address": "HAHC5UmRTdaBNGr9NcJsWxtKrpJ5GtYH3hsk9P4gt818"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "4gkBadjtDYv7HEYmbTr9VJ2ajUxiiaVCKVYf7BmMC54C"
@@ -148,7 +148,7 @@
           "address": "7D64tkZwCUZuy2umz9tcC9ae78gmBKtuE33UQbhMjLbe"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "7XjZRW1covgX5gj97K8H5QvbRdESn735kmQkRqhByjBu"
@@ -160,7 +160,7 @@
           "address": "2JzHrM41ng8E3fGonCytVsGsu2Po6wikXSGWSXyvgwkg"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "88fvVFufCbbZcxi63YtMcnN4rb19jkj3FgoWXzK2KxXr"
@@ -172,7 +172,7 @@
           "address": "542VcJNxky3M19exyoA6TfKBAztxWL5Svo7xaFzjFtsR"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "D5be2z593BBVBYPcJHgV6inhfKqv1crJpwXJcnUiieYp"
@@ -191,7 +191,7 @@
           "address": "AjN15V5eQD7gsHoze6JVH8NgPGQ5nxhLdKDNh4qMFcQN"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "Au4DWjhaBs7vdkRrVZHF6KuHKHcSUqK5qwF5wF2kr7mX"
@@ -203,7 +203,7 @@
           "address": "AeLdKwfnJyuZq4YGhmgp9yTAzRfBzAaLJTAPkRnvaPtS"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "DtxSN6L3cNGETcvVQG3jeZtUVhnU4yM56MaZ26yvb6dk"
@@ -215,7 +215,7 @@
           "address": "9FbYvJKGtFGhiicZaT6gwXjT8FvK2TKT3CPzFGwCX64D"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "Hrrt95uRB9Xekq42fx3XxgxqUxW94HLAWwmgiEubsBd5"
@@ -227,7 +227,7 @@
           "address": "BNBxGpZ7TS3YMaaqtcCnYHys9H9qVgLEk2BTWyJ91HFQ"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "3QCKrefHBwevc1Q5D5srUNeCjvT12uMiyWud4kp9iWyK"
@@ -246,7 +246,7 @@
           "address": "E56jY4RYYDJ4vZr1Y5Ca31PLTXUM1Jna4qJLMPrKcJeT"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "FxLYGHH79EWs3yjbeUu1kU8JRnt29vsFxijisgKuLyDu"
@@ -258,7 +258,7 @@
           "address": "9sPG1QqXskjd2GMqNm6TroHdc5qWUmg87yKKKPtv7iLy"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "FAbQjC4xanZVXsumsB4c8RiVtk1hG3hCyTpUyrCqQSM3"
@@ -270,7 +270,7 @@
           "address": "DVbQ1ZPSXk5z1SDLu9eSZjj4hSBCEnDxj3Ha1GmLMP9R"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "8Nby62E2nSLM2GBhaSnPn1PCSo98SReziLztbMFCuUMW"
@@ -282,7 +282,7 @@
           "address": "6RoTdcRwiomm7UtAnhczpNVrdAoqoqnN7NYujwoZRAwY"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "63LZ7UPZTH7X4pgsaV2VbndLeLk3MRhqkWYigrhomvtA"
@@ -301,7 +301,7 @@
           "address": "BpHBKuBRiw7ovpvjfAbQDaKjPSHNJP99vZydZmyL9TCZ"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "43utt7JLjhgDUAXEvKHPBe3pARHeKvfP6zhwcvNSRHbu"
@@ -313,7 +313,7 @@
           "address": "9QZTjBuMXkU3g2m8kz7Bk5bNt6ujio75Gbom8GGRzng5"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "AJu7LtPLaFy95gwsg81Xx62YhKT5Kf3s8gjqLKKM1GQL"
@@ -325,7 +325,7 @@
           "address": "DHVf1XCJ1P1Uj8TQ5rgBPQ6qqJoWx2URg65W3CA7PM5T"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "6eN8z3y7PHYHUGJwVimecKkHunAiUpzGczzLCBuU4Hpb"
@@ -337,7 +337,7 @@
           "address": "3GQYuBDcbez4CQzR9NwkjoXdxfSLX8pBFTo8ZQbKMkRb"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "GBYDy2wGDY8gNt1i3GsRw4CaoiKduohMk5a8WgkzNsUK"
@@ -356,7 +356,7 @@
           "address": "7cjdSAoiQXmNXz7t5jzYU6PQgF987cz1k8utMAaQuaNn"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "6mbGRzcmGd7wsyeXF7f96LepBmsLLqrLtKNcqsuQHicK"
@@ -368,7 +368,7 @@
           "address": "C4PZWQ1pQ9PrRnSfVh9uu6Sdwi3QDgY887n29MWffZHx"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "EQYzrWaHPoTejfKh6VXmUsguM3ojEwFxjG5HQW9FX7uV"
@@ -380,7 +380,7 @@
           "address": "GcyD5qVwdyXzcxYdFqVhMAYu42C3n9wkQ7PVAyCVrM7Q"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "EXstXkm7AQyF1hnz1m6rWyPVWJ6RV4zZ2thb4XGzYAFf"
@@ -392,7 +392,7 @@
           "address": "B65bzpfp843Bh2kLWv3jQAmka6JQ25gg6Ma93pZ4i2xz"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "gGsB3DmwT8eXsXWhX4STtV3NCFPpHdQedHeWYbSceTk"
@@ -411,7 +411,7 @@
           "address": "47gxBtm9NSAWmPcBHZAFExVe8dENWahcrDiGXqDUNRQP"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "AmXCX32JUfeN8T364ndUYfefNhHNJnLazPzXgQiqmez9"
@@ -423,7 +423,7 @@
           "address": "J6hrA5kR3H7z2NGHtaTE4vGLfNnUp3q1hSd6MHVTo7h8"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "6vnUh7oBJ6XW4DvRDDzuDzjXkzYhhn3xCvDLFviPjBgg"
@@ -435,7 +435,7 @@
           "address": "ExrGzBZZLsm9NczzV1KDMLxPCNU1NepZGQuKDrqFF9gg"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "9794MBogk4U4RCDaB2geVSwGgs8hXXcKA46vcAWsUrSZ"
@@ -447,7 +447,7 @@
           "address": "DdjdQoQXV8Ec42EAAEqQCEDEV9mH1jX5yB96kHpP2y5b"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "8QZjKD3AxXH2NEPh4Wph2RVEhkKawhuNyjPQqt4B4eWR"
@@ -466,7 +466,7 @@
           "address": "9PAQeRhDfc5KLr83NU4gs8m8Hw1tUPo1nJsY4NcrU847"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "J1juAcuJwxCPFs1XodcDZTPYZwBhTrvJmKV3ebVs7HcY"
@@ -478,7 +478,7 @@
           "address": "RCFan8AF98XgeG3mSYc4Nm42wDDABJUowgAR4koxbA3"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "HM8QftmaMgNVBFyi4jNahM1iothqJKkNwu5gzVFLAWmW"
@@ -490,7 +490,7 @@
           "address": "9G6fWTcwz3ScFv2T9WJ9AoXqY38maavCXBjoBoqhGN91"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "BTGwcwtSTjfy5ujHENYn26jEHiz4ugZg5HPfa4eyGW2V"
@@ -502,7 +502,7 @@
           "address": "GRJoBhAHYxnrJtLnF3kBxM2vbMHdq2QDFUJZGCP4qsBy"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "DLQgHhNxRxdRD3dKxry2MFoWgQVrpMAzcLVGNvqN1iiK"
@@ -521,7 +521,7 @@
           "address": "6WBATRLDkoD9FxBoMZLEDdbNuyJwuqQbzGfG1sjpg34x"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "HPurC9xtdKUKLhrwSaN1z26QuLcmPW346Axjv9zatUBs"
@@ -533,7 +533,7 @@
           "address": "4fKXGRJV4BQHaJ8rGxfLs1MjeQNN2skP1PMbkBegRqYW"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "9gv78FE5heyUF6EdAJnCiEcxHLugMK9gnRFp4AwGV5Gg"
@@ -545,7 +545,7 @@
           "address": "EFnNXcHjzL4H4REFySRpAUYQVr3VGqKeAvsLgPrBjM9M"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "FPVkEkp3P4FCJLeC9QqXhhPi8zs9DNc6Ayc3QpUkiqqY"
@@ -557,7 +557,7 @@
           "address": "BfsQMYGTFgG4Dvh11ue1Ta6RG5cCWc7tbnx4HkYvZtRz"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "6fQbtxFdv124Gep5VyJR15ezWWh37KeXPfnvQXkD8qNK"
@@ -576,7 +576,7 @@
           "address": "7qPk8P1CwG2sjsKgxDN9MWgB8GapBm6hFkZjbPKS74MT"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "2aTHRZuwm48EsFfSBBi3D5FsebW9RtQV4h1mbeFxig7Y"
@@ -588,7 +588,7 @@
           "address": "DWURxnxusFRxi9xcVa7cPNvUDhycHXaNMqHueGWCE5m5"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "8FhmhGYU1H5s5QD3pYGE4iLQG46sMn2BF21Rf6oMiNQP"
@@ -600,7 +600,7 @@
           "address": "6nZtXtvtz9CoRGRpKTHPq78gQyAvwSmptoTN5ivAoVBJ"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "5zLLkGsiAk8TVoWM4QGje3sKCCpaU7K39goNRDksdNQz"
@@ -612,7 +612,7 @@
           "address": "FA49anVyJRMozhECzJnBMXu4nyoGvCszH4PuyskqVpgt"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "B13caoFxExt1D8ExA5FyFkuQRh1RxGsPaFMNMdBEoYv3"
@@ -631,7 +631,7 @@
           "address": "2ADqJtGmVVArtAPzjYtUTNcxiBtBvEYxRxSim6ktvorC"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "Dvi5qWaBqAXU3bHD6Jq4mPt5vjsJa7v553crFSS4aZfh"
@@ -643,7 +643,7 @@
           "address": "BKpT8RvEEaFH4CNRpHgMwWnpxGvYbmM2qwpwcA5nHhw8"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "AQFtpkRxdUaaNrnZ7D2LaVrJrTdvLbPELYLEAXnTiJcJ"
@@ -655,7 +655,7 @@
           "address": "E4g65KuASuvtSBk9XXEhL7oXEenyUiZ38ZMkjXKs9E93"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "GfXhHQTqP2gGGpnpxw3aGvHkTpTJawhZxJgPDcAc7ZcJ"
@@ -667,7 +667,7 @@
           "address": "891n1nJno5o9KkSkCgbX4ceJZ8awLYHaeqFgUDXDk1zp"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "4kaf23WgHy4Lf4ptuBcpKsjJZYHAJsAdvwcDJ2pJsCZH"
@@ -686,7 +686,7 @@
           "address": "HB7SXjtjn7sLvvfJ1cRwuJrrMJq3qQw79cCHS7AHSAxS"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "DdUoGtWUq3unL3xED3RQUNh9De8kYVJJC3Bn6ktwmvNY"
@@ -698,7 +698,7 @@
           "address": "C16fANg2vGyEmnVubWi4f6CjQdnZt4te6ham6BasfJvn"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "EZg5MtXLFq85muQpujhhgFUJstZ8bdyYLL3D9yyPRCKJ"
@@ -710,7 +710,7 @@
           "address": "3AnRJ4UVEq2DunR3R714cFZ4i3cYbgarnXGAwJcqMktA"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "CqXbnP223jw6nHEGz7eWFHScKkGxsXUGeZxQqNisdDgR"
@@ -722,7 +722,7 @@
           "address": "9ECAZgmZeHwuXS79SjXpiVV1eiS5q62zZKMtdUJSKBuc"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "3McXXWF7pY5Wrxznjuz3Q7jP9HjetftQeuiGY7bqRkb4"
@@ -741,7 +741,7 @@
           "address": "5CKB1P5x9iRWoyMboS4HVUUrobyFi251xkFDXf3vm64q"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "Ap2gcPnMAjZBpVMajvob5kjWNtYfwayyibZWZDVvm8hW"
@@ -753,7 +753,7 @@
           "address": "D5bkaTi2FekecU7kV1Nr5jDRvu8dMdWM7tbRw4x2fgtw"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "HBkJLtj8JvtyPYViAeUuirTeapvZNcfVmwjC6bfBoE95"
@@ -765,7 +765,7 @@
           "address": "BE6A3g8qqpTPj33JVbkMXWndrKYtjTY8TameWQZm8XYm"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "A9h9m731iWXzEzDTPpk94hcnYt9u8xrqVJkLMmnYmi9Z"
@@ -777,7 +777,7 @@
           "address": "ERhZHpnorSGxhXPwTz4tEbkXkohEg7LU3A69ydUSGYBu"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "GDv2qy3e6LHKibSEESb2xjz9EknB1LaEwUHtf2TCDJxc"
@@ -796,7 +796,7 @@
           "address": "DFLYK7m3oFsPq5YhcuhpQAycRgMLBTUuupfUDP6Nw6yf"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 0,
           "path": "m/44'/501'/0'",
           "address": "9rp4BGMRYuhK7oig5JRUDZWtGcPixLY226KSyqu475ia"
@@ -808,7 +808,7 @@
           "address": "Do5F4DCuDsxkw1vEWzwfryaZZKfhvKpRLJ1reJVKAzy8"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 1,
           "path": "m/44'/501'/1'",
           "address": "GZBWEhAfcHiraZctwz9iibcBzBKp9DWyMSQpqnjLNneC"
@@ -820,7 +820,7 @@
           "address": "3fyjR8fvWdNncqJpkMPBsQQWw8ABpXaJrYqianLKYxkd"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 7,
           "path": "m/44'/501'/7'",
           "address": "CQGVomgmdWYGMhGgoYsHfP4yj1Wr19pg8cp841RaRjLF"
@@ -832,7 +832,7 @@
           "address": "6cD6YAKukJs2hUqLJLX8x3jUZLjbMBeWHMf63dteofHa"
         },
         {
-          "profile": "LEGACY_LEDGER",
+          "profile": "COMPATIBILITY",
           "account_index": 2147483647,
           "path": "m/44'/501'/2147483647'",
           "address": "BHw7tMcGLRAJ7iMJ3LaeBY8za6o2MVmz7uX6S6G9Epu8"

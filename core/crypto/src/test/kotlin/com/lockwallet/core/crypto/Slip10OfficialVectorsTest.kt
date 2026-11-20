@@ -43,10 +43,10 @@ class Slip10OfficialVectorsTest {
     @Test fun profilesMapToExactPaths() {
         assertEquals("m/44'/501'/0'/0'", DerivationProfile.PRIMARY.path(0).toString())
         assertEquals("m/44'/501'/7'/0'", DerivationProfile.PRIMARY.path(7).toString())
-        assertEquals("m/44'/501'/0'", DerivationProfile.LEGACY_LEDGER.path(0).toString())
+        assertEquals("m/44'/501'/0'", DerivationProfile.COMPATIBILITY.path(0).toString())
         assertThrows(IllegalArgumentException::class.java) { DerivationProfile.PRIMARY.path(-1) }
         assertEquals(DerivationProfile.PRIMARY, DerivationProfile.ofId(1))
-        assertEquals(DerivationProfile.LEGACY_LEDGER, DerivationProfile.ofId(2))
+        assertEquals(DerivationProfile.COMPATIBILITY, DerivationProfile.ofId(2))
         assertEquals(null, DerivationProfile.ofId(0))
     }
 

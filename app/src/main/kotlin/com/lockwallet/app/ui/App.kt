@@ -61,7 +61,7 @@ fun Modifier.shared(key: String): Modifier {
 /** Navigation depth: forward = slide in from the right, back = from the left. */
 private fun depth(s: Screen): Int = when (s) {
     Screen.Home, Screen.Lock -> 0
-    Screen.Review, Screen.Quiz, Screen.Discovery, Screen.Name, Screen.ShowPhrase -> 3
+    Screen.Review, Screen.Quiz, Screen.Name, Screen.ShowPhrase -> 3
     is Screen.TxStatus, Screen.PinCreate, Screen.BioChoice -> 4
     is Screen.Authorize -> 5
     Screen.Role, Screen.Warning, is Screen.RestoreInput, Screen.SeedVaultSetup, Screen.Length -> 2
@@ -141,7 +141,6 @@ private fun ScreenContent(c: AppController, p: Platform, screen: Screen) {
         Screen.Quiz -> Quiz(c)
         Screen.RestoreMethod -> RestoreMethod(c)
         is Screen.RestoreInput -> RestoreInput(c, p, s.kind)
-        Screen.Discovery -> Discovery(c)
         Screen.Name -> NameWallet(c)
         Screen.PinCreate -> PinCreate(c)
         Screen.BioChoice -> BioChoice(c)

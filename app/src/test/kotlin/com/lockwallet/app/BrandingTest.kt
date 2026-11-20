@@ -29,7 +29,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class BrandingTest {
     private val ctx = ApplicationProvider.getApplicationContext<Context>()
-    private val banned = Regex("devnet|testnet", RegexOption.IGNORE_CASE)
+    private val banned = Regex("devnet|testnet|phantom|solflare|backpack|ledger|metamask|trust\\s+wallet|uniswap|exodus|coinbase\\s+wallet", RegexOption.IGNORE_CASE)
 
     @Test fun appLabelIsExactlyLockWallet() {
         assertEquals("Lock Wallet", ctx.packageManager.getApplicationLabel(ctx.applicationInfo).toString())
@@ -38,7 +38,7 @@ class BrandingTest {
         assertEquals("Lock Wallet", main.loadLabel(ctx.packageManager).toString())
     }
 
-    @Test fun noUserVisibleStringMentionsTestNetworks() {
+    @Test fun noUserVisibleStringContainsExternalWalletBranding() {
         // 1) Every string resource of the app (all qualifiers).
         val res = File(System.getProperty("lockwallet.resDir")!!)
         val xml = res.walkTopDown().filter { it.isFile && it.extension == "xml" && it.parentFile!!.name.startsWith("values") }.toList()

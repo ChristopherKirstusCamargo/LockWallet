@@ -253,17 +253,13 @@ object Help {
         "Uma segunda forma de recuperação, útil principalmente para carteiras importadas por chave privada, que não têm frase.",
         "Exporte para um pendrive e guarde a senha de 8 palavras num papel em outro lugar.")
     val PRIVATE_KEY = t("Chave privada",
-        "Uma sequência longa que controla um único endereço. Vem de outras carteiras ou ferramentas.",
-        "Trazer uma conta que você só tem em forma de chave. Ela não tem frase, então faça um Recovery Package depois.",
-        "Você exportou a chave da sua carteira antiga: cole aqui e a mesma conta aparece na Lock Wallet.")
+        "Uma chave que controla um único endereço.",
+        "Restaurar um endereço existente. Como não há frase de recuperação, faça um Recovery Package depois.",
+        "Importe a chave e confira se o endereço exibido é o esperado.")
     val KEYPAIR_JSON = t("Arquivo keypair",
         "Um arquivo .json com 64 números, usado por ferramentas de desenvolvedor da Solana.",
         "Importar contas criadas pela linha de comando.",
         "Você tem “id.json” do solana-keygen: escolha o arquivo e a conta é importada.")
-    val DISCOVERY = t("Escolher conta",
-        "Uma mesma frase gera várias contas. Mostramos as primeiras para você escolher qual restaurar.",
-        "Carteiras diferentes numeram as contas de jeitos diferentes; aqui você vê os dois padrões e o saldo de cada uma.",
-        "Sua conta antiga tinha saldo: escolha a linha que mostra esse saldo.")
     val BACKUP_REQUIRED = t("Backup obrigatório",
         "Esta carteira ainda não tem uma cópia de segurança fora do aparelho.",
         "Se o celular for perdido sem backup, o dinheiro é perdido para sempre — ninguém consegue recuperar.",

@@ -92,10 +92,6 @@ object S {
     const val PRIVKEY_INPUT = "Cole a chave privada (Base58)"
     const val PICK_FILE = "Escolher arquivo"
     const val LWRP_PASSWORD = "Senha do Recovery Package"
-    const val DISCOVERY_TITLE = "Escolha a conta"
-    const val DISCOVERY_NOTE = "Uma mesma frase gera várias contas. Escolha a que você usava — normalmente a Conta 1."
-    const val DISCOVERY_PRIMARY = "Padrão (Phantom, Solflare, Backpack)"
-    const val DISCOVERY_LEGACY = "Carteiras antigas"
 
     const val DETAIL_ADDRESS = "Endereço público"
     const val COPY_ADDRESS = "Copiar endereço"

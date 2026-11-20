@@ -62,7 +62,6 @@ import com.lockwallet.app.RestoreKind
 import com.lockwallet.app.Screen
 import com.lockwallet.custody.local.keystore.AuthMode
 import com.lockwallet.custody.local.BiometricAvailability
-import com.lockwallet.custody.local.material.AccountProfile
 import com.lockwallet.custody.local.storage.WalletRole
 import kotlinx.coroutines.delay
 import kotlin.math.cos
@@ -71,7 +70,7 @@ import kotlin.math.sin
 
 // ======================================================================= welcome
 
-/** First run: logo orbited by icon bubbles on concentric rings (Uniswap-like), then create / add existing. */
+/** First run: animated security emblem, followed by the create and restore actions. */
 @Composable
 fun Welcome(c: AppController) {
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -309,24 +308,6 @@ fun RestoreInput(c: AppController, p: Platform, kind: RestoreKind) {
                     p.openDocument { b -> file?.fill(0); file = b; if (b == null) c.error = S.BAD_FILE }
                 }
                 if (kind == RestoreKind.LWRP) Field(text, { text = it.take(300) }, S.LWRP_PASSWORD, secret = true)
-            }
-        }
-    }
-}
-
-@Composable
-fun Discovery(c: AppController) {
-    val m = c.draft?.material ?: return
-    val accounts = remember(m) { m.discover(10) }
-    var selected by remember { mutableStateOf(accounts.first()) }
-    Screen(S.DISCOVERY_TITLE, onBack = { c.go(Screen.RestoreMethod) }, help = Help.DISCOVERY,
-        bottom = { Primary(S.CONTINUE, tag = "discovery-continue") { c.chooseAccount(selected) } }) {
-        for (profile in listOf(AccountProfile.PRIMARY, AccountProfile.LEGACY, AccountProfile.NONE)) {
-            val list = accounts.filter { it.profile == profile }
-            if (list.isEmpty()) continue
-            Label(when (profile) { AccountProfile.PRIMARY -> S.DISCOVERY_PRIMARY; AccountProfile.LEGACY -> S.DISCOVERY_LEGACY; else -> "Chave importada" })
-            list.forEach { a ->
-                ChoiceCard("Conta ${a.index + 1}", shortAddress(a.address.toBase58()), Ic.WALLET, selected == a) { selected = a }
             }
         }
     }

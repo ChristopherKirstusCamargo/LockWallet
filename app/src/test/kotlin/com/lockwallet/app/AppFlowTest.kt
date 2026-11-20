@@ -8,6 +8,7 @@ import com.lockwallet.custody.local.keystore.AuthMode
 import com.lockwallet.custody.local.keystore.KekException
 import com.lockwallet.custody.local.keystore.KekOperation
 import com.lockwallet.custody.local.keystore.KekStore
+import com.lockwallet.custody.local.material.AccountProfile
 import com.lockwallet.custody.local.keystore.KeySecurityLevel
 import com.lockwallet.custody.local.pin.AttemptClock
 import com.lockwallet.custody.local.storage.WalletRole
@@ -198,19 +199,20 @@ class AppFlowTest {
         assertEquals(Screen.Home, c.screen)
     }
 
-    @Test fun restoreByPhraseWithDiscoveryAndExportPreparation() {
+    @Test fun restoreByPhraseSelectsOnePrimaryAccountAndPreparesExport() {
         val c = controller()
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "Neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); c.await()
-        assertEquals(Screen.Discovery, c.screen)
-        val accounts = c.draft!!.material!!.discover(10)
-        assertEquals(20, accounts.size)
-        c.chooseAccount(accounts[1])
+        assertEquals(Screen.Name, c.screen)
+        val restored = c.draft!!.account!!
+        assertEquals(AccountProfile.PRIMARY, restored.profile)
+        assertEquals(0, restored.index)
+        assertEquals(c.draft!!.material!!.account(AccountProfile.PRIMARY, 0), restored)
         c.submitName("Restaurada")
         c.setNewPin(pin("480917"))
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
         val id = (c.screen as Screen.Detail).walletId
-        assertEquals(1, c.wallets.single().accountIndex)
+        assertEquals(0, c.wallets.single().accountIndex)
         // Export: authorise, seal LWRP, the destination picker is requested with a .lwrp name.
         c.submitPin(pin("480917"), AuthPurpose.ExportLwrp(id)); c.await()
         assertEquals(Screen.Export(id), c.screen)

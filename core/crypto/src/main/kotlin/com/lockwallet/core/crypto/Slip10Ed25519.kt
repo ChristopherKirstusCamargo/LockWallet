@@ -13,14 +13,14 @@ enum class DerivationProfile(val id: Int) {
     /** Lock Wallet default: m/44'/501'/i'/0'. */
     PRIMARY(0x01),
 
-    /** Labelled compatibility path (Ledger-style): m/44'/501'/i'. Never mixed with PRIMARY. */
-    LEGACY_LEDGER(0x02);
+    /** Compatibility path: m/44'/501'/i'. Never mixed with PRIMARY. */
+    COMPATIBILITY(0x02);
 
     fun path(accountIndex: Int): HardenedPath {
         require(accountIndex >= 0) { "account index must be in 0..2^31-1" }
         return when (this) {
             PRIMARY -> HardenedPath(intArrayOf(44, 501, accountIndex, 0))
-            LEGACY_LEDGER -> HardenedPath(intArrayOf(44, 501, accountIndex))
+            COMPATIBILITY -> HardenedPath(intArrayOf(44, 501, accountIndex))
         }
     }
 
