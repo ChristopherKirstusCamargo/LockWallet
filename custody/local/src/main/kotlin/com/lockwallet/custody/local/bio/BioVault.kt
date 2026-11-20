@@ -236,20 +236,21 @@ class BioVault(
         if (record != null && referenceAlias != null && !record.aliasId.contentEquals(referenceAlias)) {
             throw IllegalStateException("biometric record conflicts with its key reference")
         }
+        val policyAlias = state()?.aliasId
+        val identifiedAlias = record?.aliasId ?: referenceAlias ?: readTemporaryRecordAlias(walletIdHex)
+        if (policyAlias != null && identifiedAlias != null && identifiedAlias.contentEquals(policyAlias)) {
+            // v5.0.2 shared the policy key across wallets. It cannot erase one wallet in isolation, so erase the
+            // shared key and all biometric records rather than claiming that this single record was crypto-erased.
+            disable()
+            return
+        }
         // The persistent key reference allows removal even if the ciphertext itself is damaged.
-        removeInterruptedRecordTemp(walletIdHex, record?.aliasId ?: referenceAlias)
+        removeInterruptedRecordTemp(walletIdHex, record?.aliasId ?: referenceAlias ?: identifiedAlias)
         if (record == null) {
             if (file.exists()) {
                 if (referenceAlias == null) throw IllegalStateException("cannot identify biometric record key")
                 if (!file.delete() && file.exists()) throw IllegalStateException("biometric record cleanup failed")
             }
-            return
-        }
-        val policyAlias = state()?.aliasId
-        if (policyAlias != null && record.aliasId.contentEquals(policyAlias)) {
-            // v5.0.2 shared the policy key across wallets. It cannot erase one wallet in isolation, so erase the
-            // shared key and all biometric records rather than claiming that this single record was crypto-erased.
-            disable()
             return
         }
         keys.delete(record.aliasId)
@@ -290,6 +291,21 @@ class BioVault(
         return alias
     }
 
+    private fun readTemporaryRecordAlias(walletIdHex: String): ByteArray? {
+        val temp = File(dir, "$walletIdHex.lwbio" + AtomicFiles.TMP_SUFFIX)
+        if (!temp.exists()) return null
+        val bytes = temp.readBytes()
+        if (bytes.size < 37) throw IllegalStateException("interrupted biometric record header unreadable")
+        val bb = ByteBuffer.wrap(bytes)
+        if (bb.int != BioRecord.MAGIC || bb.get() != BioRecord.VERSION) {
+            throw IllegalStateException("interrupted biometric record header invalid")
+        }
+        val wallet = ByteArray(16).also { bb.get(it) }
+        if (hex(wallet) != walletIdHex) throw IllegalStateException("interrupted biometric record wallet mismatch")
+        bb.position(21)
+        return ByteArray(16).also { bb.get(it) }
+    }
+
     private fun removeInterruptedRecordTemp(walletIdHex: String, expectedAlias: ByteArray? = null) {
         val marker = recordKeyReferenceFile(walletIdHex)
         val aliasReference = readRecordKeyReference(walletIdHex)
@@ -328,11 +344,14 @@ class BioVault(
 
     /** Encrypts [material] for [walletId] with a fresh per-wallet Keystore key (no prompt). */
     fun write(walletId: ByteArray, header: ByteArray, material: SecretBytes) {
-        val s = state() ?: return
+        if (state() == null) return
         require(walletId.size == 16)
         val walletIdHex = hex(walletId)
         val target = recordFile(walletIdHex)
         if (target.exists()) remove(walletIdHex) else removeInterruptedRecordTemp(walletIdHex)
+        // Removing a legacy shared-key record disables all biometrics. Never recreate a record unless the policy
+        // state still exists after that cleanup.
+        val s = state() ?: return
 
         var recordAlias: ByteArray
         do { recordAlias = ByteArray(16).also(random::nextBytes) }
