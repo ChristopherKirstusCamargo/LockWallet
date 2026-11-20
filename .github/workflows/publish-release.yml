@@ -15,6 +15,7 @@ on:
       - 'settings.gradle.kts'
       - 'gradlew'
       - 'tools/**'
+      - 'fixtures/**'
       - '.github/workflows/publish-release.yml'
       - 'signing/lockwallet-release.p12.enc'
 
