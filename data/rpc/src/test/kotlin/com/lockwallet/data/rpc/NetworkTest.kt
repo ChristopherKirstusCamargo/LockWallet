@@ -150,7 +150,7 @@ class NetworkTest {
         for (answers in listOf(
             arrayOf(private),
             arrayOf(public, private),
-            arrayOf(InetAddress.getByAddress(byteArrayOf(169.toByte(), 254.toByte(), 169.toByte(), 254))),
+            arrayOf(InetAddress.getByAddress(byteArrayOf(169.toByte(), 254.toByte(), 169.toByte(), 254.toByte()))),
             arrayOf(InetAddress.getByAddress(byteArrayOf(100.toByte(), 64, 1, 2))),
             arrayOf(InetAddress.getByAddress(byteArrayOf(192.toByte(), 0, 2, 8))),
             arrayOf(InetAddress.getByAddress(byteArrayOf(203.toByte(), 0, 113, 9))),
