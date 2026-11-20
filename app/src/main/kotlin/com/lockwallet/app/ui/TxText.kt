@@ -74,6 +74,7 @@ object TxText {
         PrepBlocker.SIMULATION_UNAVAILABLE -> "Não foi possível testar a transação agora (sem conexão). Sem teste, nada é assinado."
         PrepBlocker.SIMULATION_SINGLE_SOURCE -> "Esta transação tem partes que a carteira não decodifica e só um servidor conseguiu testá-la. São necessários dois. Bloqueado."
         PrepBlocker.SIMULATION_DIVERGED -> "Os dois servidores deram resultados diferentes para esta transação. Bloqueado por segurança."
+        PrepBlocker.SIMULATION_ACCOUNT_LIMIT -> "Esta transação envolve mais contas do que a carteira consegue verificar nesta simulação. Bloqueado por segurança."
     }
 
     fun state(s: TransactionState): String = when (s) {
