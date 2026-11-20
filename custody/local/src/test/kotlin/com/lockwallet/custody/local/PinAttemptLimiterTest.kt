@@ -108,6 +108,10 @@ class PinAttemptLimiterTest {
         assertTrue(Pin.isTrivial("111111".toCharArray()))
         assertTrue(Pin.isTrivial("123456".toCharArray()))
         assertTrue(Pin.isTrivial("654321".toCharArray()))
+        assertTrue(Pin.isTrivial("121212".toCharArray()))
+        assertTrue(Pin.isTrivial("112233".toCharArray()))
+        assertTrue(Pin.isTrivial("010203".toCharArray()))
+        assertTrue(Pin.isTrivial("987654".toCharArray()))
         assertFalse(Pin.isTrivial("480917".toCharArray()))
     }
 }

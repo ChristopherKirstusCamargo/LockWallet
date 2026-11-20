@@ -151,12 +151,27 @@ class RpcClient(val url: String, private val transport: RpcTransport) {
     fun getTransaction(sig: String): TransactionDetail? {
         val r = call("getTransaction", """[${JsonOut.str(sig)},{"encoding":"json","commitment":"confirmed","maxSupportedTransactionVersion":0}]""", 1024 * 1024) ?: return null
         val o = J.obj(r); val meta = J.obj(o["meta"]); val msg = J.obj(J.obj(o["transaction"])["message"])
-        val keys = J.arr(msg["accountKeys"]).map { J.str(it) }
-        fun bal(n: String) = J.arr(meta[n]).map { J.long(it) }
+        val staticKeys = J.arr(msg["accountKeys"]).map { J.str(it) }
+        val loaded = meta["loadedAddresses"]?.let { J.obj(it) }
+        val loadedWritable = loaded?.get("writable")?.let { J.arr(it).map { key -> J.str(key) } }.orEmpty()
+        val loadedReadonly = loaded?.get("readonly")?.let { J.arr(it).map { key -> J.str(key) } }.orEmpty()
+        val keys = staticKeys + loadedWritable + loadedReadonly
+        if (keys.isEmpty() || keys.distinct().size != keys.size) J.bad("account keys")
+        fun bal(n: String): List<Long> = J.arr(meta[n]).map {
+            J.long(it).also { value -> if (value < 0L) J.bad("negative balance") }
+        }
         fun tok(n: String) = (meta[n] as? List<*>)?.map { t ->
             val to = J.obj(t); val ui = J.obj(to["uiTokenAmount"])
-            Triple(J.long(to["accountIndex"]).toInt(), to, J.str(ui["amount"]).toLongOrNull() ?: J.bad("amount")) to J.long(ui["decimals"]).toInt()
+            val rawIndex = J.long(to["accountIndex"])
+            if (rawIndex !in 0 until keys.size.toLong()) J.bad("token account index")
+            val amount = J.str(ui["amount"]).toLongOrNull() ?: J.bad("amount")
+            val decimals = J.long(ui["decimals"])
+            if (amount < 0L || decimals !in 0..255) J.bad("token balance")
+            Triple(rawIndex.toInt(), to, amount) to decimals.toInt()
         } ?: emptyList()
+        val preBalances = bal("preBalances")
+        val postBalances = bal("postBalances")
+        if (preBalances.size != keys.size || postBalances.size != keys.size) J.bad("transaction balance count")
         val pre = tok("preTokenBalances"); val post = tok("postTokenBalances")
         val idx = (pre.map { it.first.first } + post.map { it.first.first }).toSet()
         val changes = idx.map { i ->
@@ -164,7 +179,9 @@ class RpcClient(val url: String, private val transport: RpcTransport) {
             val src = (b ?: a)!!
             TokenBalanceChange(J.str(src.first.second["mint"]), src.first.second["owner"] as? String, a?.first?.third ?: 0, b?.first?.third ?: 0, src.second)
         }
-        return TransactionDetail(J.long(meta["fee"]), meta["err"]?.let { errText(it) }, J.longOrNull(o["blockTime"]), keys, bal("preBalances"), bal("postBalances"), changes)
+        val fee = J.long(meta["fee"])
+        if (fee < 0L) J.bad("negative transaction fee")
+        return TransactionDetail(fee, meta["err"]?.let { errText(it) }, J.longOrNull(o["blockTime"]), keys, preBalances, postBalances, changes)
     }
 
     /** Recent per-slot minimum priority fees (micro-lamports per CU) for transactions locking [writable]. */

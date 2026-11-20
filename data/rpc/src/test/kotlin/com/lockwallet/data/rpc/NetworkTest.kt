@@ -43,6 +43,21 @@ class NetworkTest {
         assertEquals(0, f.count("getBalance"))
     }
 
+    @Test fun genesisIsRecheckedAfterOneMinuteUsingMonotonicClock() {
+        val f = FakeRpc()
+        var now = 0L
+        f.on(FakeRpc.A, "getGenesisHash") { mainnet }
+        val n = NetworkManager(NetworkConfig(Cluster.MAINNET, FakeRpc.A, null), f, nowMs = { now })
+        n.primary(); n.primary()
+        assertEquals(1, f.count("getGenesisHash"))
+        now = NetworkManager.GENESIS_REVERIFY_MS + 1
+        n.primary()
+        assertEquals(2, f.count("getGenesisHash"))
+        now = 0L // A backwards clock must force a fresh genesis check, never extend the cache.
+        n.primary()
+        assertEquals(3, f.count("getGenesisHash"))
+    }
+
     @Test fun wrongGenesisBlocksAllCalls() {
         val f = FakeRpc(); f.on(FakeRpc.A, "getGenesisHash") { "\"${Cluster.TESTNET.genesisHash}\"" }
         val n = NetworkManager(NetworkConfig(Cluster.MAINNET, FakeRpc.A, null), f)
@@ -101,6 +116,21 @@ class NetworkTest {
         }
         val err = RpcClient(FakeRpc.A) { _, _, _ -> """{"jsonrpc":"2.0","id":1,"error":{"code":429,"message":"Too many requests"}}""" }
         try { err.getBlockHeight(); fail() } catch (e: RpcException) { assertEquals(RpcException.Kind.RATE_LIMITED, e.kind) }
+    }
+
+    @Test fun transactionHistoryRejectsMismatchedBalanceAndTokenIndices() {
+        fun response(meta: String): String = """{"jsonrpc":"2.0","id":1,"result":{"blockTime":null,"transaction":{"message":{"accountKeys":["11111111111111111111111111111111"]}},"meta":$meta}}"""
+        val mismatch = RpcClient(FakeRpc.A) { _, _, _ ->
+            response("""{"fee":5000,"err":null,"preBalances":[10,20],"postBalances":[5,20],"preTokenBalances":[],"postTokenBalances":[]}""")
+        }
+        try { mismatch.getTransaction("sig"); fail("balance length mismatch accepted") }
+        catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
+
+        val badIndex = RpcClient(FakeRpc.A) { _, _, _ ->
+            response("""{"fee":5000,"err":null,"preBalances":[10],"postBalances":[5],"preTokenBalances":[{"accountIndex":2,"mint":"11111111111111111111111111111111","uiTokenAmount":{"amount":"1","decimals":0}}],"postTokenBalances":[]}""")
+        }
+        try { badIndex.getTransaction("sig"); fail("out-of-range token index accepted") }
+        catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
     }
 
     @Test fun explorerLinksAreMainnet() {

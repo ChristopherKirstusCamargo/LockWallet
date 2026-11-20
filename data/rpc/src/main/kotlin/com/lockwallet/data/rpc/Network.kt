@@ -1,9 +1,8 @@
 package com.lockwallet.data.rpc
 
 /**
- * Solana Network Manager (ADR 0016/0020). Devnet and Testnet only; Mainnet is listed but locked: its genesis
- * hash is known only to *refuse* it (an endpoint answering with it is rejected), and no Mainnet URL exists
- * in the code (CI guard MAINNET). Genesis hashes verified 2026-11-19 (verification log G5-GENESIS).
+ * Solana Network Manager: Mainnet only for production transactions. Devnet/Testnet identifiers remain solely
+ * to recognise and reject endpoints that report another genesis hash.
  */
 /**
  * Solana clusters known by genesis hash. Since 2.0.0 the app runs on Mainnet only (ADR 0023): Devnet/Testnet stay
@@ -46,9 +45,12 @@ sealed interface EndpointCheck {
     data class OtherNetwork(val genesis: String, val known: Cluster?) : EndpointCheck
 }
 
-class NetworkManager(config: NetworkConfig, private val transport: RpcTransport, private val nowMs: () -> Long = System::currentTimeMillis,
+class NetworkManager(config: NetworkConfig, private val transport: RpcTransport, private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L },
                      private val sleeper: (Long) -> Unit = { Thread.sleep(it) }) {
-    companion object { const val RATE_LIMIT_BACKOFF_MS = 900L }
+    companion object {
+        const val RATE_LIMIT_BACKOFF_MS = 900L
+        const val GENESIS_REVERIFY_MS = 60_000L
+    }
     @Volatile var config: NetworkConfig = config
         private set
     private val verified = HashMap<String, Long>()
@@ -62,7 +64,7 @@ class NetworkManager(config: NetworkConfig, private val transport: RpcTransport,
         return if (g == cluster.genesisHash) EndpointCheck.Ok else EndpointCheck.OtherNetwork(g.take(64), Cluster.byGenesis(g))
     }
 
-    /** Client for the primary endpoint, genesis-verified (re-checked every 10 min). */
+    /** Client for the primary endpoint, genesis-verified (re-checked every minute). */
     fun primary(): RpcClient = verifiedClient(config.primaryUrl)
     /** Secondary (genesis-verified) or null if not configured / not answering. */
     fun secondaryOrNull(): RpcClient? = config.secondaryUrl?.let { u -> try { verifiedClient(u) } catch (_: RpcException) { null } }
@@ -94,7 +96,8 @@ class NetworkManager(config: NetworkConfig, private val transport: RpcTransport,
     private fun verifiedClient(url: String): RpcClient {
         val c = RpcClient(url, transport)
         val last = synchronized(verified) { verified[url] }
-        if (last == null || nowMs() - last > 600_000) {
+        val now = nowMs()
+        if (last == null || now < last || now - last > GENESIS_REVERIFY_MS) {
             if (c.getGenesisHash() == config.cluster.genesisHash) synchronized(verified) { verified[url] = nowMs() }
             else throw RpcException(RpcException.Kind.WRONG_NETWORK, "unexpected genesis hash")
         }

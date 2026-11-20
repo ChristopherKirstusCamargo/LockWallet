@@ -191,7 +191,7 @@ object Help {
         "Usar serviços da Solana sem entregar sua chave: cada pedido aparece aqui, é analisado e só é assinado com seu PIN.",
         "Um site de NFTs pede para conectar: você vê o nome, escolhe a carteira Connect e aprova. Cada compra pede confirmação.")
     val SESSION = t("Sessão de dApp",
-        "Uma conexão aprovada entre um app e sua carteira Connect. Ela expira em 24 horas.",
+        "Uma conexão aprovada entre um app e sua carteira Connect. Ela expira após 15 minutos.",
         "O app só vê seu endereço público. Revogar a sessão corta o acesso na hora.",
         "Não usa mais aquele jogo? Toque em Revogar e ele precisa pedir permissão de novo.")
     val UNVERIFIED_DAPP = t("Identidade do dApp",
@@ -245,9 +245,9 @@ object Help {
         "Impedir que alguém com seu celular nas mãos abra a carteira. Depois de erros, há espera crescente; a carteira nunca é apagada.",
         "Evite datas e sequências como 123456. Algo que só você saiba, como 4 9 1 7 3 8.")
     val BIOMETRIC = t("Biometria",
-        "Digital ou rosto, verificados pelo hardware do aparelho. Com “Desbloquear com a digital” ligado, ela substitui o PIN no dia a dia.",
-        "Proteger a chave com o chip de segurança do celular: sem a sua biometria (ou o PIN), ninguém abre a carteira.",
-        "Ao enviar SOL, você encosta o dedo e pronto. Se o celular reiniciar, o PIN é pedido uma vez.")
+        "Digital ou rosto, verificados pelo hardware do aparelho. A biometria pode abrir o cofre para consultar a carteira.",
+        "Assinaturas e operações que movimentam fundos exigem PIN, mesmo quando a biometria está ativada.",
+        "Use a digital para abrir a carteira; antes de confirmar um envio, digite o PIN.")
     val LWRP = t("Recovery Package",
         "Um arquivo de backup criptografado (.lwrp) com sua carteira, protegido por uma senha própria, diferente do PIN.",
         "Uma segunda forma de recuperação, útil principalmente para carteiras importadas por chave privada, que não têm frase.",
@@ -295,9 +295,9 @@ object Help {
         "Ver o saldo na moeda que você usa no dia a dia. Se a fonte de reserva não tiver a sua moeda, o valor aparece em dólar, marcado como tal.",
         "Escolha Euro para ver “€ 1.650,00”; volte para Real para ver “R$ 10.800,00”.")
     val BIO_UNLOCK = t("Desbloquear com a digital",
-        "Abre a carteira e confirma envios só com a digital (ou rosto), sem digitar o PIN. A chave fica no chip de segurança do celular e só funciona depois da sua biometria.",
-        "Rapidez no dia a dia sem abrir mão do hardware: o PIN continua valendo e é pedido depois de reiniciar o celular, a cada 24 horas (você pode escolher 1, 4, 24 ou 72 h), depois de um PIN errado e se você cadastrar uma digital nova. Ver a frase, exportar e criar carteiras sempre pedem o PIN. Uma digital pode ser usada à força (alguém segurando seu dedo); se isso preocupa você, deixe desligado.",
-        "Você abre o app, encosta o dedo e já vê o saldo. Na segunda-feira, depois de reiniciar o celular, o app pede o PIN uma vez.")
+        "Abre a carteira para consultar saldos com digital ou rosto. Assinar transações e autorizar dApps continua exigindo PIN.",
+        "Reduzir a digitação no acesso diário sem permitir que uma digital autorize movimentações. Depois de reiniciar o celular, após erros ou quando o prazo expira, o PIN volta a ser exigido.",
+        "Abra o app com a digital, consulte o saldo e digite o PIN quando for confirmar um envio.")
     val ABOUT = t("Sobre a Lock Wallet",
         "Carteira Solana de código aberto. Sem servidor próprio, sem rastreamento, sem anúncios.",
         "Saber exatamente com quem o app conversa: só a rede Solana e a cotação pública do SOL.",
