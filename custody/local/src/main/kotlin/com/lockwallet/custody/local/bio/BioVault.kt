@@ -94,9 +94,57 @@ class BioVault(
         writeState(BioState(alias, clock.bootCount(), clock.elapsedRealtimeMs(), DEFAULT_WINDOW_H))
     }
 
+    /**
+     * Crypto-erasure first, file cleanup second. Each v2 record has its own Keystore alias; legacy shared-key records
+     * are also covered by deleting the policy alias. If any key deletion cannot be verified, keep ciphertext files
+     * and fail rather than reporting that biometric material was erased.
+     */
     fun disable() {
-        state()?.let { keys.delete(it.aliasId) }
-        dir.listFiles()?.forEach { it.delete() }
+        val aliases = aliasesOnDisk().values
+        aliases.forEach { alias ->
+            keys.delete(alias)
+            if (keys.exists(alias)) throw IllegalStateException("biometric key deletion could not be verified")
+        }
+        dir.listFiles()?.filter { it == stateFile || it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX) }
+            ?.forEach { f ->
+                if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
+            }
+        if (stateFile.exists() || dir.listFiles()?.any { it.name.endsWith(".lwbio") } == true) {
+            throw IllegalStateException("biometric cleanup incomplete")
+        }
+    }
+
+    /**
+     * Collect aliases from on-disk headers, including records whose ciphertext/tag is corrupt. The alias fields are
+     * only identifiers; they are never treated as proof that the corresponding record is valid.
+     */
+    private fun aliasesOnDisk(): Map<String, ByteArray> {
+        val aliases = linkedMapOf<String, ByteArray>()
+        if (stateFile.exists()) {
+            val bytes = stateFile.readBytes()
+            val bodyLen = when (bytes.size) { V1_BODY + 32 -> V1_BODY; V2_BODY + 32 -> V2_BODY; else -> -1 }
+            if (bodyLen < 0) throw IllegalStateException("biometric policy header unreadable")
+            val bb = ByteBuffer.wrap(bytes)
+            if (bb.int != STATE_MAGIC) throw IllegalStateException("biometric policy header invalid")
+            val version = bb.get().toInt()
+            if ((version == 1 && bodyLen != V1_BODY) || (version == 2 && bodyLen != V2_BODY) || version !in 1..2) {
+                throw IllegalStateException("biometric policy version invalid")
+            }
+            val alias = ByteArray(16).also { bb.get(it) }
+            aliases[hex(alias)] = alias
+        }
+        dir.listFiles()?.filter { it.name.endsWith(".lwbio") }?.forEach { file ->
+            val bytes = file.readBytes()
+            if (bytes.size < 37) throw IllegalStateException("biometric record header unreadable")
+            val bb = ByteBuffer.wrap(bytes)
+            if (bb.int != BioRecord.MAGIC || bb.get() != BioRecord.VERSION) {
+                throw IllegalStateException("biometric record header invalid")
+            }
+            bb.position(21)
+            val alias = ByteArray(16).also { bb.get(it) }
+            aliases[hex(alias)] = alias
+        }
+        return aliases
     }
 
     /** A correct PIN was just entered: restart the 72 h window for this boot. */
@@ -120,19 +168,48 @@ class BioVault(
 
     fun has(walletIdHex: String): Boolean = recordFile(walletIdHex).exists()
 
-    fun remove(walletIdHex: String) { recordFile(walletIdHex).delete() }
+    /**
+     * Removes one wallet's biometric record. New records have a per-wallet Keystore alias, which is destroyed and
+     * checked before deleting the ciphertext. A legacy record may share the policy alias with other wallets; that
+     * shared key is retained until biometric unlock is disabled, so deleting one legacy record cannot break others.
+     */
+    fun remove(walletIdHex: String) {
+        require(walletIdHex.matches(Regex("[0-9a-f]{32}"))) { "wallet id" }
+        val file = recordFile(walletIdHex)
+        if (!file.exists()) return
+        val record = BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
+        if (hex(record.walletId) != walletIdHex) throw IllegalStateException("biometric record wallet mismatch")
+        val policyAlias = state()?.aliasId
+        if (policyAlias == null || !record.aliasId.contentEquals(policyAlias)) {
+            keys.delete(record.aliasId)
+            if (keys.exists(record.aliasId)) throw IllegalStateException("wallet biometric key deletion could not be verified")
+        }
+        if (!file.delete() && file.exists()) throw IllegalStateException("biometric record cleanup failed")
+    }
 
-    /** Encrypts [material] for [walletId] with the public key only (no prompt). */
+    /** Encrypts [material] for [walletId] with a fresh per-wallet Keystore key (no prompt). */
     fun write(walletId: ByteArray, header: ByteArray, material: SecretBytes) {
         val s = state() ?: return
+        require(walletId.size == 16)
+        val target = recordFile(hex(walletId))
+        if (target.exists()) remove(hex(walletId))
+
+        var recordAlias: ByteArray
+        do { recordAlias = ByteArray(16).also(random::nextBytes) }
+        while (recordAlias.contentEquals(s.aliasId) || keys.exists(recordAlias))
+        keys.create(recordAlias)
         val aesKey = ByteArray(32).also(random::nextBytes)
         try {
-            val rsa = BioKeyStore.encrypt(keys.publicKey(s.aliasId), aesKey)
+            val rsa = BioKeyStore.encrypt(keys.publicKey(recordAlias), aesKey)
             val nonce = ByteArray(12).also(random::nextBytes)
-            val shell = BioRecord(walletId, s.aliasId, sha256(header), rsa, nonce, ByteArray(0))
+            val headerHash = sha256(header)
+            val shell = BioRecord(walletId, recordAlias, headerHash, rsa, nonce, ByteArray(0))
             val ct = SecretBytes.copyOf(aesKey).use { k -> material.withBytes { AesGcm.encrypt(k, nonce, shell.aad(), it) } }
-            val rec = BioRecord(walletId, s.aliasId, sha256(header), rsa, nonce, ct)
-            atomic.write(recordFile(hex(walletId)), rec.encode()) { requireNotNull(BioRecord.parse(it)) }
+            val rec = BioRecord(walletId, recordAlias, headerHash, rsa, nonce, ct)
+            atomic.write(target, rec.encode()) { requireNotNull(BioRecord.parse(it)) }
+        } catch (e: Exception) {
+            runCatching { keys.delete(recordAlias) }
+            throw e
         } finally { aesKey.wipe() }
     }
 
@@ -141,11 +218,14 @@ class BioVault(
         val s = state() ?: return null
         val f = recordFile(walletIdHex)
         val r = (if (f.exists()) BioRecord.parse(f.readBytes()) else null) ?: return null
-        if (hex(r.walletId) != walletIdHex || !r.aliasId.contentEquals(s.aliasId) || !r.headerHash.contentEquals(sha256(header))) { f.delete(); return null }
+        if (hex(r.walletId) != walletIdHex || !r.headerHash.contentEquals(sha256(header))) { f.delete(); return null }
+        // v5.0.2 records used the policy alias directly; accept them for backward compatibility. New records use
+        // a unique alias and must still have their own private key present.
+        if (!r.aliasId.contentEquals(s.aliasId) && !keys.exists(r.aliasId)) { f.delete(); return null }
         return r
     }
 
-    fun decryptor(): BioOperation = keys.decryptor(state()!!.aliasId)
+    fun decryptor(record: BioRecord): BioOperation = keys.decryptor(record.aliasId)
 
     /** After the biometric: unwrap the AES key and open the material. Throws on any tampering. */
     fun open(op: BioOperation, r: BioRecord): SecretBytes {
