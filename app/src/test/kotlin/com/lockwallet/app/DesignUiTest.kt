@@ -50,7 +50,7 @@ class DesignUiTest {
     private fun start(fontScale: Float = 1f): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx).also { it.hideBalance = false; it.fiat = Fiat.BRL },
-            com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true }, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
+            com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true }, AppTestTxJournalAuthenticator, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
