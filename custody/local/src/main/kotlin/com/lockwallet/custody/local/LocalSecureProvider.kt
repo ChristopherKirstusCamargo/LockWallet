@@ -425,7 +425,7 @@ class LocalSecureProvider(
         for (e in candidates) {
             val env = try { loadEnvelope(e) } catch (_: CustodyException) { continue }
             val rec = b.record(e.walletIdHex, env.header()) ?: continue
-            val op = try { b.decryptor() } catch (x: KekException) {
+            val op = try { b.decryptor(rec) } catch (x: KekException) {
                 if (x.kind == KekException.Kind.INVALIDATED || x.kind == KekException.Kind.NOT_FOUND) {
                     runCatching { b.disable() }; throw CustodyException(CustodyException.Reason.BIO_INVALIDATED)
                 }
@@ -506,11 +506,14 @@ class LocalSecureProvider(
         val id = session.info.id
         val s = snapshot()
         val e = s.wallets.firstOrNull { it.walletIdHex == id } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        // Remove the per-wallet biometric key before changing the registry. If Keystore erasure fails, abort
+        // this deletion rather than leaving an active wallet with an unreported biometric key residue.
+        bio?.remove(id)
+        val lastActive = s.wallets.none { it.walletIdHex != id && it.state == WalletState.ACTIVE }
+        if (lastActive) bio?.disable()
         registry.save(s.copy(wallets = s.wallets - e))
         val f = envFile(id)
         if (f.exists()) { runCatching { java.io.RandomAccessFile(f, "rws").use { r -> r.write(ByteArray(r.length().toInt())) } }; f.delete() }
-        runCatching { bio?.remove(id) }
-        if (snapshot().wallets.none { it.state == WalletState.ACTIVE }) runCatching { bio?.disable() }
     }
 
     /** Removes a QUARANTINED wallet entry and its unusable envelope, on explicit user request only. */
@@ -518,9 +521,11 @@ class LocalSecureProvider(
         val s = snapshot()
         val e = s.wallets.firstOrNull { it.walletIdHex == walletId } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
         if (e.state != WalletState.QUARANTINED) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+        bio?.remove(walletId)
+        val lastActive = s.wallets.none { it.walletIdHex != walletId && it.state == WalletState.ACTIVE }
+        if (lastActive) bio?.disable()
         registry.save(s.copy(wallets = s.wallets - e))
         envFile(walletId).delete()
-        bio?.remove(walletId)
     }
 
     // ------------------------------------------------------------------ internals
