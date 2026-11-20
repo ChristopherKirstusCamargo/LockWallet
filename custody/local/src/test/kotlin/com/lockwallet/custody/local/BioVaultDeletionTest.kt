@@ -67,13 +67,13 @@ class BioVaultDeletionTest {
         assertTrue(dir.listFiles().isNullOrEmpty())
     }
 
-    @Test fun perWalletPendingKeyMarkerIsErasedWhenProcessDiesAfterKeyCreation() {
+    @Test fun perWalletKeyReferenceIsErasedWhenProcessDiesBeforeRecordCommit() {
         val dir = File(tmp.root, "bio")
         dir.mkdirs()
         val wallet = ByteArray(16) { 0x2c }
         val alias = ByteArray(16) { 0x3d }
         keys.create(alias)
-        val marker = File(dir, "${hex(wallet)}.key.pending")
+        val marker = File(dir, "${hex(wallet)}.keyref")
         val bytes = ByteBuffer.allocate(36).putInt(0x4C57424B).put(wallet).put(alias).array()
         AtomicFiles().write(marker, bytes) { require(it.contentEquals(bytes)) }
 
@@ -85,7 +85,7 @@ class BioVaultDeletionTest {
         assertTrue(dir.listFiles().isNullOrEmpty())
     }
 
-    @Test fun removingPersistedRecordAlsoCleansItsLeftoverKeyMarker() {
+    @Test fun removingPersistedRecordAlsoErasesItsKeyReference() {
         val dir = File(tmp.root, "bio")
         val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
         vault.enable()
@@ -94,7 +94,8 @@ class BioVaultDeletionTest {
         val header = "marker-leftover".toByteArray()
         SecretBytes.copyOf(ByteArray(32) { 0x5f }).use { vault.write(wallet, header, it) }
         val record = requireNotNull(vault.record(walletHex, header))
-        val marker = File(dir, "$walletHex.key.pending")
+        val marker = File(dir, "$walletHex.keyref")
+        assertTrue("per-wallet key reference must remain for the record lifetime", marker.exists())
         val bytes = ByteBuffer.allocate(36).putInt(0x4C57424B).put(wallet).put(record.aliasId).array()
         AtomicFiles().write(marker, bytes) { require(it.contentEquals(bytes)) }
 
