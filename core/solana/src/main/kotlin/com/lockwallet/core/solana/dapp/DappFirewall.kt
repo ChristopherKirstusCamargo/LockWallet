@@ -30,7 +30,7 @@ enum class IxKind {
 
 enum class DappBlock { MALFORMED, UNSUPPORTED_FORMAT, FEE_PAYER_MISMATCH, EXTRA_SIGNER, EMPTY, FORBIDDEN_INSTRUCTION, TOO_MANY_INSTRUCTIONS, FEE_TOO_HIGH, FEE_UNPRICEABLE }
 
-enum class DappWarning { RAW_PROGRAM, WALLET_SIGNS_FOR_RAW_PROGRAM, WALLET_WRITABLE_IN_RAW_PROGRAM, PRIORITY_FEE, TOKEN_DELEGATE_SET, WITHDRAW_TO_OTHER }
+enum class DappWarning { RAW_PROGRAM, WALLET_SIGNS_FOR_RAW_PROGRAM, WALLET_WRITABLE_IN_RAW_PROGRAM, PRIORITY_FEE, TOKEN_DELEGATE_SET, WITHDRAW_TO_OTHER, MANY_INSTRUCTIONS }
 
 class DappInstruction(
     val index: Int,
@@ -76,7 +76,8 @@ class DappVerdict internal constructor(
  *   requires a successful simulation showing the wallet's SOL/token changes (enforced by the caller).
  */
 object DappFirewall {
-    const val MAX_INSTRUCTIONS = 24
+    const val MAX_INSTRUCTIONS = 8
+    const val WARN_INSTRUCTIONS = 4
 
     val MEMO_V1: SolanaPublicKey = SolanaPublicKey.fromBase58("Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo")
     val MEMO_V2: SolanaPublicKey = SolanaPublicKey.fromBase58("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr")
@@ -115,6 +116,7 @@ object DappFirewall {
         if (msg.feePayer != wallet) blocks += DappBlock.FEE_PAYER_MISMATCH
         if (msg.instructions.isEmpty()) blocks += DappBlock.EMPTY
         if (msg.instructions.size > MAX_INSTRUCTIONS) blocks += DappBlock.TOO_MANY_INSTRUCTIONS
+        else if (msg.instructions.size > WARN_INSTRUCTIONS) warns += DappWarning.MANY_INSTRUCTIONS
         var computeLimits = 0; var computePrices = 0
         val out = msg.instructions.mapIndexed { i, ix ->
             val program = msg.accountKeys[ix.programIndex]
@@ -127,7 +129,7 @@ object DappFirewall {
             when {
                 program in CORE_NAMES -> {
                     val a = decodeAlone(program, metas, data, wallet, msg)
-                    val bad = a.findings.filter { it.blocking && it !in ISOLATION_ARTIFACTS }
+                    val bad = a.findings.filter { (it.blocking && it !in ISOLATION_ARTIFACTS) || it == Finding.WITHDRAW_TO_OTHER }
                     a.findings.forEach { f -> when (f) {
                         Finding.PRIORITY_FEE -> warns += DappWarning.PRIORITY_FEE
                         Finding.TOKEN_DELEGATE_SET -> warns += DappWarning.TOKEN_DELEGATE_SET
@@ -213,6 +215,10 @@ object MessagePolicy {
             .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
             .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
         val s = try { dec.decode(java.nio.ByteBuffer.wrap(b)).toString() } catch (_: java.nio.charset.CharacterCodingException) { return null }
+        // Bound visual spam while retaining ordinary SIWS line breaks.
+        if (s.count { it == '\n' || it == '\r' } > 8) return null
+        val whitespace = s.count { it.isWhitespace() }
+        if (whitespace * 100 > s.length * 45) return null
         for (ch in s) {
             val c = ch.code
             if (c < 0x20 && ch != '\n' && ch != '\r' && ch != '\t') return null

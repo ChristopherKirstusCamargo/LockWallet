@@ -1,5 +1,6 @@
 package com.lockwallet.app.connect
 
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import com.lockwallet.app.MainActivity
@@ -15,7 +16,9 @@ class LockConnectActivity : MainActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pkg = callingActivity?.packageName ?: referrer?.takeIf { it.scheme == "android-app" }?.host
+        // A referrer URI is caller-controlled. Only use Android's launch identity API (or a genuine
+        // startActivityForResult caller on older devices); null means the package is not verifiable.
+        val pkg = if (Build.VERSION.SDK_INT >= 34) launchedFromPackage else callingActivity?.packageName
         val b = MwaBridge(controller.connect, pkg)
         controller.connect.onSessionEnd = { if (!isFinishing) finish() }
         when (b.start(this, intent?.data)) {

@@ -22,7 +22,7 @@ class AddressDerivationTest {
             seed.withBytes { s ->
                 assertEquals("5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N", address(s, DerivationProfile.PRIMARY, 0))
                 assertEquals("GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv", address(s, DerivationProfile.PRIMARY, 1))
-                assertEquals("ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4", address(s, DerivationProfile.LEGACY_LEDGER, 0))
+                assertEquals("ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4", address(s, DerivationProfile.COMPATIBILITY, 0))
             }
         }
     }

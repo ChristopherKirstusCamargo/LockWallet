@@ -44,7 +44,7 @@ class MwaBridge(private val model: ConnectModel, private val callingPackage: Str
             arrayOf(ProtocolContract.FEATURE_ID_SIGN_TRANSACTIONS, ProtocolContract.FEATURE_ID_SIGN_IN_WITH_SOLANA),
         )
         // Short authorization; reauthorization is still decided by ConnectModel against our own registry.
-        val auth = AuthIssuerConfig("Lock Wallet", 1, 60L * 60 * 1000, ConnectRegistry.VALIDITY_MS, 0L)
+        val auth = AuthIssuerConfig("Lock Wallet", 1, 15L * 60 * 1000, ConnectRegistry.VALIDITY_MS, 0L)
         val s = assoc.createScenario(context.applicationContext, config, auth, callbacks)
         scenario = s
         model.live = true
@@ -127,7 +127,7 @@ class MwaBridge(private val model: ConnectModel, private val callingPackage: Str
     }
 
     companion object {
-        const val MAX_PAYLOADS = 4
+        const val MAX_PAYLOADS = 1
         const val NO_CONNECTION_WARNING_MS = 3_000L
         /** Mainnet identifiers come from the library constants (never typed here). */
         val MAINNET_IDS = setOf(ProtocolContract.CHAIN_SOLANA_MAINNET, ProtocolContract.CLUSTER_MAINNET_BETA)

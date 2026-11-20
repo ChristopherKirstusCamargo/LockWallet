@@ -7,6 +7,7 @@ import com.lockwallet.core.solana.dapp.IxKind
 import com.lockwallet.core.solana.dapp.MessagePolicy
 import com.lockwallet.core.solana.ix.ComputeBudgetIx
 import com.lockwallet.core.solana.ix.SystemIx
+import com.lockwallet.core.solana.ix.StakeIx
 import com.lockwallet.core.solana.ix.TokenIx
 import com.lockwallet.core.solana.tx.AccountMeta
 import com.lockwallet.core.solana.tx.Blockhash
@@ -66,6 +67,23 @@ class DappFirewallTest {
         assertFalse(DappFirewall.inspect(LegacyMessage.compile(me, bh, listOf(foreign)).serialize(), me).signable)
     }
 
+    @Test fun dappStakeWithdrawalToThirdPartyIsBlocked() {
+        val withdraw = StakeIx.withdraw(dex, bob, me, 1_000_000)
+        val verdict = DappFirewall.inspect(msg(me, withdraw), me)
+        assertFalse(verdict.signable)
+        assertTrue(DappBlock.FORBIDDEN_INSTRUCTION in verdict.blockers)
+    }
+
+    @Test fun instructionCountIsBoundedAndLongReviewsWarn() {
+        val memo = Instruction(DappFirewall.MEMO_V2, listOf(AccountMeta(me, true, false)), "ok".toByteArray())
+        val five = DappFirewall.inspect(msg(me, *List(5) { memo }.toTypedArray()), me)
+        assertTrue(five.signable)
+        assertTrue(DappWarning.MANY_INSTRUCTIONS in five.warnings)
+        val nine = DappFirewall.inspect(msg(me, *List(9) { memo }.toTypedArray()), me)
+        assertFalse(nine.signable)
+        assertTrue(DappBlock.TOO_MANY_INSTRUCTIONS in nine.blockers)
+    }
+
     @Test fun foreignFeePayerExtraSignerAndVersionedAreRejected() {
         assertTrue(DappBlock.FEE_PAYER_MISMATCH in DappFirewall.inspect(msg(bob, SystemIx.transfer(bob, me, 1)), me).blockers)
         val cosign = Instruction(dex, listOf(AccountMeta(me, true, true), AccountMeta(bob, true, false)), byteArrayOf(0))
@@ -84,6 +102,8 @@ class DappFirewallTest {
         assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check("abc\u202Edef".toByteArray()))
         assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(byteArrayOf(0xC3.toByte(), 0x28)))
         assertEquals(MessagePolicy.Refusal.TOO_LONG, MessagePolicy.check(ByteArray(3000) { 0x61 }))
+        assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(("hello\\n".repeat(9)).toByteArray()))
+        assertEquals(MessagePolicy.Refusal.NOT_TEXT, MessagePolicy.check(("a ".repeat(200)).toByteArray()))
         assertEquals(MessagePolicy.Refusal.EMPTY, MessagePolicy.check(ByteArray(0)))
     }
 }

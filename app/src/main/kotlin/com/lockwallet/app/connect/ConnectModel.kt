@@ -253,6 +253,10 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         if (cl == null || cl != c.chain.config.cluster) { r.answer.clusterNotSupported(); done(); return }
         val w = connectWallets().firstOrNull { it.id == selectedWallet } ?: return
         val siws = r.siws
+        if (siws != null && !siwsDomainMatches(r.dapp, siws)) {
+            reviewError = S_SIWS_DOMAIN_MISMATCH
+            return
+        }
         if (siws == null) {
             val s = registry.create(r.dapp.name, r.dapp.uri, r.dapp.callingPackage, w.id, w.address.toBase58(), cl)
             r.answer.approve(w.address.toByteArray(), w.name, s.id.toByteArray(Charsets.US_ASCII), null, null)
@@ -348,6 +352,12 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         }
     }
 
+    private fun siwsDomainMatches(dapp: DappIdentity, siws: SiwsRequest): Boolean {
+        val claimed = siws.domain?.trim()?.trimEnd('.')?.lowercase()
+        val uriHost = dapp.domain?.trim()?.trimEnd('.')?.lowercase()
+        return claimed != null && uriHost != null && claimed == uriHost
+    }
+
     companion object {
         /** MWA legacy cluster name of Mainnet (MWA 1.x); spelled in two parts so source scans stay meaningful. */
         private const val LEGACY_MAINNET = "mainnet" + "-beta"
@@ -369,6 +379,7 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         fun S_TOKEN_DELEGATE(k: SolanaPublicKey) = "A conta de token ${k.toBase58().take(4)}… ganharia um delegado (alguém poderia gastar seus tokens). Bloqueado."
         fun S_TOKEN_CLOSE_AUTH(k: SolanaPublicKey) = "A autoridade de fechamento da conta ${k.toBase58().take(4)}… mudaria. Bloqueado."
         const val S_MSG_REFUSED = "A mensagem não é texto apresentável (ou parece uma transação). Recusada."
+        const val S_SIWS_DOMAIN_MISMATCH = "Domínio da mensagem de login não corresponde ao endereço informado pelo app. Conexão recusada."
     }
 }
 

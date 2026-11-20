@@ -57,7 +57,9 @@ private fun Identity(d: DappIdentity) = Column(Modifier.fillMaxWidth().glass().p
 private fun AuthorizeDapp(c: AppController, r: AuthorizeRequestModel) {
     val m = c.connect
     val wallets = m.connectWallets()
-    val ok = wallets.isNotEmpty() && r.cluster == c.chain.config.cluster && m.selectedWallet != null
+    val siwsDomainOk = r.siws == null || (r.siws.domain?.trim()?.trimEnd('.')?.lowercase() != null &&
+        r.siws.domain.trim().trimEnd('.').lowercase() == r.dapp.domain?.trim()?.trimEnd('.')?.lowercase())
+    val ok = wallets.isNotEmpty() && r.cluster == c.chain.config.cluster && m.selectedWallet != null && siwsDomainOk
     Screen("Conectar app", onBack = { m.decline() }, help = Help.DAPPS, bottom = {
         ErrorText(m.reviewError ?: c.error)
         if (c.busy) Busy() else {
@@ -81,7 +83,7 @@ private fun AuthorizeDapp(c: AppController, r: AuthorizeRequestModel) {
                 s.statement?.let { Body("“${it.take(300)}”", C.text) }
                 s.expirationTime?.let { Text("Expira: $it", color = C.dim, fontSize = 13.sp) }
                 val idDomain = r.dapp.domain
-                if (s.domain == null || idDomain == null || s.domain.lowercase() != idDomain) Notice(S.SIWS_DOMAIN_MISMATCH, Ic.WARN, strong = true)
+                if (s.domain == null || idDomain == null || s.domain.trim().trimEnd('.').lowercase() != idDomain) Notice(ConnectModel.S_SIWS_DOMAIN_MISMATCH, Ic.X_CIRCLE, strong = true)
                 if (s.chainId != null && com.lockwallet.app.connect.ConnectModel.clusterOf(s.chainId) != c.chain.config.cluster) Notice("A mensagem cita outra rede (${s.chainId.take(40)}).", Ic.WARN)
             }
         }
@@ -144,7 +146,7 @@ private fun TxReviewCard(c: AppController, t: DappTxReview, i: Int, n: Int) {
         t.tokenDeltas.forEach { d ->
             val dec = d.decimals
             val delta = d.post?.let { it - d.pre }
-            Text("Token ${shortAddress(d.mint)}: " + when {
+            Text("Token ${groupedAddress(d.mint)}: " + when {
                 delta == null -> "conta alterada"
                 dec == null -> (if (delta > 0) "+" else "") + "$delta unidades"
                 else -> (if (delta > 0) "+" else "") + Fmt.units(delta, dec)
@@ -168,7 +170,7 @@ private fun TxReviewCard(c: AppController, t: DappTxReview, i: Int, n: Int) {
                     Mono(ix.program.toBase58(), C.dim, 11)
                     ix.accounts.forEach { a ->
                         val flags = listOfNotNull(if (a.signer) "assina" else null, if (a.writable) "pode alterar" else null).joinToString(", ").ifEmpty { "só leitura" }
-                        Text((if (a.key == me) "SUA CARTEIRA" else shortAddress(a.key.toBase58())) + " · " + flags, color = if (a.key == me) C.text else C.dim, fontSize = 12.sp)
+                        Text((if (a.key == me) "SUA CARTEIRA" else groupedAddress(a.key.toBase58())) + " · " + flags, color = if (a.key == me) C.text else C.dim, fontSize = 12.sp)
                     }
                     Mono("dados: ${ix.dataLength} bytes · ${ix.dataPreviewHex}${if (ix.dataLength > 24) "…" else ""}", C.dim, 11)
                     ix.reasons.forEach { f -> Text(TxText.finding(f), color = C.text, fontSize = 12.sp) }
@@ -202,6 +204,7 @@ private fun dappWarning(w: DappWarning) = when (w) {
     DappWarning.PRIORITY_FEE -> "Inclui taxa de prioridade."
     DappWarning.TOKEN_DELEGATE_SET -> "A conta de token já tem um delegado."
     DappWarning.WITHDRAW_TO_OTHER -> "Saque de stake para outro endereço."
+    DappWarning.MANY_INSTRUCTIONS -> "Esta transação contém muitas instruções. Revise cada ação com atenção."
 }
 
 /** dApps tab: what Lock Connect is, connected apps (sessions) and revocation. */

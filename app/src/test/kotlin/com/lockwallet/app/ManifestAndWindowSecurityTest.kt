@@ -41,6 +41,13 @@ class ManifestAndWindowSecurityTest {
         assertEquals(9L, info.longVersionCode)
     }
 
+    @Test fun signingAndDappSigningAlwaysRequirePin() {
+        assertFalse(AuthPurpose.Sign("wallet").biometricAllowed())
+        assertFalse(AuthPurpose.DappSign("wallet").biometricAllowed())
+        assertFalse(AuthPurpose.DeleteWallet("wallet").biometricAllowed())
+        assertTrue(null.biometricAllowed())
+    }
+
     @Test fun onlyLauncherAndLockConnectAreExported() {
         val pm = context.packageManager
         val flags = PackageManager.GET_ACTIVITIES or PackageManager.GET_RECEIVERS or

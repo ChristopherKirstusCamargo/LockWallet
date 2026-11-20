@@ -54,7 +54,7 @@ sealed interface AuthPurpose {
 }
 
 /** Purposes biometrics may authorise instead of the PIN (ADR 0024). Phrase, export, new accounts and wallets: PIN only. */
-fun AuthPurpose?.biometricAllowed(): Boolean = this == null || this is AuthPurpose.Sign || this is AuthPurpose.DappSign
+fun AuthPurpose?.biometricAllowed(): Boolean = this == null
 
 enum class Tab { HOME, STAKE, CONNECT, SETTINGS }
 
