@@ -25,7 +25,7 @@ class CuratedStakeFlowTest {
 
     private fun controller(): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
-        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true }, AppTestTxJournalAuthenticator,
+        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true }, AppTestTxJournalAuthenticator(),
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
     }
 

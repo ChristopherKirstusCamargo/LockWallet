@@ -129,7 +129,7 @@ class TxJournalTest {
 
         val loaded = TxJournal(file, auth).all()
         assertTrue(loaded.any { it.signature == "newer-signature" })
-        assertFalse(loaded.any { it.signature == "test-signature" })
+        assertEquals(setOf("test-signature", "newer-signature"), loaded.map { it.signature }.toSet())
         assertFalse(temp.exists())
     }
 

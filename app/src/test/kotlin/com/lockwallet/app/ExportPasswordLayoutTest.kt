@@ -34,8 +34,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 class ExportPasswordLayoutTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.rpcOverride = { null }; MainActivity.priceOverride = com.lockwallet.data.price.PriceService(emptyList(), { 0L }) }
-        override fun after() { MainActivity.priceOverride = null; MainActivity.rpcOverride = null }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator(); MainActivity.rpcOverride = { null }; MainActivity.priceOverride = com.lockwallet.data.price.PriceService(emptyList(), { 0L }) }
+        override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
 

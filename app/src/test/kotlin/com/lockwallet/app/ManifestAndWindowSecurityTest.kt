@@ -65,7 +65,7 @@ class ManifestAndWindowSecurityTest {
     @Test fun windowIsSecureAndFiltersObscuredTouches() {
         org.robolectric.Shadows.shadowOf(context).grantPermissions("android.permission.HIDE_OVERLAY_WINDOWS")
         MainActivity.rpcOverride = { null }
-        MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator
+        MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator()
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 scenario.onActivity { activity ->

@@ -51,7 +51,7 @@ private fun offlinePrice() = PriceService(listOf(object : PriceSource {
 @RunWith(RobolectricTestRunner::class)
 class HomeUiTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator; MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator(); MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
         override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
@@ -112,7 +112,7 @@ class ClipboardTest {
 @RunWith(RobolectricTestRunner::class)
 class MainUiTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator; MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator(); MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
         override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
@@ -123,7 +123,7 @@ class MainUiTest {
     private fun start(): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx).also { it.hideBalance = false; it.fiat = Fiat.BRL },
-            offlinePrice(), { _, _ -> true }, AppTestTxJournalAuthenticator, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
+            offlinePrice(), { _, _ -> true }, AppTestTxJournalAuthenticator(), transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())

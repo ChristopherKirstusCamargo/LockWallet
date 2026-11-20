@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "w320dp-h568dp")
 class FinalReleaseUiTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator; MainActivity.rpcOverride = { null }; MainActivity.priceOverride = com.lockwallet.data.price.PriceService(emptyList(), { 0L }) }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator(); MainActivity.rpcOverride = { null }; MainActivity.priceOverride = com.lockwallet.data.price.PriceService(emptyList(), { 0L }) }
         override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
@@ -37,7 +37,7 @@ class FinalReleaseUiTest {
         val rpc = AppFakeRpc()
         val p = com.lockwallet.custody.local.LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, com.lockwallet.custody.local.DeviceSecurityCapabilityManager(ctx, p), kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
-            Prefs(ctx).also { it.hideBalance = false }, com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true }, AppTestTxJournalAuthenticator,
+            Prefs(ctx).also { it.hideBalance = false }, com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true }, AppTestTxJournalAuthenticator(),
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); Thread.sleep(30); while (c.busy) Thread.sleep(10)

@@ -22,6 +22,7 @@ class CoordinatorTest {
     private val bh = "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
     private lateinit var f: FakeRpc
     private lateinit var journal: TxJournal
+    private lateinit var journalAuthenticator: TestTxJournalAuthenticator
     private lateinit var co: TxCoordinator
     private var height = 100L
     private var status: String = "null"
@@ -44,7 +45,8 @@ class CoordinatorTest {
         f.on(FakeRpc.B, "sendTransaction") { JsonOut.str(sigB58) }
         f.on(FakeRpc.B, "getBlockHeight") { "$height" }
         f.on(FakeRpc.B, "isBlockhashValid") { """{"context":{"slot":1},"value":""" + (height <= 250) + "}"}
-        journal = TxJournal(tmp.newFile("j.json").also { it.delete() }, TestTxJournalAuthenticator)
+        journalAuthenticator = TestTxJournalAuthenticator()
+        journal = TxJournal(tmp.newFile("j.json").also { it.delete() }, journalAuthenticator)
         co = TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), journal) { clock }
     }
 
@@ -218,7 +220,7 @@ class CoordinatorTest {
     @Test fun journalSurvivesReloadAndRejectsCorruption() {
         co.submit(co.prepare(intent()), sig)
         val file = java.io.File(tmp.root, "j.json")
-        assertEquals(1, TxJournal(file, TestTxJournalAuthenticator).all().size)
+        assertEquals(1, TxJournal(file, journalAuthenticator).all().size)
         assertEquals(sigB58, TxJournal(file, TestTxJournalAuthenticator).all().single().signature)
         file.writeText("[{\"sig\":")
         try { TxJournal(file, TestTxJournalAuthenticator).all(); fail() } catch (_: IllegalStateException) {}
@@ -227,7 +229,7 @@ class CoordinatorTest {
     // ---- dApp cross-check (external audit, finding 1)
     private fun twoRpc(): TxCoordinator {
         f.handlers[FakeRpc.B] = HashMap(f.handlers[FakeRpc.A]!!)
-        return TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), TxJournal(tmp.newFile("j2.json").also { it.delete() }, TestTxJournalAuthenticator)) { clock }
+        return TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), TxJournal(tmp.newFile("j2.json").also { it.delete() }, TestTxJournalAuthenticator())) { clock }
     }
     private fun dappMsg() = com.lockwallet.core.solana.tx.LegacyMessage.compile(payer,
         com.lockwallet.core.solana.tx.Blockhash(com.lockwallet.core.solana.Base58.decodeOrNull(bh)!!), listOf(SystemIx.transfer(payer, bob, 1000))).serialize()
