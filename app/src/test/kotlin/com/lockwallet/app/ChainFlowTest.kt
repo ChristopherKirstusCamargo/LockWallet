@@ -101,7 +101,7 @@ class ChainFlowTest {
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); c.await()
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Teste")
-        c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
+        c.setNewPin("839174".toCharArray())
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
     }
 
@@ -118,7 +118,7 @@ class ChainFlowTest {
         assertTrue(c.chain.review!!.warnings.isNotEmpty()) // destination is a new account
         c.chain.authorize(); c.await()
         assertTrue(c.screen is Screen.Authorize)
-        c.submitPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray(), (c.screen as Screen.Authorize).purpose); c.await()
+        c.submitPin("839174".toCharArray(), (c.screen as Screen.Authorize).purpose); c.await()
         val st = c.screen as Screen.TxStatus
         assertEquals("same bytes to every endpoint", 1, rpc.sent.distinct().size)
         val (sigs, msg) = WireTransaction.split(java.util.Base64.getDecoder().decode(rpc.sent.distinct().single()))
@@ -255,7 +255,7 @@ class ChainFlowTest {
         assertTrue(p.blockers.toString() + p.analysis.findings, p.signable)
         assertEquals(listOf("CreateAccountWithSeed", "StakeInitialize", "StakeDelegate"), p.analysis.ops.map { it::class.simpleName }.filterNot { it!!.startsWith("ComputeUnit") })
         c.chain.authorize(); c.await()
-        c.submitPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray(), (c.screen as Screen.Authorize).purpose); c.await()
+        c.submitPin("839174".toCharArray(), (c.screen as Screen.Authorize).purpose); c.await()
         assertTrue(c.screen is Screen.TxStatus)
         assertEquals("same bytes to every endpoint", 1, rpc.sent.distinct().size)
         runBlocking { c.chain.reconcileTick() }
