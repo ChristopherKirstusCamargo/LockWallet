@@ -68,12 +68,12 @@ data class Activity(val signature: String, val title: String, val amount: String
 /** How long a validator snapshot stays fresh on screen before it is re-read. */
 const val VALIDATORS_TTL_MS = 60_000L
 
-class ChainModel(private val c: AppController, private val prefs: Prefs, transport: RpcTransport?, dataDir: File?) {
+class ChainModel(private val c: AppController, private val prefs: Prefs, transport: RpcTransport?, dataDir: File?, journalAuthenticator: com.lockwallet.data.rpc.TxJournalAuthenticator) {
     class UserError(message: String) : Exception(message)
 
     private val offline = RpcTransport { _, _, _ -> throw RpcException(RpcException.Kind.TRANSPORT, "offline") }
     val net = NetworkManager(prefs.network, transport ?: offline)
-    private val journal = TxJournal(File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-${System.nanoTime()}"), "tx-journal.json"), AndroidTxJournalAuthenticator())
+    private val journal = TxJournal(File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-${System.nanoTime()}"), "tx-journal.json"), journalAuthenticator)
     val coordinator = TxCoordinator(net, journal)
     val reader = ChainReader(net)
 
