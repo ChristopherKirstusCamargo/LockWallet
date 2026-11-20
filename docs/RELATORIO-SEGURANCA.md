@@ -142,6 +142,8 @@ Foco: tudo de novo, com olhar de atacante, mais os pontos fracos apontados na av
 | 68 | **Mudança de unidade da rede (Alpenglow)**: desde 21/10/2026 o contador da conta de voto guarda **recompensa em lamports**, não votos — validador maior parecia “melhor” | comparamos com os dados reais de 685 validadores | 🔧 **Encontrado (baixo) e corrigido** | Desempenho medido **por SOL em stake** contra a mediana da rede; épocas antigas (outra unidade) ignoradas |
 | 65 | **Número da versão revelado na tela** (ajuda um atacante a mirar defeitos de uma versão) | varremos todas as telas e textos de ajuda | ✅ Aprovado | Nenhuma versão aparece no app |
 | 66 | **Tela pequena + fonte gigante** escondendo parte do saldo/endereço | 320 dp de largura, fonte 200 % | ✅ Aprovado | Valores encolhem para caber; nada é cortado |
+| 69 | **Servidor mentiroso na simulação** de transação de dApp com programa não decodificado (achado de auditoria estática externa) | RPC principal responde que o saldo não muda | 🔧 **Encontrado e corrigido** | Antes, uma única simulação bastava. Agora instrução não decodificada exige simulação nos dois servidores com resultado idêntico para a carteira e seus tokens; divergência ou um só servidor ⇒ bloqueio |
+| 70 | **Verificação extra do Seed Vault substituindo o analisador** (achado de auditoria estática externa) | função permissiva liberando instrução bloqueada | 🔧 **Corrigido** | A verificação extra agora só soma restrições; teste prova que não libera nada |
 
 Também foram repassados, com resultado igual ao das rodadas anteriores: portas abertas para outros apps (só 2),
 links e QR, Lock Connect (dApps), backup LWRP, regras de compilação (R8 remove registros), permissões do APK e o
@@ -179,7 +181,7 @@ histórico inteiro do repositório (sem chaves, senhas ou keystore).
   de risco, ou deixe a digital desligada.
 - **PIN de 6 dígitos é curto** fora do celular; a proteção real vem do chip de segurança do aparelho.
 - **Servidores da rede podem mentir sobre o saldo mostrado** (não podem roubar, mas podem mostrar número errado). Se os
-  dois servidores padrão combinarem uma mentira, a carteira não percebe.
+  dois servidores padrão combinarem uma mentira, a carteira não percebe. Isso vale também para a simulação de dApps: com os dois servidores de acordo na mentira, a estimativa mostrada fica errada (a simulação é uma estimativa de servidores externos, não uma garantia).
 - **Validador recomendado é opinião informada, não garantia.** Um validador pode subir a comissão **depois** que você
   delegou: o app passa a mostrar a nova comissão, mas não move seu stake sozinho (você decide desativar e delegar de
   novo).

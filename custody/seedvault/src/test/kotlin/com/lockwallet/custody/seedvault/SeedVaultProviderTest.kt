@@ -85,6 +85,19 @@ class SeedVaultProviderTest {
         try { p.finishSignature(w.id, msg, 0, intent); fail() } catch (e: CustodyException) { assertEquals(CustodyException.Reason.SEED_VAULT_DECLINED, e.reason) }
     }
 
+    @Test fun permissiveExtraCheckCannotReleaseABlockedInstruction() {
+        val g = FakeGateway()
+        val p = SeedVaultProvider(tmp.root, g)
+        val w = p.add("Saga", WalletRole.VAULT, 42L, g.pk, g.accountPath(0), emptyList())
+        val evil = LegacyMessage.compile(w.address, BH,
+            listOf(Instruction(ProgramIds.METAPLEX_METADATA, listOf(AccountMeta(w.address, true, true)), byteArrayOf(1)))).serialize()
+        val h = TransactionAnalyzer.analyze(evil, w.address).messageHash
+        try { p.signTransactionRequest(w.id, evil, h) { _, _ -> true }; fail() } catch (e: CustodyException) { assertEquals(CustodyException.Reason.NOT_APPROVED, e.reason) }
+        // And an extra check can still narrow an allowed transaction.
+        val ok = LegacyMessage.compile(w.address, BH, listOf(SystemIx.transfer(w.address, bob, 1000))).serialize()
+        try { p.signTransactionRequest(w.id, ok, TransactionAnalyzer.analyze(ok, w.address).messageHash) { _, _ -> false }; fail() } catch (e: CustodyException) { assertEquals(CustodyException.Reason.NOT_APPROVED, e.reason) }
+    }
+
     @Test fun rolesNeverShareASeedAndRevokedTokensAreQuarantined() {
         val g = FakeGateway()
         val p = SeedVaultProvider(tmp.root, g)

@@ -106,7 +106,8 @@ class SeedVaultProvider(
         val e = entry(id)
         val a = TransactionAnalyzer.analyze(message, e.address)
         if (!a.messageHash.contentEquals(approvedHash)) throw CustodyException(Reason.NOT_APPROVED)
-        val ok = if (extraCheck != null) extraCheck(message, e.address) else a.signable
+        // Cumulative: an extra policy can only narrow the analyzer's verdict, never replace it.
+        val ok = a.signable && (extraCheck?.invoke(message, e.address) ?: true)
         if (!ok) throw CustodyException(Reason.NOT_APPROVED)
         return gateway.signTransactionIntent(e.authToken, Uri.parse(e.path), message)
     }

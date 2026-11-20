@@ -72,6 +72,8 @@ object TxText {
         PrepBlocker.SIMULATION_FAILED -> "A simulação falhou: a rede recusaria esta transação."
         PrepBlocker.BLOCKHASH_INVALID -> "A validade desta transação já acabou (ou a rede não respondeu). Peça ao app para refazer."
         PrepBlocker.SIMULATION_UNAVAILABLE -> "Não foi possível testar a transação agora (sem conexão). Sem teste, nada é assinado."
+        PrepBlocker.SIMULATION_SINGLE_SOURCE -> "Esta transação tem partes que a carteira não decodifica e só um servidor conseguiu testá-la. São necessários dois. Bloqueado."
+        PrepBlocker.SIMULATION_DIVERGED -> "Os dois servidores deram resultados diferentes para esta transação. Bloqueado por segurança."
     }
 
     fun state(s: TransactionState): String = when (s) {

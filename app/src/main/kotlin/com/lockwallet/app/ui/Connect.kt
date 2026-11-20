@@ -118,6 +118,7 @@ private fun SignDapp(c: AppController, r: SignRequestModel) {
         } else {
             if (rv == null) { if (m.reviewError == null) Busy("Analisando e testando…") } else {
                 rv.forEachIndexed { i, t -> TxReviewCard(c, t, i, rv.size) }
+                Text("A simulação é uma estimativa de servidores externos, não uma garantia.", color = C.dim, fontSize = 12.sp)
                 if (rv.any { it.verdict.needsRawAck } && rv.all { it.signable }) {
                     Notice(S.DAPP_RAW_WARNING, Ic.WARN, Help.RAW_PROGRAM, strong = true)
                     AckRow(S.DAPP_RAW_ACK, m.rawAck, "raw-ack") { m.rawAck = it }

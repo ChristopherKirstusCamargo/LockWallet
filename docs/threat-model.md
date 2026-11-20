@@ -13,7 +13,7 @@ Ativos: entropia/frase, seed de 64 B, chave Ed25519, DEK, pin_key, PIN, senha LW
 | T-06 | PIN curto, ataque offline após obter `dek_pin` | Argon2id ≥ OWASP, auth-per-use, PIN maior opcional | vetores Argon2id | 6 dígitos ≈ 20 bits | B |
 | T-07 | Rollback/snapshot do contador | write-ahead, boot count; declarado como UX | clock fake/crash | root restaura estado antigo | B |
 | T-08 | LWRP malformado (DoS na KDF, truncamento) | tamanho exato, allowlist KDF antes da KDF, parser estrito | `LwrpStructureTest` ✅ | senha fraca | A/B |
-| T-09 | RPC malicioso | 2 RPCs, genesis fixado, parsing local, divergência bloqueia, TLS só CAs do sistema | fakes de RPC | RPCs coniventes | D |
+| T-09 | RPC malicioso | 2 RPCs, genesis fixado, parsing local, TLS só CAs do sistema. Leituras e transações totalmente decodificadas usam o primário com reserva (sem comparação). Transação de dApp com instrução não decodificada (UNKNOWN/KNOWN_UNDECODED): simulação obrigatória nos **dois** RPCs, estados posteriores das contas observadas (SOL, dono, dados de token) comparados; divergência ou resposta de um só servidor ⇒ bloqueio. “Expirada” só com evidência de dois RPCs | fakes de RPC (`CoordinatorTest`) | RPCs coniventes | D |
 | T-10 | Address poisoning / token falso | endereço inteiro, comparação, 1º envio reforçado, mint como identidade | UI | usuário ignora alerta | D/E |
 | T-11 | Transação enganosa / instrução desconhecida | allowlist por instrução, bytes exibidos = assinados | Gate A4 | bug em programa allowlisted | A4 |
 | T-12 | Duplicação após envio incerto | máquina única, EXPIRED só com evidência, sem rebuild | `TransactionStateMachineTest` ✅ | estado remoto incerto | A/D |

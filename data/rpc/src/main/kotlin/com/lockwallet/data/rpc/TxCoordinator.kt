@@ -58,7 +58,7 @@ data class ComputeBudget(val unitLimit: Long, val microLamportsPerUnit: Long) {
     )
 }
 
-enum class PrepBlocker { BUSY, TOO_LARGE, ANALYZER, FEE_UNAVAILABLE, SIMULATION_FAILED, SIMULATION_UNAVAILABLE, BLOCKHASH_INVALID }
+enum class PrepBlocker { BUSY, TOO_LARGE, ANALYZER, FEE_UNAVAILABLE, SIMULATION_FAILED, SIMULATION_UNAVAILABLE, BLOCKHASH_INVALID, SIMULATION_SINGLE_SOURCE, SIMULATION_DIVERGED }
 
 /** A built, analysed and simulated transaction awaiting the user's authorization. Never persisted unsigned. */
 class PreparedTx internal constructor(
@@ -172,7 +172,7 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
      * lastValidBlockHeight is not knowable from a foreign blockhash: we use current height + 150 (upper bound; only
      * used to stop rebroadcasting and never to declare EXPIRED without evidence).
      */
-    fun prepareExternal(wallet: SolanaPublicKey, message: ByteArray, summary: String, watch: List<SolanaPublicKey>, firewallOk: Boolean): PreparedTx {
+    fun prepareExternal(wallet: SolanaPublicKey, message: ByteArray, summary: String, watch: List<SolanaPublicKey>, firewallOk: Boolean, crossCheck: Boolean = false): PreparedTx {
         var st = TransactionStateMachine.transition(DRAFT, PREPARED)
         val cluster = net.config.cluster
         val analysis = TransactionAnalyzer.analyze(message, wallet)
@@ -190,8 +190,20 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         val fee = shownFee(com.lockwallet.core.solana.tx.FeeMath.maxFee(msg), try { net.withFallback { it.getFeeForMessage(message) } } catch (_: RpcException) { null })
         if (fee == null) blockers += PrepBlocker.FEE_UNAVAILABLE
         val w = (listOf(wallet) + watch.filter { it != wallet }).distinct().take(16)
-        val sim = try { net.withFallback { it.simulate(WireTransaction.unsigned(msg), w) } } catch (_: RpcException) { null }
+        val sim: SimulationResult?
+        if (crossCheck) {
+            // Not fully decoded: one node's word is not enough. Two independent, genesis-verified endpoints must both
+            // simulate and agree on every watched account's post-state (SOL, owner, token data); otherwise blocked.
+            val wire = WireTransaction.unsigned(msg)
+            val p = try { net.primary().simulate(wire, w) } catch (_: RpcException) { null }
+            val s2 = if (net.config.secondaryUrl == null || net.config.secondaryUrl == net.config.primaryUrl) null
+                else try { net.secondaryOrNull()?.simulate(wire, w) } catch (_: RpcException) { null }
+            sim = p ?: s2
+            if (p == null || s2 == null) { if (p != null || s2 != null) blockers += PrepBlocker.SIMULATION_SINGLE_SOURCE }
+            else if (p.err != s2.err || p.accounts != s2.accounts) blockers += PrepBlocker.SIMULATION_DIVERGED
+        } else sim = try { net.withFallback { it.simulate(WireTransaction.unsigned(msg), w) } } catch (_: RpcException) { null }
         when {
+            PrepBlocker.SIMULATION_DIVERGED in blockers || PrepBlocker.SIMULATION_SINGLE_SOURCE in blockers -> Unit
             sim == null -> blockers += PrepBlocker.SIMULATION_UNAVAILABLE
             sim.err != null -> blockers += PrepBlocker.SIMULATION_FAILED
             sim.accounts.size != w.size -> blockers += PrepBlocker.SIMULATION_UNAVAILABLE

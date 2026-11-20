@@ -207,7 +207,7 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
                 val st = runCatching { TokenState.parseAccount(a.owner, a.data) }.getOrNull() ?: return@mapNotNull null
                 if (st.owner == me) Triple(k, a, st) else null
             }
-            val p = c.chain.coordinator.prepareExternal(me, msg, "dApp: " + (r0Name ?: "transação"), tokenAccts.map { it.first }, verdict.signable)
+            val p = c.chain.coordinator.prepareExternal(me, msg, "dApp: " + (r0Name ?: "transação"), tokenAccts.map { it.first }, verdict.signable, crossCheck = verdict.needsRawAck)
             val prepProblems = p.blockers.filter { kind == SignKind.SIGN_AND_SEND || it != PrepBlocker.BUSY }
             val sim = p.simulation
             val post = sim?.accounts.orEmpty()

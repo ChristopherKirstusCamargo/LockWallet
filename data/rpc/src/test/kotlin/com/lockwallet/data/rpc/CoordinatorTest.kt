@@ -194,4 +194,38 @@ class CoordinatorTest {
         file.writeText("[{\"sig\":")
         try { TxJournal(file).all(); fail() } catch (_: IllegalStateException) {}
     }
+
+    // ---- dApp cross-check (external audit, finding 1)
+    private fun twoRpc(): TxCoordinator {
+        f.handlers[FakeRpc.B] = HashMap(f.handlers[FakeRpc.A]!!)
+        return TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), TxJournal(tmp.newFile("j2.json").also { it.delete() })) { clock }
+    }
+    private fun dappMsg() = com.lockwallet.core.solana.tx.LegacyMessage.compile(payer,
+        com.lockwallet.core.solana.tx.Blockhash(com.lockwallet.core.solana.Base58.decodeOrNull(bh)!!), listOf(SystemIx.transfer(payer, bob, 1000))).serialize()
+    private fun sim(lamports: Long) = """{"context":{"slot":1},"value":{"err":null,"logs":[],"unitsConsumed":150,"accounts":[{"lamports":$lamports,"owner":"11111111111111111111111111111111","data":["","base64"],"executable":false,"rentEpoch":0}]}}"""
+
+    @Test fun undecodedDappTxPassesOnlyWhenTwoRpcsAgree() {
+        val c = twoRpc()
+        val p = c.prepareExternal(payer, dappMsg(), "dApp", emptyList(), firewallOk = true, crossCheck = true)
+        assertTrue(p.blockers.toString(), p.signable)
+        assertEquals(1, f.calls.count { it.first == FakeRpc.A && it.second == "simulateTransaction" })
+        assertEquals(1, f.calls.count { it.first == FakeRpc.B && it.second == "simulateTransaction" })
+    }
+
+    @Test fun divergingSimulationsBlockUndecodedDappTx() {
+        val c = twoRpc()
+        f.on(FakeRpc.B, "simulateTransaction") { sim(1) }
+        val p = c.prepareExternal(payer, dappMsg(), "dApp", emptyList(), firewallOk = true, crossCheck = true)
+        assertFalse(p.signable); assertEquals(listOf(PrepBlocker.SIMULATION_DIVERGED), p.blockers)
+    }
+
+    @Test fun singleRpcAnswerBlocksUndecodedDappTx() {
+        val c = twoRpc()
+        f.handlers[FakeRpc.B]!!.remove("simulateTransaction")
+        assertEquals(listOf(PrepBlocker.SIMULATION_SINGLE_SOURCE), c.prepareExternal(payer, dappMsg(), "dApp", emptyList(), true, crossCheck = true).blockers)
+        // No secondary configured at all: also blocked.
+        assertEquals(listOf(PrepBlocker.SIMULATION_SINGLE_SOURCE), co.prepareExternal(payer, dappMsg(), "dApp", emptyList(), true, crossCheck = true).blockers)
+        // Fully decoded dApp tx keeps the single-simulation path.
+        assertTrue(co.prepareExternal(payer, dappMsg(), "dApp", emptyList(), true).signable)
+    }
 }

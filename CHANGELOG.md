@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## 5.0.0 (versionCode 7)
+
+### Segurança (auditoria estática externa)
+- **Lock Connect:** transação de dApp com instrução não decodificada agora exige simulação em dois RPCs independentes, com os estados posteriores da carteira e das contas de token comparados; divergência ou resposta de um só servidor bloqueia. A confirmação extra para instruções não decodificadas continua. A revisão informa que a simulação é uma estimativa de servidores externos, não uma garantia.
+- **Seed Vault:** a verificação adicional opcional de `signTransactionRequest` passa a ser cumulativa com o analisador (só pode restringir, nunca liberar).
+- Modelo de ameaças T-09 alinhado ao comportamento real.
+
 ## 5.0.0 (versionCode 6)
 
 - **Excluir carteira** (Ajustes → carteira): confirmação digitando EXCLUIR, ajuda “?”, e PIN obrigatório (nunca só a digital). Remove só a chave cifrada e os dados daquela carteira; a entrada do registro sai primeiro (gravação atômica) e o envelope é sobrescrito e apagado. Se era a ativa, outra é selecionada; se era a última, o app volta ao início. Contadores de PIN intactos.
