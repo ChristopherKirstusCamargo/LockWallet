@@ -15,6 +15,7 @@ import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.IllegalBlockSizeException
 import javax.crypto.KeyGenerator
+import javax.crypto.Mac
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
@@ -83,6 +84,36 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
     override fun decryptor(aliasId: ByteArray, iv: ByteArray): KekOperation {
         require(iv.size == 12)
         return op(aliasId) { c, k -> c.init(Cipher.DECRYPT_MODE, k, GCMParameterSpec(128, iv)) }
+    }
+
+    override fun createAttemptMacKey(aliasId: ByteArray) {
+        val alias = KekStore.attemptMacAlias(aliasId)
+        if (ks.containsAlias(alias)) throw KekException(KekException.Kind.UNAVAILABLE)
+        try {
+            val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+                .setKeySize(256)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .build()
+            KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, PROVIDER)
+                .apply { init(spec) }
+                .generateKey()
+        } catch (e: Exception) {
+            throw KekException(KekException.Kind.UNAVAILABLE, e)
+        }
+    }
+
+    override fun attemptMac(aliasId: ByteArray, data: ByteArray): ByteArray = try {
+        val key = ks.getKey(KekStore.attemptMacAlias(aliasId), null) as? SecretKey
+            ?: throw KekException(KekException.Kind.NOT_FOUND)
+        Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(data)
+    } catch (e: KekException) {
+        throw e
+    } catch (e: Exception) {
+        throw KekException(KekException.Kind.UNAVAILABLE, e)
+    }
+
+    override fun deleteAttemptMacKey(aliasId: ByteArray) {
+        ks.deleteEntry(KekStore.attemptMacAlias(aliasId))
     }
 
     override fun delete(aliasId: ByteArray) {

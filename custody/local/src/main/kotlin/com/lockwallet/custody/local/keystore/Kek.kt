@@ -46,10 +46,16 @@ interface KekStore {
     fun securityLevel(aliasId: ByteArray): KeySecurityLevel?
     fun encryptor(aliasId: ByteArray): KekOperation
     fun decryptor(aliasId: ByteArray, iv: ByteArray): KekOperation
+    /** Non-exportable HMAC key for PIN-attempt state, created with the vault and never biometric-gated. */
+    fun createAttemptMacKey(aliasId: ByteArray)
+    fun attemptMac(aliasId: ByteArray, data: ByteArray): ByteArray
+    fun deleteAttemptMacKey(aliasId: ByteArray)
+
     /** Only on explicit user removal of a quarantined/empty vault, never as error recovery. */
     fun delete(aliasId: ByteArray)
 
     companion object {
         fun alias(aliasId: ByteArray): String = "lw.kek." + aliasId.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        fun attemptMacAlias(aliasId: ByteArray): String = "lw.pinmac." + aliasId.joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 }

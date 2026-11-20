@@ -17,8 +17,12 @@ class PinAttemptLimiterTest {
     @get:Rule val tmp = TemporaryFolder()
     private val clock = FakeClock()
     private var vault = true
+    private val macKey = ByteArray(32) { (it + 1).toByte() }
+    private fun mac(data: ByteArray): ByteArray = javax.crypto.Mac.getInstance("HmacSHA256").apply {
+        init(javax.crypto.spec.SecretKeySpec(macKey, "HmacSHA256"))
+    }.doFinal(data)
     private fun limiter(dir: File = tmp.root) =
-        PinAttemptLimiter(File(dir, "a.bin"), File(dir, "a.mirror"), clock, AtomicFiles()) { vault }
+        PinAttemptLimiter(File(dir, "a.bin"), File(dir, "a.mirror"), clock, AtomicFiles(), { vault }, ::mac)
 
     @Test fun scheduleIs5Then1hDoublingTo24h() {
         assertEquals(listOf(0L, 0, 0, 0, HOUR, 2 * HOUR, 4 * HOUR, 8 * HOUR, 16 * HOUR, 24 * HOUR, 24 * HOUR),
@@ -82,6 +86,17 @@ class PinAttemptLimiterTest {
         repeat(2) { l.gate() }
         File(tmp.root, "a.bin").writeBytes(old) // rollback one copy
         assertEquals(5, limiter().failures())
+    }
+
+    @Test fun tamperedAttemptStateCannotBeRecomputedWithoutKeystoreMacKey() {
+        val l = limiter()
+        l.gate(); l.gate()
+        File(tmp.root, "a.bin").writeBytes(ByteArray(80) { 0x41 })
+        File(tmp.root, "a.mirror").writeBytes(ByteArray(80) { 0x41 })
+        assertEquals(4, limiter().failures())
+        val fifth = limiter().gate() as AttemptGate.Allowed
+        assertEquals(HOUR, fifth.lockoutIfWrongMs)
+        assertTrue(limiter().lockoutRemainingMs() > 0)
     }
 
     @Test fun pinEncodingRejectsNonAsciiDigits() {

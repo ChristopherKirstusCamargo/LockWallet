@@ -32,12 +32,25 @@ import javax.crypto.spec.SecretKeySpec
 /** Software KEK for JVM tests only (the Android Keystore is not available under Robolectric). */
 internal class SoftKek : KekStore {
     val keys = mutableMapOf<String, ByteArray>()
+    private val attemptMacKeys = mutableMapOf<String, ByteArray>()
     override fun create(aliasId: ByteArray, mode: AuthMode): KeySecurityLevel {
         keys[KekStore.alias(aliasId)] = ByteArray(32).also(SecureRandom()::nextBytes); return KeySecurityLevel.TRUSTED_ENVIRONMENT
     }
     override fun exists(aliasId: ByteArray) = KekStore.alias(aliasId) in keys
     override fun securityLevel(aliasId: ByteArray) = if (exists(aliasId)) KeySecurityLevel.TRUSTED_ENVIRONMENT else null
     override fun delete(aliasId: ByteArray) { keys.remove(KekStore.alias(aliasId)) }
+    override fun createAttemptMacKey(aliasId: ByteArray) {
+        val alias = KekStore.attemptMacAlias(aliasId)
+        check(alias !in attemptMacKeys)
+        attemptMacKeys[alias] = ByteArray(32).also(SecureRandom()::nextBytes)
+    }
+    override fun attemptMac(aliasId: ByteArray, data: ByteArray): ByteArray {
+        val key = attemptMacKeys[KekStore.attemptMacAlias(aliasId)] ?: throw KekException(KekException.Kind.NOT_FOUND)
+        return javax.crypto.Mac.getInstance("HmacSHA256").apply {
+            init(javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"))
+        }.doFinal(data)
+    }
+    override fun deleteAttemptMacKey(aliasId: ByteArray) { attemptMacKeys.remove(KekStore.attemptMacAlias(aliasId)) }
     override fun encryptor(aliasId: ByteArray) = op(aliasId, null)
     override fun decryptor(aliasId: ByteArray, iv: ByteArray) = op(aliasId, iv)
     private fun op(aliasId: ByteArray, iv: ByteArray?): KekOperation {

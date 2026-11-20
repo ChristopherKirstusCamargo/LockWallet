@@ -27,6 +27,7 @@ internal fun ByteArray.hex(): String = joinToString("") { "%02x".format(it.toInt
 internal class FakeKekStore : KekStore {
     class Entry(val key: ByteArray, val mode: AuthMode, var invalidated: Boolean = false)
     val keys = mutableMapOf<String, Entry>()
+    private val attemptMacKeys = mutableMapOf<String, ByteArray>()
     var level = KeySecurityLevel.TRUSTED_ENVIRONMENT
     /** When set, the next encryptor uses this IV (regression vectors). */
     var fixedIv: ByteArray? = null
@@ -44,6 +45,18 @@ internal class FakeKekStore : KekStore {
     override fun exists(aliasId: ByteArray) = KekStore.alias(aliasId) in keys
     override fun securityLevel(aliasId: ByteArray) = if (exists(aliasId)) level else null
     override fun delete(aliasId: ByteArray) { keys.remove(KekStore.alias(aliasId)) }
+    override fun createAttemptMacKey(aliasId: ByteArray) {
+        val alias = KekStore.attemptMacAlias(aliasId)
+        check(alias !in attemptMacKeys)
+        attemptMacKeys[alias] = ByteArray(32).also(SecureRandom()::nextBytes)
+    }
+    override fun attemptMac(aliasId: ByteArray, data: ByteArray): ByteArray {
+        val key = attemptMacKeys[KekStore.attemptMacAlias(aliasId)] ?: throw KekException(KekException.Kind.NOT_FOUND)
+        return javax.crypto.Mac.getInstance("HmacSHA256").apply {
+            init(javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"))
+        }.doFinal(data)
+    }
+    override fun deleteAttemptMacKey(aliasId: ByteArray) { attemptMacKeys.remove(KekStore.attemptMacAlias(aliasId)) }
     override fun encryptor(aliasId: ByteArray) = op(aliasId, null)
     override fun decryptor(aliasId: ByteArray, iv: ByteArray) = op(aliasId, iv)
 

@@ -175,7 +175,14 @@ class LocalSecureProvider(
 ) : KeyCustodyProvider {
     private val envDir = File(dir, "envelopes")
     private val registry = WalletRegistry(File(dir, "registry.lwreg"), atomic)
-    val attempts = PinAttemptLimiter(File(dir, "attempts.bin"), File(dir, "attempts.mirror"), clock, atomic) { hasVault() }
+    val attempts = PinAttemptLimiter(
+        File(dir, "attempts.bin"), File(dir, "attempts.mirror"), clock, atomic,
+        vaultExists = { hasVault() },
+        hmac = { data ->
+            val vault = snapshot().vault ?: throw KekException(KekException.Kind.NOT_FOUND)
+            kek.attemptMac(hex(vault.aliasIdHex), data)
+        },
+    )
     private val bio = bioKeys?.let { com.lockwallet.custody.local.bio.BioVault(File(dir, "bio"), it, clock, atomic, random) }
 
     init {
@@ -206,6 +213,12 @@ class LocalSecureProvider(
         val vaultId = rand(16); val aliasId = rand(16)
         try {
             kek.create(aliasId, mode)
+            try {
+                kek.createAttemptMacKey(aliasId)
+            } catch (e: Exception) {
+                runCatching { kek.delete(aliasId) }
+                throw e
+            }
             return KekTicket(kek.encryptor(aliasId), null, KekTicket.NewVault(vaultId, aliasId, mode))
         } catch (e: KekException) {
             throw mapKek(e)
@@ -215,7 +228,10 @@ class LocalSecureProvider(
     /** Abandons a ticket. A KEK created by [beginNewVault] that never sealed anything is deleted (nothing references it). */
     fun cancel(ticket: KekTicket) {
         val nv = ticket.newVault ?: return
-        if (snapshot().vault?.aliasIdHex != hexOf(nv.aliasId)) runCatching { kek.delete(nv.aliasId) }
+        if (snapshot().vault?.aliasIdHex != hexOf(nv.aliasId)) {
+            runCatching { kek.deleteAttemptMacKey(nv.aliasId) }
+            runCatching { kek.delete(nv.aliasId) }
+        }
     }
 
     /** Additional wallet into the existing vault; needs a [PinVerification] at [seal]. */
@@ -346,7 +362,13 @@ class LocalSecureProvider(
             } catch (_: EnvelopeAuthException) {
                 pinKey.close(); return failed
             }
-            attempts.recordSuccess()
+            try {
+                attempts.recordSuccess()
+            } catch (_: Exception) {
+                material.close()
+                pinKey.close()
+                throw CustodyException(CustodyException.Reason.STORAGE)
+            }
             bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
             return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, pinKey, env.pinSalt(), env.header()))
         } finally {

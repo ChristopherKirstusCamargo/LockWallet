@@ -31,6 +31,7 @@ class PinAttemptLimiter(
     private val clock: AttemptClock,
     private val atomic: AtomicFiles,
     private val vaultExists: () -> Boolean,
+    private val hmac: (ByteArray) -> ByteArray,
 ) {
     data class State(val failures: Int, val lockStartElapsed: Long, val lockDurationMs: Long, val boot: Int)
 
@@ -38,7 +39,7 @@ class PinAttemptLimiter(
         val s = current()
         val remaining = remaining(s)
         if (remaining > 0) return AttemptGate.LockedOut(remaining)
-        val failures = s.failures + 1
+        val failures = (s.failures + 1).coerceAtMost(MAX_FAILURES)
         val dur = lockoutFor(failures)
         val now = clock.elapsedRealtimeMs()
         persist(State(failures, if (dur > 0) now else 0, dur, clock.bootCount()))
@@ -77,18 +78,46 @@ class PinAttemptLimiter(
 
     private fun persist(s: State) {
         val bytes = encode(s)
-        atomic.write(primary, bytes) { requireNotNull(decode(it)) }
-        atomic.write(mirror, bytes) { requireNotNull(decode(it)) }
+        atomic.write(primary, bytes) { check(decode(it) == s) }
+        atomic.write(mirror, bytes) { check(decode(it) == s) }
     }
 
     private fun read(f: File): State? = if (!f.exists()) null else try { decode(f.readBytes()) } catch (_: Exception) { null }
+
+    private fun encode(s: State): ByteArray {
+        val body = ByteBuffer.allocate(BODY_LEN)
+            .putInt(MAGIC).put(VERSION).putInt(s.failures).putLong(s.lockStartElapsed)
+            .putLong(s.lockDurationMs).putInt(s.boot).array()
+        val tag = hmac(MAC_DOMAIN + body)
+        require(tag.size == MAC_LEN) { "invalid Keystore MAC length" }
+        return body + tag
+    }
+
+    private fun decode(bytes: ByteArray): State? {
+        if (bytes.size != BODY_LEN + MAC_LEN) return null
+        val body = bytes.copyOfRange(0, BODY_LEN)
+        val tag = bytes.copyOfRange(BODY_LEN, bytes.size)
+        val expected = runCatching { hmac(MAC_DOMAIN + body) }.getOrNull() ?: return null
+        if (expected.size != MAC_LEN || !MessageDigest.isEqual(expected, tag)) return null
+        val bb = ByteBuffer.wrap(body)
+        if (bb.int != MAGIC || bb.get() != VERSION) return null
+        val state = State(bb.int, bb.long, bb.long, bb.int)
+        if (state.failures !in 0..MAX_FAILURES || state.lockDurationMs < 0 || state.lockDurationMs > MAX_LOCK ||
+            state.lockStartElapsed < 0L
+        ) return null
+        return state
+    }
 
     companion object {
         const val FREE_ATTEMPTS = 5
         const val HOUR = 3_600_000L
         const val MAX_LOCK = 24 * HOUR
         private const val MAGIC = 0x4C57504E // "LWPN"
-        private const val LEN = 4 + 1 + 4 + 8 + 8 + 4 + 16
+        private const val VERSION: Byte = 2
+        private const val BODY_LEN = 4 + 1 + 4 + 8 + 8 + 4
+        private const val MAC_LEN = 32
+        private const val MAX_FAILURES = 10
+        private val MAC_DOMAIN = "LockWallet/PIN-attempt-state/v2\u0000".toByteArray(Charsets.US_ASCII)
 
         /** 1..4 ⇒ 0; 5 ⇒ 1 h; 6 ⇒ 2 h; 7 ⇒ 4 h; 8 ⇒ 8 h; 9 ⇒ 16 h; ≥10 ⇒ 24 h. */
         fun lockoutFor(failures: Int): Long {
@@ -97,23 +126,5 @@ class PinAttemptLimiter(
             return (HOUR shl exp).coerceAtMost(MAX_LOCK)
         }
 
-        fun encode(s: State): ByteArray {
-            val bb = ByteBuffer.allocate(LEN)
-            bb.putInt(MAGIC).put(1).putInt(s.failures).putLong(s.lockStartElapsed).putLong(s.lockDurationMs).putInt(s.boot)
-            val body = bb.array().copyOf(LEN - 16)
-            bb.put(MessageDigest.getInstance("SHA-256").digest(body), 0, 16)
-            return bb.array()
-        }
-
-        fun decode(b: ByteArray): State? {
-            if (b.size != LEN) return null
-            val body = b.copyOf(LEN - 16)
-            if (!MessageDigest.getInstance("SHA-256").digest(body).copyOf(16).contentEquals(b.copyOfRange(LEN - 16, LEN))) return null
-            val bb = ByteBuffer.wrap(b)
-            if (bb.int != MAGIC || bb.get().toInt() != 1) return null
-            val s = State(bb.int, bb.long, bb.long, bb.int)
-            if (s.failures < 0 || s.lockDurationMs < 0 || s.lockDurationMs > MAX_LOCK) return null
-            return s
-        }
     }
 }
