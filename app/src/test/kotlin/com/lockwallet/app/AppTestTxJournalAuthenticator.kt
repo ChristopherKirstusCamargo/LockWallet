@@ -1,7 +1,6 @@
 package com.lockwallet.app
 
 import com.lockwallet.data.rpc.TxJournalAuthenticator
-import java.util.Arrays
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
