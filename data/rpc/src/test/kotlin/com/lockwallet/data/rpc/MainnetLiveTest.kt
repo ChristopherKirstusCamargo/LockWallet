@@ -31,7 +31,7 @@ class MainnetLiveTest {
         val v = validators.maxBy { it.activatedStake }
         val payer = v.node
         assertTrue("payer has funds", chain.balance(payer) > 5_000_000_000)
-        val co = TxCoordinator(net, TxJournal(tmp.newFile("s.json").also { it.delete() }))
+        val co = TxCoordinator(net, TxJournal(tmp.newFile("s.json").also { it.delete() }, TestTxJournalAuthenticator))
         val dest = key()
         val rent0 = chain.rentExempt(0)
         assertTrue(rent0 > 0)  // read from the chain, never hard-coded (650 240 lamports in Nov 2026)
