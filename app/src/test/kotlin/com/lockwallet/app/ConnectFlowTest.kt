@@ -77,7 +77,7 @@ class ConnectFlowTest {
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); c.await()
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Connect")
-        c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
+        c.setNewPin("839174".toCharArray())
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
         return c
     }
@@ -137,7 +137,7 @@ class ConnectFlowTest {
 
     private fun AppController.pin() {
         assertTrue(screen.toString(), screen is Screen.Authorize)
-        submitPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray(), (screen as Screen.Authorize).purpose); await()
+        submitPin("839174".toCharArray(), (screen as Screen.Authorize).purpose); await()
     }
 
     @Test fun authorizeThenSignTransactionThroughFirewallAndPin() {
