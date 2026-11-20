@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.ByteBuffer
 import java.security.SecureRandom
 
 class BioVaultDeletionTest {
@@ -45,6 +46,25 @@ class BioVaultDeletionTest {
         assertTrue(keys.exists(stateAlias))
         assertNotNull(vault.record(hex(walletB), headerB))
         assertFalse(vault.has(hex(walletA)))
+    }
+
+    @Test fun pendingKeyMarkerAllowsErasureAfterCrashBeforeStateCommit() {
+        val dir = File(tmp.root, "bio")
+        dir.mkdirs()
+        val alias = ByteArray(16) { 0x4d }
+        keys.create(alias)
+        // Same durable marker written before BioVault creates its Keystore policy key.
+        val marker = File(dir, "key.pending")
+        val bytes = ByteBuffer.allocate(20).putInt(0x4C574250).put(alias).array()
+        AtomicFiles().write(marker, bytes) { require(it.contentEquals(bytes)) }
+        assertTrue(keys.exists(alias))
+
+        val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
+        vault.disable()
+
+        assertFalse(keys.exists(alias))
+        assertFalse(marker.exists())
+        assertTrue(dir.listFiles().isNullOrEmpty())
     }
 
     @Test fun disablingAfterInterruptedWritesFindsAliasesInTemporaryFiles() {
