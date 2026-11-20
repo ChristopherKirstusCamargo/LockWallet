@@ -19,7 +19,7 @@ import java.security.MessageDigest
 class SigningTest {
     @get:Rule val tmp = TemporaryFolder()
     private val kek = FakeKekStore()
-    private val pin = "listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"
+    private val pin = "839174"
     private val tx = Fixtures.json("tx-oracle.json")
     private fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     private fun sha(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b)
