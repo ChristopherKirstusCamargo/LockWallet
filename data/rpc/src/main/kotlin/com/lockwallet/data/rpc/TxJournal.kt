@@ -5,6 +5,16 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.Base64
+
+/**
+ * Keystore-backed authenticator for the transaction journal. Implementations must never create a key when
+ * [createIfMissing] is false: a missing/invalidated key means existing journal data cannot be trusted.
+ */
+fun interface TxJournalAuthenticator {
+    fun mac(data: ByteArray, createIfMissing: Boolean): ByteArray
+}
 
 enum class TxKind { SEND_SOL, SEND_TOKEN, CLOSE_TOKEN, STAKE_CREATE, STAKE_DEACTIVATE, STAKE_WITHDRAW, STAKE_SPLIT, STAKE_MERGE, DAPP }
 
@@ -41,9 +51,25 @@ data class TxRecord(
             (state in setOf(TransactionState.FAILED, TransactionState.FINALIZED) && !statusVerified)
 }
 
-/** Atomic JSON file of the last [MAX] records (temp → fsync → rename). */
-class TxJournal(private val file: File) {
-    companion object { const val MAX = 300 }
+/**
+ * Authenticated JSON journal. The MAC covers the exact UTF-8 payload (including every signed transaction byte)
+ * with a domain separator. Writes remain temp → fsync → read-back/authenticate → atomic rename.
+ *
+ * A legacy unauthenticated array is migrated conservatively: signatures and display metadata remain, but signed
+ * bytes are discarded and every state becomes UNKNOWN. This forces chain reconciliation and prevents a modified
+ * legacy file from supplying bearer transaction bytes for rebroadcast.
+ *
+ * HMAC detects file edits, not deletion or restoration of an older complete, valid file. The chain remains the
+ * source of truth for transaction status; this class does not claim hardware anti-rollback protection.
+ */
+class TxJournal(private val file: File, private val authenticator: TxJournalAuthenticator) {
+    companion object {
+        const val MAX = 300
+        private const val FORMAT_VERSION = 1L
+        private val MAC_DOMAIN = "LockWallet/TxJournal/v1\u0000".toByteArray(Charsets.US_ASCII)
+        private val ENVELOPE_KEYS = setOf("v", "payload", "mac")
+    }
+
     private val lock = Any()
 
     fun all(): List<TxRecord> = synchronized(lock) { load() }
@@ -55,19 +81,98 @@ class TxJournal(private val file: File) {
 
     private fun load(): List<TxRecord> {
         if (!file.exists()) return emptyList()
-        val root = try { J.arr(MiniJson.parse(file.readText())) } catch (_: Exception) { throw IllegalStateException("journal corrupted") }
-        return root.map { decode(J.obj(it)) }
+        val root = try {
+            MiniJson.parse(file.readText(Charsets.UTF_8))
+        } catch (e: Exception) {
+            throw IllegalStateException("journal corrupted", e)
+        }
+
+        // One-time, fail-safe migration from the v5.0.2 unsigned JSON-array format.
+        if (root is List<*>) {
+            val migrated = try {
+                J.arr(root).map { value ->
+                    decode(J.obj(value)).copy(
+                        signedTxB64 = null,
+                        state = TransactionState.UNKNOWN,
+                        statusVerified = false,
+                        detail = "Legacy journal entry; transaction status must be reconciled on-chain",
+                    )
+                }.sortedBy { it.createdAtMs }.takeLast(MAX)
+            } catch (e: Exception) {
+                throw IllegalStateException("legacy journal corrupted", e)
+            }
+            save(migrated)
+            return migrated
+        }
+
+        val envelope = try { J.obj(root) } catch (e: Exception) {
+            throw IllegalStateException("journal format rejected", e)
+        }
+        if (envelope.keys != ENVELOPE_KEYS) throw IllegalStateException("journal format rejected")
+        if (try { J.long(envelope["v"]) } catch (e: Exception) { -1L } != FORMAT_VERSION) {
+            throw IllegalStateException("journal version unsupported")
+        }
+
+        val payload = try { J.str(envelope["payload"]) } catch (e: Exception) {
+            throw IllegalStateException("journal payload missing", e)
+        }
+        val suppliedMac = try { Base64.getDecoder().decode(J.str(envelope["mac"])) } catch (e: Exception) {
+            throw IllegalStateException("journal authentication tag malformed", e)
+        }
+        if (suppliedMac.size != 32) throw IllegalStateException("journal authentication tag malformed")
+
+        // Do not generate a replacement Keystore key during verification. A missing key must fail closed.
+        val expectedMac = try { authenticator.mac(macInput(payload), createIfMissing = false) } catch (e: Exception) {
+            throw IllegalStateException("journal authentication key unavailable", e)
+        }
+        if (expectedMac.size != 32 || !MessageDigest.isEqual(expectedMac, suppliedMac)) {
+            throw IllegalStateException("journal authentication failed")
+        }
+
+        return try {
+            J.arr(MiniJson.parse(payload)).map { decode(J.obj(it)) }
+        } catch (e: Exception) {
+            throw IllegalStateException("authenticated journal payload malformed", e)
+        }
     }
 
     private fun save(list: List<TxRecord>) {
-        file.parentFile?.mkdirs()
-        val tmp = File(file.parentFile, file.name + ".tmp")
-        FileOutputStream(tmp).use { out -> out.write(encode(list).toByteArray(Charsets.UTF_8)); out.fd.sync() }
-        if (J.arr(MiniJson.parse(tmp.readText())).size != list.size) throw IllegalStateException("journal read-back")
+        require(list.size <= MAX)
+        val payload = encodeRecords(list)
+        val tag = authenticator.mac(macInput(payload), createIfMissing = true)
+        if (tag.size != 32) throw IllegalStateException("journal authenticator returned invalid tag")
+        val encoded = """{"v":$FORMAT_VERSION,"payload":${JsonOut.str(payload)},"mac":${JsonOut.str(Base64.getEncoder().encodeToString(tag))}}"""
+
+        val parent = file.absoluteFile.parentFile
+        if (!parent.exists() && !parent.mkdirs()) throw IllegalStateException("journal directory unavailable")
+        val tmp = File(parent, file.name + ".tmp")
+        FileOutputStream(tmp).use { out ->
+            out.write(encoded.toByteArray(Charsets.UTF_8))
+            out.fd.sync()
+        }
+        // Verify the bytes actually persisted to the temporary file before replacing the previous journal.
+        val persisted = tmp.readText(Charsets.UTF_8)
+        if (persisted != encoded) {
+            tmp.delete()
+            throw IllegalStateException("journal read-back mismatch")
+        }
+        verifyWrittenEnvelope(persisted, list.size)
         Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
 
-    private fun encode(list: List<TxRecord>): String = list.joinToString(",", "[", "]") { r ->
+    private fun verifyWrittenEnvelope(encoded: String, expectedCount: Int) {
+        val outer = J.obj(MiniJson.parse(encoded))
+        val payload = J.str(outer["payload"])
+        val actual = Base64.getDecoder().decode(J.str(outer["mac"]))
+        val expected = authenticator.mac(macInput(payload), createIfMissing = false)
+        if (!MessageDigest.isEqual(actual, expected)) throw IllegalStateException("journal read-back authentication failed")
+        if (J.arr(MiniJson.parse(payload)).size != expectedCount) throw IllegalStateException("journal read-back count mismatch")
+    }
+
+    private fun macInput(payload: String): ByteArray =
+        MAC_DOMAIN + payload.toByteArray(Charsets.UTF_8)
+
+    private fun encodeRecords(list: List<TxRecord>): String = list.joinToString(",", "[", "]") { r ->
         fun s(v: String?) = v?.let { JsonOut.str(it) } ?: "null"
         fun n(v: Long?) = v?.toString() ?: "null"
         """{"sig":${s(r.signature)},"cluster":${s(r.cluster.name)},"wallet":${s(r.wallet)},"kind":${s(r.kind.name)},"summary":${s(r.summary)},""" +
