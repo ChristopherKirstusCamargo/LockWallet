@@ -86,4 +86,16 @@ class WalletDeleteTest {
         assertEquals(2, fresh.wallets().size)
         unlock(fresh, a.id).close()
     }
+
+    @Test fun unlockRacingADeleteFailsClosedAndStaleSessionCannotDeleteAgain() {
+        val p = provider(); val (a, b) = two(p)
+        val pending = p.beginUnlock(a.id)
+        val s = unlock(p, a.id)
+        s.use { p.removeWallet(it) }
+        kek.biometricsPresented = 1
+        assertTrue(runCatching { p.completeUnlock(pending, pin.toCharArray()) }.exceptionOrNull() is CustodyException)
+        assertEquals(CustodyException.Reason.UNKNOWN_WALLET, reason { unlock(p, b.id).close(); p.removeWallet(s) })
+        assertEquals(listOf(b.id), p.wallets().map { it.id })
+        unlock(p, b.id).close()
+    }
 }

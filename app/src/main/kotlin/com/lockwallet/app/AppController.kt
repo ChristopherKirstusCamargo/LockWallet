@@ -510,7 +510,8 @@ class AppController(
             is AuthPurpose.ExportLwrp -> { closeOpened(); opened = OpenedSession(s); go(Screen.Export(purpose.walletId)) }
             is AuthPurpose.DeleteWallet -> {
                 try { io { provider.removeWallet(s) } } finally { s.close() }
-                closeOpened(); refresh(); go(Screen.Home)
+                // Security review: re-select so no balance/activity of the deleted wallet stays on screen.
+                closeOpened(); refresh(); chain.wallet()?.let { chain.select(it.id) }; go(Screen.Home)
             }
             is AuthPurpose.Sign -> chain.signAndSubmit(s)
             is AuthPurpose.DappSign -> connect.onUnlocked(s)

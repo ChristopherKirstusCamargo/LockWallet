@@ -137,6 +137,47 @@ class AppFlowTest {
         assertNull(c.opened)
     }
 
+    // ---- wallet delete (security review)
+    private fun delete(c: AppController, id: String, pinText: String = "480917") {
+        c.go(Screen.Authorize(AuthPurpose.DeleteWallet(id))); c.submitPin(pin(pinText), AuthPurpose.DeleteWallet(id)); c.await()
+    }
+    private fun envelopes() = (java.io.File(tmp.root, "envelopes").listFiles() ?: emptyArray()).filter { it.name.endsWith(".lwle") }
+
+    @Test fun deleteActiveSwitchesToTheOtherThenLastReturnsToWelcome() {
+        val c = controller()
+        val a = createWallet(c); val b = createWallet(c, 12, WalletRole.CONNECT)
+        c.chain.select(a)
+        delete(c, a)
+        assertEquals(listOf(b), c.wallets.map { it.id })
+        assertEquals(b, c.chain.wallet()!!.id)
+        assertEquals(b, Prefs(ctx).selectedWallet)
+        assertEquals(1, envelopes().size)
+        delete(c, b)
+        assertTrue(c.wallets.isEmpty()); assertTrue(!c.vaultPresent)
+        assertEquals(Screen.Home, c.screen)
+        assertTrue(envelopes().isEmpty())
+    }
+
+    @Test fun deleteNeverAcceptsBiometricsAndWrongPinDeletesNothing() {
+        val c = controller()
+        val a = createWallet(c)
+        assertTrue(!AuthPurpose.DeleteWallet(a).biometricAllowed())
+        c.submitBiometric(AuthPurpose.DeleteWallet(a)); c.await()
+        assertEquals(1, c.wallets.size)
+        delete(c, a, "111111")
+        assertEquals(1, c.wallets.size); assertEquals(1, envelopes().size)
+    }
+
+    @Test fun lockoutCannotBeBypassedByDeleting() {
+        val c = controller()
+        val a = createWallet(c)
+        repeat(12) { if (c.lockoutMs == 0L) delete(c, a, "111111") }
+        assertTrue(c.lockoutMs > 0)
+        delete(c, a)
+        assertEquals(1, c.wallets.size)
+        assertTrue(c.lockoutMs > 0)
+    }
+
     @Test fun wrongPinCountdownAndBiometricCancel() {
         val c = controller()
         createWallet(c)
