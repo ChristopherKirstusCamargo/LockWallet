@@ -58,7 +58,9 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 
 ### Instalação
 
-1. **Baixe** `lockwallet.apk` pelo link do release. O hash esperado também está em
+1. **Baixe** o `lockwallet.apk` da [versão mais recente](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest)
+   ([download direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/download/v5.0.0/lockwallet.apk)) ou o arquivo
+   [`release/lockwallet.apk`](release/lockwallet.apk) deste repositório. O hash esperado também está em
    [`release/lockwallet.apk.sha256`](release/lockwallet.apk.sha256).
 2. **Confira o hash do arquivo:**
    - Linux: `sha256sum lockwallet.apk` · macOS: `shasum -a 256 lockwallet.apk`
@@ -154,13 +156,12 @@ Requisitos: JDK 17, Android SDK (`platforms;android-36`, `build-tools;36.0.0`), 
 git clone https://github.com/ChristopherKirstusCamargo/LockWallet.git
 cd LockWallet
 echo "sdk.dir=/caminho/para/Android/Sdk" > local.properties
-chmod +x gradlew
 ./gradlew ciCheck                 # testes e guardas de arquitetura
 ./gradlew :app:assembleRelease    # APK release
 ```
 
-- Sem `gradle/wrapper/gradle-wrapper.jar`, gere-o com Gradle 8.14.3: `gradle wrapper --gradle-version 8.14.3`
-  (a distribuição é validada por `distributionSha256Sum`).
+- O Gradle Wrapper baixa o Gradle 8.14.3 e confere a distribuição por `distributionSha256Sum`; o CI também confere
+  o SHA-256 do `gradle-wrapper.jar`.
 - Assinatura: crie `signing.properties` fora do repositório (`storeFile`, `storePassword`, `keyAlias`,
   `keyPassword`) e use `-Plockwallet.signingProps=/caminho/signing.properties`. Builds próprios têm outro
   certificado e não substituem o APK oficial.
@@ -219,7 +220,9 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 
 ### Installation
 
-1. **Download** `lockwallet.apk` from the release link. The expected hash is also in
+1. **Download** `lockwallet.apk` from the [latest release](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest)
+   ([direct download](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/download/v5.0.0/lockwallet.apk)) or the
+   [`release/lockwallet.apk`](release/lockwallet.apk) file in this repository. The expected hash is also in
    [`release/lockwallet.apk.sha256`](release/lockwallet.apk.sha256).
 2. **Verify the file hash** (`sha256sum`, `shasum -a 256` or `Get-FileHash -Algorithm SHA256`). It must equal
    `1833c24e0ffa74bb2b07615493b03f9c7c294ba3acd83ca6fb039e230f43be09`.
@@ -283,12 +286,11 @@ Requirements: JDK 17, Android SDK (`platforms;android-36`, `build-tools;36.0.0`)
 git clone https://github.com/ChristopherKirstusCamargo/LockWallet.git
 cd LockWallet
 echo "sdk.dir=/path/to/Android/Sdk" > local.properties
-chmod +x gradlew
 ./gradlew ciCheck
 ./gradlew :app:assembleRelease
 ```
 
-If `gradle/wrapper/gradle-wrapper.jar` is missing, run `gradle wrapper --gradle-version 8.14.3`. Signing uses a
+The Gradle Wrapper downloads Gradle 8.14.3 and checks it against `distributionSha256Sum`. Signing uses a
 `signing.properties` file kept outside the repository (`-Plockwallet.signingProps=...`); self-built APKs carry a
 different certificate and do not replace the official release.
 

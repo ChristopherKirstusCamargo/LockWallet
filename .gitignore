@@ -20,6 +20,8 @@ signing.properties
 dist/*.apk
 
 # Local scratch / release binaries never committed
-release/*.apk
 dist/*.apk
 *.idsig
+
+# The official signed release APK is versioned on purpose
+!release/lockwallet.apk
