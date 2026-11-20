@@ -147,7 +147,7 @@ class HttpsRpcTransport(
         }
 
         if (status == 429) throw RpcException(RpcException.Kind.RATE_LIMITED, "rate limited")
-        val text = response.toString(Charsets.UTF_8.name())
+        val text = response.toString(Charsets.UTF_8)
         // JSON-RPC errors may use non-200 status codes. Redirects are never followed.
         if (status != 200 && !text.contains("\"jsonrpc\"")) {
             throw RpcException(RpcException.Kind.HTTP, "http $status")
