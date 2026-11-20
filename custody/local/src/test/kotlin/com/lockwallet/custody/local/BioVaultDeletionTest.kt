@@ -47,6 +47,36 @@ class BioVaultDeletionTest {
         assertFalse(vault.has(hex(walletA)))
     }
 
+    @Test fun disablingAfterInterruptedWritesFindsAliasesInTemporaryFiles() {
+        val dir = File(tmp.root, "bio")
+        val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
+        vault.enable()
+        val stateAlias = requireNotNull(vault.state()).aliasId
+        val wallet = ByteArray(16) { 0x6b }
+        val id = hex(wallet)
+        val header = "interrupted-header".toByteArray()
+        SecretBytes.copyOf(ByteArray(32) { 0x73 }).use { vault.write(wallet, header, it) }
+        val record = requireNotNull(vault.record(id, header))
+
+        // Simulate process death after the temp files are fully written but before atomic rename.
+        val state = File(dir, "state.lwbs")
+        state.copyTo(File(dir, "state.lwbs.tmp"), overwrite = true)
+        assertTrue(state.delete())
+        val recordFile = File(dir, "$id.lwbio")
+        recordFile.copyTo(File(dir, "$id.lwbio.tmp"), overwrite = true)
+        assertTrue(recordFile.delete())
+
+        assertTrue(keys.exists(stateAlias))
+        assertTrue(keys.exists(record.aliasId))
+        vault.disable()
+
+        assertFalse(keys.exists(stateAlias))
+        assertFalse(keys.exists(record.aliasId))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+        assertTrue(keys.keys.isEmpty())
+        assertTrue(keys.macKeys.isEmpty())
+    }
+
     @Test fun disablingBiometricsDeletesEveryRecordKeyAndPolicyKeyBeforeFiles() {
         val vault = BioVault(File(tmp.root, "bio"), keys, clock, AtomicFiles(), SecureRandom())
         vault.enable()
