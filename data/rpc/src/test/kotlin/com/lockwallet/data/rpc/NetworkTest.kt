@@ -1,5 +1,8 @@
 package com.lockwallet.data.rpc
 
+import java.net.InetAddress
+import java.net.Inet6Address
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -137,6 +140,43 @@ class NetworkTest {
         }
         try { badIndex.getTransaction("sig"); fail("out-of-range token index accepted") }
         catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
+    }
+
+    @Test fun customRpcDnsAnswersMustBePublicAndAreCheckedBeforeConnecting() {
+        val public = InetAddress.getByAddress(byteArrayOf(8, 8, 8, 8))
+        val private = InetAddress.getByAddress(byteArrayOf(192.toByte(), 168.toByte(), 1, 10))
+        assertEquals(listOf(public), RpcClient.validateResolvedAddresses("rpc.example", arrayOf(public)))
+
+        for (answers in listOf(
+            arrayOf(private),
+            arrayOf(public, private),
+            arrayOf(InetAddress.getByAddress(byteArrayOf(169.toByte(), 254.toByte(), 169.toByte(), 254))),
+            arrayOf(InetAddress.getByAddress(byteArrayOf(100.toByte(), 64, 1, 2))),
+            arrayOf(InetAddress.getByAddress(byteArrayOf(192.toByte(), 0, 2, 8))),
+            arrayOf(InetAddress.getByAddress(byteArrayOf(203.toByte(), 0, 113, 9))),
+        )) {
+            try { RpcClient.validateResolvedAddresses("rpc.example", answers); fail("non-public DNS answer accepted") }
+            catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
+        }
+
+        // Even a mixed public/private answer set is refused before a TCP socket can be opened.
+        var resolutions = 0
+        val transport = HttpsRpcTransport(resolver = {
+            resolutions++
+            arrayOf(public, private)
+        })
+        try { transport.post("https://rpc.example/rpc", "{}", 1024); fail("rebinding target was contacted") }
+        catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
+        assertEquals(1, resolutions)
+    }
+
+    @Test fun ipv6MappedPrivateTargetsAreRejected() {
+        val mappedLoopback = Inet6Address.getByAddress(
+            null,
+            byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 127, 0, 0, 1),
+            -1
+        )
+        assertFalse(RpcClient.isPublicResolvedAddress(mappedLoopback))
     }
 
     @Test fun explorerLinksAreMainnet() {
