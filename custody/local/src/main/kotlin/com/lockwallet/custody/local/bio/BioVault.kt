@@ -142,7 +142,12 @@ class BioVault(
         stateCandidates.forEach { candidate ->
             val bytes = candidate.readBytes()
             val bodyLen = when (bytes.size) { V1_BODY + 32 -> V1_BODY; V2_BODY + 32 -> V2_BODY; else -> -1 }
-            if (bodyLen < 0) throw IllegalStateException("biometric policy header unreadable")
+            if (bodyLen < 0) {
+                // A new pending-key marker is written before a new state file. If only the state temp was
+                // interrupted/truncated, the marker still identifies the key for safe deletion.
+                if (candidate != stateFile && pendingKeyFile.exists()) return@forEach
+                throw IllegalStateException("biometric policy header unreadable")
+            }
             val bb = ByteBuffer.wrap(bytes)
             if (bb.int != STATE_MAGIC) throw IllegalStateException("biometric policy header invalid")
             val version = bb.get().toInt()
@@ -173,7 +178,8 @@ class BioVault(
             require(data.size == 20)
             val bb = ByteBuffer.wrap(data)
             require(bb.int == PENDING_MAGIC)
-            bb.position(20)
+            val storedAlias = ByteArray(16).also { bb.get(it) }
+            require(storedAlias.contentEquals(alias))
         }
     }
 
