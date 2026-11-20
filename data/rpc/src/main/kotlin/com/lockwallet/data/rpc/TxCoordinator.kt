@@ -58,7 +58,7 @@ data class ComputeBudget(val unitLimit: Long, val microLamportsPerUnit: Long) {
     )
 }
 
-enum class PrepBlocker { BUSY, TOO_LARGE, ANALYZER, FEE_UNAVAILABLE, SIMULATION_FAILED, SIMULATION_UNAVAILABLE, BLOCKHASH_INVALID, SIMULATION_SINGLE_SOURCE, SIMULATION_DIVERGED }
+enum class PrepBlocker { BUSY, TOO_LARGE, ANALYZER, FEE_UNAVAILABLE, SIMULATION_FAILED, SIMULATION_UNAVAILABLE, BLOCKHASH_INVALID, SIMULATION_SINGLE_SOURCE, SIMULATION_DIVERGED, SIMULATION_ACCOUNT_LIMIT }
 
 /** A built, analysed and simulated transaction awaiting the user's authorization. Never persisted unsigned. */
 class PreparedTx internal constructor(
@@ -99,6 +99,8 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         const val DEFAULT_UNITS = 200_000L
         /** Fixed limit for a plain SOL transfer (system transfer + 2 compute-budget instructions ≈ 450 CU). */
         const val SOL_TRANSFER_UNITS = 1_500L
+        /** Wallet + at most 15 additional writable accounts can be post-state checked in one RPC simulation. */
+        const val MAX_EXTERNAL_WATCH_ACCOUNTS = 16
     }
 
     fun pendingFor(wallet: SolanaPublicKey): TxRecord? =
@@ -182,6 +184,9 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         if (pendingFor(wallet) != null) blockers += PrepBlocker.BUSY
         if (message.size + 1 + 64 > LegacyMessage.MAX_TX_SIZE) blockers += PrepBlocker.TOO_LARGE
         if (!firewallOk || msg.feePayer != wallet || msg.numRequiredSignatures != 1) blockers += PrepBlocker.ANALYZER
+        // Never silently truncate the set whose post-state the review promises to inspect.
+        val w = (listOf(wallet) + watch.filter { it != wallet }).distinct()
+        if (w.size > MAX_EXTERNAL_WATCH_ACCOUNTS) blockers += PrepBlocker.SIMULATION_ACCOUNT_LIMIT
         val valid = try { net.withFallback { it.isBlockhashValid(msg.recentBlockhash) } } catch (_: RpcException) { false }
         val height = try { net.withFallback { it.getBlockHeight() } } catch (_: RpcException) { null }
         if (!valid || height == null) blockers += PrepBlocker.BLOCKHASH_INVALID
@@ -189,7 +194,6 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         if (blockers.isNotEmpty()) return PreparedTx(intent, cluster, analysis, null, null, lvbh, blockers, TransactionStateMachine.transition(st, CANCELLED))
         val fee = shownFee(com.lockwallet.core.solana.tx.FeeMath.maxFee(msg), try { net.withFallback { it.getFeeForMessage(message) } } catch (_: RpcException) { null })
         if (fee == null) blockers += PrepBlocker.FEE_UNAVAILABLE
-        val w = (listOf(wallet) + watch.filter { it != wallet }).distinct().take(16)
         val sim: SimulationResult?
         if (crossCheck) {
             // Not fully decoded: one node's word is not enough. Two independent, genesis-verified endpoints must both
