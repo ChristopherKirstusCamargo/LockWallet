@@ -132,7 +132,9 @@ class CoordinatorTest {
     }
 
     @Test fun unresolvedTransactionBlocksANewOneUntilExpiredWithEvidence() {
+        // An UNKNOWN result requires that neither configured RPC confirms acceptance.
         f.on(FakeRpc.A, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "timeout") }
+        f.on(FakeRpc.B, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "secondary unavailable") }
         val r = co.submit(co.prepare(intent()), sig)
         assertEquals(TransactionState.UNKNOWN, r.state)
         assertEquals(listOf(PrepBlocker.BUSY), co.prepare(intent()).blockers)
@@ -157,7 +159,9 @@ class CoordinatorTest {
         f.on(FakeRpc.B, "getGenesisHash") { "\"${Cluster.DEVNET.genesisHash}\"" }
         f.on(FakeRpc.B, "getSignatureStatuses") { """{"context":{"slot":1},"value":[{"slot":9,"confirmations":1,"err":null,"confirmationStatus":"processed"}]}""" }
         co = TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), journal) { clock }
+        // Neither endpoint accepts the broadcast; divergent status answers must preserve UNKNOWN.
         f.on(FakeRpc.A, "sendTransaction") { throw RpcException(RpcException.Kind.RPC_ERROR, "Transaction simulation failed") }
+        f.on(FakeRpc.B, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "secondary unavailable") }
         val r = co.submit(co.prepare(intent()), sig)
         assertEquals(TransactionState.UNKNOWN, r.state); assertTrue(r.detail!!.contains("simulation"))
         height = 300
