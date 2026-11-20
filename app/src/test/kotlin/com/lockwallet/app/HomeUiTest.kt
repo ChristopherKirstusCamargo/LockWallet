@@ -51,8 +51,8 @@ private fun offlinePrice() = PriceService(listOf(object : PriceSource {
 @RunWith(RobolectricTestRunner::class)
 class HomeUiTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
-        override fun after() { MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator; MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
+        override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
 
@@ -112,8 +112,8 @@ class ClipboardTest {
 @RunWith(RobolectricTestRunner::class)
 class MainUiTest {
     @get:Rule(order = 0) val offline = object : ExternalResource() {
-        override fun before() { MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
-        override fun after() { MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
+        override fun before() { MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator; MainActivity.rpcOverride = { null }; MainActivity.priceOverride = offlinePrice() }
+        override fun after() { MainActivity.txJournalAuthenticatorOverride = null; MainActivity.priceOverride = null; MainActivity.rpcOverride = null; C.dark = true }
     }
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val tmp = TemporaryFolder()
