@@ -38,7 +38,7 @@ class ManifestAndWindowSecurityTest {
         @Suppress("DEPRECATION")
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         assertEquals(info.versionName, com.lockwallet.app.ui.APP_VERSION)
-        assertEquals(9L, info.longVersionCode)
+        assertEquals(11L, info.longVersionCode)
     }
 
     @Test fun signingAndDappSigningAlwaysRequirePin() {
@@ -65,12 +65,18 @@ class ManifestAndWindowSecurityTest {
     @Test fun windowIsSecureAndFiltersObscuredTouches() {
         org.robolectric.Shadows.shadowOf(context).grantPermissions("android.permission.HIDE_OVERLAY_WINDOWS")
         MainActivity.rpcOverride = { null }
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { activity ->
-                val flags = activity.window.attributes.flags
-                assertTrue("FLAG_SECURE missing", flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
-                assertTrue(activity.window.decorView.filterTouchesWhenObscured)
+        MainActivity.txJournalAuthenticatorOverride = AppTestTxJournalAuthenticator
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { activity ->
+                    val flags = activity.window.attributes.flags
+                    assertTrue("FLAG_SECURE missing", flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+                    assertTrue(activity.window.decorView.filterTouchesWhenObscured)
+                }
             }
+        } finally {
+            MainActivity.txJournalAuthenticatorOverride = null
+            MainActivity.rpcOverride = null
         }
     }
 }
