@@ -174,13 +174,17 @@ class BioVault(
 
     /**
      * Removes one wallet's biometric record. New records have a per-wallet Keystore alias, which is destroyed and
-     * checked before deleting the ciphertext. A legacy record may share the policy alias with other wallets; that
-     * shared key is retained until biometric unlock is disabled, so deleting one legacy record cannot break others.
+     * checked before deleting the ciphertext. A legacy record may share the policy alias with other wallets; because
+     * that shared key cannot be erased per-wallet, removing one legacy record disables biometrics and erases all
+     * biometric records. The underlying wallet envelopes and PIN access remain intact.
      */
     fun remove(walletIdHex: String) {
         require(walletIdHex.matches(Regex("[0-9a-f]{32}"))) { "wallet id" }
         val file = recordFile(walletIdHex)
-        if (!file.exists()) return
+        if (!file.exists()) {
+            removeInterruptedRecordTemp(walletIdHex)
+            return
+        }
         val record = BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
         if (hex(record.walletId) != walletIdHex) throw IllegalStateException("biometric record wallet mismatch")
         val policyAlias = state()?.aliasId
@@ -195,12 +199,35 @@ class BioVault(
         if (!file.delete() && file.exists()) throw IllegalStateException("biometric record cleanup failed")
     }
 
+    /**
+     * An interrupted atomic write may leave a complete record at <wallet>.lwbio.tmp with its Keystore alias.
+     * Erase that alias before deleting or replacing the temporary ciphertext; otherwise the key would be orphaned.
+     */
+    private fun removeInterruptedRecordTemp(walletIdHex: String) {
+        val temp = File(dir, "$walletIdHex.lwbio" + AtomicFiles.TMP_SUFFIX)
+        if (!temp.exists()) return
+        val bytes = temp.readBytes()
+        if (bytes.size < 37) throw IllegalStateException("interrupted biometric record header unreadable")
+        val bb = ByteBuffer.wrap(bytes)
+        if (bb.int != BioRecord.MAGIC || bb.get() != BioRecord.VERSION) {
+            throw IllegalStateException("interrupted biometric record header invalid")
+        }
+        val wallet = ByteArray(16).also { bb.get(it) }
+        if (hex(wallet) != walletIdHex) throw IllegalStateException("interrupted biometric record wallet mismatch")
+        val alias = ByteArray(16).also { bb.get(it) }
+        keys.delete(alias)
+        if (keys.exists(alias)) throw IllegalStateException("interrupted biometric key deletion could not be verified")
+        if (!temp.delete() && temp.exists()) throw IllegalStateException("interrupted biometric temp cleanup failed")
+    }
+
     /** Encrypts [material] for [walletId] with a fresh per-wallet Keystore key (no prompt). */
     fun write(walletId: ByteArray, header: ByteArray, material: SecretBytes) {
         val s = state() ?: return
         require(walletId.size == 16)
-        val target = recordFile(hex(walletId))
-        if (target.exists()) remove(hex(walletId))
+        val walletIdHex = hex(walletId)
+        removeInterruptedRecordTemp(walletIdHex)
+        val target = recordFile(walletIdHex)
+        if (target.exists()) remove(walletIdHex)
 
         var recordAlias: ByteArray
         do { recordAlias = ByteArray(16).also(random::nextBytes) }
