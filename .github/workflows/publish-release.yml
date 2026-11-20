@@ -1,23 +1,8 @@
 name: Lock Wallet — Versão Final
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'app/**'
-      - 'core/**'
-      - 'custody/**'
-      - 'data/**'
-      - 'gradle/**'
-      - '*.gradle.kts'
-      - 'gradle.properties'
-      - 'settings.gradle.kts'
-      - 'gradlew'
-      - 'tools/**'
-      - 'fixtures/**'
-      - '.github/workflows/publish-release.yml'
-      - 'signing/lockwallet-release.p12.enc'
+  # Manual until the security hardening batch is complete. Re-enable push on the final audited commit.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -128,6 +113,17 @@ jobs:
           (cd dist && sha256sum lockwallet.apk > lockwallet.apk.sha256)
           echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse stale builds before touching the public Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$current_main" != "$GITHUB_SHA" ]; then
+            echo "::error::This run is stale (built $GITHUB_SHA; main is $current_main). No Release will be changed."
+            exit 1
+          fi
 
       - name: Generate SBOM and publish the single stable Release
         env:
