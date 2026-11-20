@@ -86,16 +86,24 @@ class TxJournal(private val file: File, private val authenticator: TxJournalAuth
 
     private fun load(): List<TxRecord> {
         val tmp = File(file.absoluteFile.parentFile, file.name + ".tmp")
+        if (file.exists()) {
+            // The main journal wins whenever it authenticates. A stale but valid snapshot in .tmp must never
+            // replace the current file. A crash before rename cannot have reached submit(), because put() did
+            // not return; therefore discarding that uncommitted temp is safe.
+            val mainRecords = runCatching { readAuthenticated(file) }.getOrNull()
+            if (mainRecords != null) {
+                if (tmp.exists() && !tmp.delete()) throw IllegalStateException("transaction journal temp cleanup failed")
+                return mainRecords
+            }
+        }
         if (tmp.exists()) {
             try {
-                // A crash may have happened after fsync/read-back but before atomic rename. The temp file is
-                // accepted only after its Keystore HMAC and structure are verified.
+                // Recover only if the main file is absent or fails authentication/structure checks.
                 val recovered = readAuthenticated(tmp)
                 Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
                 return recovered
             } catch (e: Exception) {
                 if (!file.exists()) throw IllegalStateException("transaction journal recovery failed", e)
-                // An invalid temp cannot replace an existing authenticated journal; discard it and read main.
                 if (!tmp.delete() && tmp.exists()) throw IllegalStateException("transaction journal temp cleanup failed", e)
             }
         }
