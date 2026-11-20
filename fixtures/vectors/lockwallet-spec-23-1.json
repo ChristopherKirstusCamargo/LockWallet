@@ -44,7 +44,7 @@
     },
     {
       "path": "m/44'/501'/0'",
-      "profile": "LEGACY_LEDGER",
+      "profile": "COMPATIBILITY",
       "account_index": 0,
       "private_key_hex": "c43957a8620fef223a05b2648bfba26a1e02d2339d606721236fc898671f6430",
       "chain_code_hex": "cd03b9942a69531c30988bb99269e7578f29b5511083fc88d89c2d19ec1cb432",
