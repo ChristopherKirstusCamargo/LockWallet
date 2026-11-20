@@ -362,6 +362,9 @@ class AppController(
         }
     }
 
+    /** Assigns an explicitly selected derived address to a draft; the restore UI uses only the default account. */
+    fun chooseAccount(a: DiscoveredAccount) { draft?.account = a; go(Screen.Name) }
+
     fun submitLwrp(file: ByteArray, password: CharArray) = launchOp {
         val d = draft ?: return@launchOp
         try {
