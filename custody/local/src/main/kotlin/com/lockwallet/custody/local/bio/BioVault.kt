@@ -64,6 +64,7 @@ class BioVault(
     private val random: SecureRandom,
 ) {
     private val stateFile = File(dir, "state.lwbs")
+    private val pendingKeyFile = File(dir, "key.pending")
 
     // Do not eagerly delete interrupted .tmp writes here: they may contain the only on-disk alias
     // identifying a Keystore key that must be destroyed by disable().
@@ -91,8 +92,14 @@ class BioVault(
     fun enable() {
         disable()
         val alias = ByteArray(16).also(random::nextBytes)
+        // Persist the alias before creating the Keystore key. If the process dies between create() and
+        // writeState(), disable() can still identify and erase the otherwise orphaned private key.
+        writePendingKey(alias)
         keys.create(alias)
         writeState(BioState(alias, clock.bootCount(), clock.elapsedRealtimeMs(), DEFAULT_WINDOW_H))
+        if (!pendingKeyFile.delete() && pendingKeyFile.exists()) {
+            throw IllegalStateException("biometric key marker cleanup failed")
+        }
     }
 
     /**
@@ -107,11 +114,11 @@ class BioVault(
             if (keys.exists(alias)) throw IllegalStateException("biometric key deletion could not be verified")
         }
         dir.listFiles()?.filter {
-            it == stateFile || it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX)
+            it == stateFile || it == pendingKeyFile || it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX)
         }?.forEach { f ->
             if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
         }
-        if (stateFile.exists() || dir.listFiles()?.any {
+        if (stateFile.exists() || pendingKeyFile.exists() || dir.listFiles()?.any {
                 it.name.endsWith(".lwbio") || it.name.endsWith(AtomicFiles.TMP_SUFFIX)
             } == true
         ) throw IllegalStateException("biometric cleanup incomplete")
@@ -123,6 +130,14 @@ class BioVault(
      */
     private fun aliasesOnDisk(): Map<String, ByteArray> {
         val aliases = linkedMapOf<String, ByteArray>()
+        if (pendingKeyFile.exists()) {
+            val bytes = pendingKeyFile.readBytes()
+            if (bytes.size != 20) throw IllegalStateException("biometric pending key marker unreadable")
+            val bb = ByteBuffer.wrap(bytes)
+            if (bb.int != PENDING_MAGIC) throw IllegalStateException("biometric pending key marker invalid")
+            val alias = ByteArray(16).also { bb.get(it) }
+            aliases[hex(alias)] = alias
+        }
         val stateCandidates = listOf(stateFile, File(dir, stateFile.name + AtomicFiles.TMP_SUFFIX)).filter { it.exists() }
         stateCandidates.forEach { candidate ->
             val bytes = candidate.readBytes()
@@ -149,6 +164,17 @@ class BioVault(
             aliases[hex(alias)] = alias
         }
         return aliases
+    }
+
+    private fun writePendingKey(alias: ByteArray) {
+        require(alias.size == 16)
+        val bytes = ByteBuffer.allocate(20).putInt(PENDING_MAGIC).put(alias).array()
+        atomic.write(pendingKeyFile, bytes) { data ->
+            require(data.size == 20)
+            val bb = ByteBuffer.wrap(data)
+            require(bb.int == PENDING_MAGIC)
+            bb.position(20)
+        }
     }
 
     /** A correct PIN was just entered: restart the 72 h window for this boot. */
@@ -316,6 +342,7 @@ class BioVault(
         private const val V1_BODY = 33
         private const val V2_BODY = 36
         private const val STATE_MAGIC = 0x4C574253 // "LWBS"
+        private const val PENDING_MAGIC = 0x4C574250 // "LWBP"
         private val STATE_DOMAIN = "LWBIO-v1/state".toByteArray(Charsets.US_ASCII)
         private fun sha256(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b)
         private fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it.toInt() and 0xff) }
