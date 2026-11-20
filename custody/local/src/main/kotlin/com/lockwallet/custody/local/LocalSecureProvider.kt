@@ -1,6 +1,7 @@
 package com.lockwallet.custody.local
 
 import com.lockwallet.core.crypto.SecretBytes
+import com.lockwallet.core.crypto.KdfProfile
 import com.lockwallet.core.crypto.lwrp.LwrpCipher
 import com.lockwallet.core.crypto.lwrp.LwrpFormatException
 import com.lockwallet.core.crypto.lwrp.LwrpOpenException
@@ -69,7 +70,7 @@ class BioTicket internal constructor(internal val op: com.lockwallet.custody.loc
 }
 
 /** Single-use proof that the vault PIN was just verified: the derived pin_key for the vault salt. */
-class PinVerification internal constructor(internal val pinKey: SecretBytes, internal val pinSalt: ByteArray) : AutoCloseable {
+class PinVerification internal constructor(internal val pinKey: SecretBytes, internal val pinSalt: ByteArray, internal val kdfProfileId: Int) : AutoCloseable {
     override fun close() = pinKey.close()
     override fun toString() = "PinVerification(REDACTED)"
 }
@@ -88,6 +89,7 @@ class UnlockedWallet internal constructor(
     /** Null when opened by biometrics: such a session cannot vouch for the PIN (no sealing / adding accounts). */
     private val pinKey: SecretBytes?,
     private val pinSalt: ByteArray,
+    internal val kdfProfileId: Int,
     internal val header: ByteArray = ByteArray(0),
 ) : AutoCloseable {
     /** True when opened with the PIN (not with biometrics). */
@@ -107,7 +109,7 @@ class UnlockedWallet internal constructor(
 
     /** Single-use proof for sealing another wallet into this vault without asking the PIN twice. */
     fun pinVerification(): PinVerification =
-        PinVerification((pinKey ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)).copy(), pinSalt.copyOf())
+        PinVerification((pinKey ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)).copy(), pinSalt.copyOf(), kdfProfileId)
 
     internal fun materialCopy(): SecretBytes = material.copy()
 
@@ -267,18 +269,21 @@ class LocalSecureProvider(
         val vault: VaultConfig
         val pinKey: SecretBytes
         val salt: ByteArray
+        val kdfProfile: KdfProfile
         val nv = ticket.newVault
         if (nv != null) {
             val pin = newPin ?: throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
-            if (!Pin.isValid(pin) || pin.size != Pin.LENGTH) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+            kdfProfile = KdfProfile.HARDENED_V2
+            if (!Pin.isValid(pin, kdfProfile)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
             if (Pin.isTrivial(pin)) throw CustodyException(CustodyException.Reason.WEAK_PIN)
             vault = VaultConfig(hexOf(nv.vaultId), hexOf(nv.aliasId), nv.mode.id)
             salt = rand(16)
-            pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, salt) }
+            pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, salt, kdfProfile.id) }
         } else {
             val ver = verification ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
             vault = snap.vault ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
             salt = ver.pinSalt.copyOf()
+            kdfProfile = KdfProfile.ofId(ver.kdfProfileId) ?: throw CustodyException(CustodyException.Reason.UNSUPPORTED_VERSION)
             pinKey = ver.pinKey.copy()
             ver.close()
         }
@@ -288,7 +293,7 @@ class LocalSecureProvider(
         try {
             val env = material.copySecret().use { secret ->
                 EnvelopeCrypto.seal(hex(vault.vaultIdHex), materialId, material.kind, account.profile.id, account.index,
-                    pub.toByteArray(), salt, hex(vault.aliasIdHex), vault.authModeId, secret, pinKey, rnd, ticket.op)
+                    pub.toByteArray(), salt, hex(vault.aliasIdHex), vault.authModeId, secret, pinKey, rnd, ticket.op, kdfProfile)
             }
             val bytes = env.encode()
             atomic.write(envFile(idHex), bytes) { b ->
@@ -341,7 +346,8 @@ class LocalSecureProvider(
      */
     fun completeUnlock(ticket: KekTicket, pin: CharArray): UnlockResult {
         val walletId = ticket.walletId ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
-        if (!Pin.isValid(pin)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+        val kdfProfile = KdfProfile.ofId(env.kdfProfile) ?: throw CustodyException(CustodyException.Reason.UNSUPPORTED_VERSION)
+        if (!Pin.isValid(pin, kdfProfile)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
         val e = entry(walletId)
         val env = loadEnvelope(e)
         val gate = try { attempts.gate() } catch (_: Exception) { throw CustodyException(CustodyException.Reason.STORAGE) }
@@ -356,7 +362,7 @@ class LocalSecureProvider(
             throw mapKek(x) // auth missing / keystore error: not a PIN failure — the counted attempt stays (fail closed)
         }
         try {
-            val pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt()) }
+            val pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), env.kdfProfile) }
             val material = try {
                 EnvelopeCrypto.openWithPinKey(env, dekPin, pinKey)
             } catch (_: EnvelopeAuthException) {
@@ -370,7 +376,7 @@ class LocalSecureProvider(
                 throw CustodyException(CustodyException.Reason.STORAGE)
             }
             bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
-            return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, pinKey, env.pinSalt(), env.header()))
+            return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, pinKey, env.pinSalt(), env.kdfProfile, env.header()))
         } finally {
             dekPin.wipe()
         }
@@ -452,7 +458,7 @@ class LocalSecureProvider(
         if (material.size != env.materialLength || !EnvelopeCrypto.pubkeyMatches(env, material)) {
             material.close(); b.remove(t.walletId); throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED)
         }
-        return UnlockedWallet(e.toInfo(), material, null, env.pinSalt(), env.header())
+        return UnlockedWallet(e.toInfo(), material, null, env.pinSalt(), env.kdfProfile, env.header())
     }
 
     // ------------------------------------------------------------------ LWRP import
