@@ -67,7 +67,6 @@ jobs:
           mkdir -p dist
           KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
           trap 'rm -f "$KEYSTORE"' EXIT
-          trap 'rm -f "$KEYSTORE"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
           test -s "$KEYSTORE"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
