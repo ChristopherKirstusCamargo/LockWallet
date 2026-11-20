@@ -30,20 +30,23 @@ object Pin {
         }
         if (asc || desc) return true
 
-        val text = String(pin)
-        if (pin.size % 2 == 0 && text.take(pin.size / 2) == text.drop(pin.size / 2)) return true
+        if (pin.size % 2 == 0) {
+            val half = pin.size / 2
+            if ((0 until half).all { pin[it] == pin[it + half] }) return true
+        }
         if (pin.size == 6) {
-            val pairs = text.chunked(2)
-            val pairedRun = pairs.all { it.length == 2 && it[0] == it[1] } &&
-                (1 until pairs.size).all { i ->
-                    val d = pairs[i][0].code - pairs[i - 1][0].code
+            fun samePair(at: Int) = pin[at] == pin[at + 1]
+            val pairedRun = (0..2).all { samePair(it * 2) } &&
+                (1..2).all { i ->
+                    val d = pin[i * 2].code - pin[(i - 1) * 2].code
                     d == 1 || d == -1 || d == 9 || d == -9
                 }
             if (pairedRun) return true
 
+            fun twoDigits(at: Int) = (pin[at].code - '0'.code) * 10 + (pin[at + 1].code - '0'.code)
             fun validDayMonth(dayAt: Int, monthAt: Int): Boolean {
-                val day = text.substring(dayAt, dayAt + 2).toInt()
-                val month = text.substring(monthAt, monthAt + 2).toInt()
+                val day = twoDigits(dayAt)
+                val month = twoDigits(monthAt)
                 return day in 1..31 && month in 1..12
             }
             if (validDayMonth(0, 2) || validDayMonth(2, 0) || validDayMonth(4, 2)) return true
