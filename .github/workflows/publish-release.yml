@@ -66,6 +66,7 @@ jobs:
           mkdir -p dist
           KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
           trap 'rm -f "$KEYSTORE"' EXIT
+          trap 'rm -f "$KEYSTORE"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
           test -s "$KEYSTORE"
           UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
@@ -91,7 +92,6 @@ jobs:
           (cd dist && sha256sum lockwallet.apk > lockwallet.apk.sha256)
           echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
           echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
-          trap 'rm -f "$KEYSTORE"' EXIT
 
       - name: Publish GitHub Release with downloadable APK
         env:
@@ -117,9 +117,9 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Lock Wallet 5.0.1" \
             --notes-file dist/RELEASE-NOTES.md \
+            --latest \
             dist/lockwallet.apk \
             dist/lockwallet.apk.sha256 \
             dist/lockwallet-signing-certificate.pem \
             dist/apk-signature-verification.txt \
-            dist/lockwallet.cdx.json \
-            --latest
+            dist/lockwallet.cdx.json
