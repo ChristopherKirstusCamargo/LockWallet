@@ -2,6 +2,10 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## 5.0.0 (versionCode 6)
+
+- **Excluir carteira** (Ajustes → carteira): confirmação digitando EXCLUIR, ajuda “?”, e PIN obrigatório (nunca só a digital). Remove só a chave cifrada e os dados daquela carteira; a entrada do registro sai primeiro (gravação atômica) e o envelope é sobrescrito e apagado. Se era a ativa, outra é selecionada; se era a última, o app volta ao início. Contadores de PIN intactos.
+
 ## [5.0.0] — 2026-11-19 — versão final “Lock Wallet” (Mainnet — dinheiro real; sem auditoria externa)
 
 Versão final. O app se chama apenas **Lock Wallet** e **não mostra número de versão** em nenhuma tela (internamente
