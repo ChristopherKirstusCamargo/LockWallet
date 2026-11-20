@@ -307,14 +307,19 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     // ------------------------------------------------------------------ network
 
     /**
-     * Custom endpoints (Mainnet only). Each URL must be HTTPS and answer the Mainnet genesis hash; an empty field
-     * means the default public endpoint. Nothing is saved unless every URL passes.
+     * Only the primary RPC is user-configurable. The secondary remains app-controlled to preserve the
+     * independent cross-check; two user-controlled endpoints are not independent evidence.
      */
     fun saveEndpoints(primary: String, secondary: String) = c.launchOp {
         val cl = Cluster.MAINNET
+        val fixedSecondary = requireNotNull(cl.defaultSecondaryUrl)
+        val requestedSecondary = secondary.trim()
+        if (requestedSecondary.isNotEmpty() && requestedSecondary != fixedSecondary) throw UserError(S.URL_BAD)
         val p = primary.trim().ifEmpty { cl.defaultUrl!! }
-        val s = secondary.trim().ifEmpty { cl.defaultSecondaryUrl }
-        for (u in listOfNotNull(p, s).distinct()) {
+        if (RpcClient.validateUrl(p) == null ||
+            runCatching { java.net.URI(p).host.equals(java.net.URI(fixedSecondary).host, ignoreCase = true) }.getOrDefault(true)
+        ) throw UserError(S.URL_BAD)
+        for (u in listOf(p, fixedSecondary)) {
             when (val r = net { net.check(u, cl) }) {
                 EndpointCheck.Ok -> {}
                 EndpointCheck.BadUrl -> throw UserError(S.URL_BAD)
@@ -322,7 +327,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
                 is EndpointCheck.OtherNetwork -> throw UserError(S.urlOther(r.known))
             }
         }
-        applyConfig(NetworkConfig(cl, p, s?.takeIf { it != p }))
+        applyConfig(NetworkConfig(cl, p, fixedSecondary))
         notice = S.URL_SAVED
     }
 

@@ -117,7 +117,6 @@ fun NetworkScreen(c: AppController) {
     val cfg = c.chain.config
     val d = com.lockwallet.data.rpc.NetworkConfig.MAINNET_DEFAULT
     var primary by remember(cfg) { mutableStateOf(if (cfg.primaryUrl == d.primaryUrl) "" else cfg.primaryUrl) }
-    var secondary by remember(cfg) { mutableStateOf(if (cfg.secondaryUrl == d.secondaryUrl) "" else cfg.secondaryUrl ?: "") }
     Screen("Servidor da rede", onBack = { c.chain.notice = null; c.home(); c.tab = Tab.SETTINGS }, help = Help.RPC, bottom = {
         c.chain.notice?.let { Notice(it, Ic.INFO) }
         ErrorText(c.error)
@@ -135,7 +134,7 @@ fun NetworkScreen(c: AppController) {
         }
         Label("Servidor próprio (opcional)")
         Field(primary, { primary = it.trim().take(512) }, "Principal — vazio = padrão", keyboard = KeyboardType.Uri, mono = true)
-        Field(secondary, { secondary = it.trim().take(512) }, "Reserva — vazio = padrão", keyboard = KeyboardType.Uri, mono = true)
+        Body("Servidor de reserva fixo e independente; não pode ser substituído por uma URL personalizada.")
     }
 }
 

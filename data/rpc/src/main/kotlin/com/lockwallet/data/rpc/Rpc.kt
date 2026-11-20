@@ -4,6 +4,7 @@ import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.tx.Blockhash
 import java.io.ByteArrayOutputStream
 import java.net.URI
+import java.net.InetAddress
 import java.net.URL
 import java.util.Base64
 import javax.net.ssl.HttpsURLConnection
@@ -57,8 +58,10 @@ class HttpsRpcTransport(private val timeoutMs: Int = 12_000) : RpcTransport {
 
 data class AccountData(val address: SolanaPublicKey, val lamports: Long, val owner: SolanaPublicKey, val executable: Boolean, private val raw: ByteArray) {
     val data: ByteArray get() = raw.copyOf()
-    override fun equals(other: Any?) = other is AccountData && other.address == address && other.lamports == lamports && other.owner == owner && other.raw.contentEquals(raw)
-    override fun hashCode() = address.hashCode()
+    override fun equals(other: Any?) = other is AccountData &&
+        other.address == address && other.lamports == lamports && other.owner == owner &&
+        other.executable == executable && other.raw.contentEquals(raw)
+    override fun hashCode() = 31 * (31 * (31 * address.hashCode() + lamports.hashCode()) + owner.hashCode()) + raw.contentHashCode()
 }
 data class LatestBlockhash(val blockhash: Blockhash, val lastValidBlockHeight: Long)
 data class SimulationResult(val err: String?, val logs: List<String>, val unitsConsumed: Long?, val accounts: List<AccountData?>)
@@ -270,9 +273,50 @@ class RpcClient(val url: String, private val transport: RpcTransport) {
             val t = input.trim()
             if (t.length > 512 || !t.startsWith("https://")) return null
             val u = try { URI(t) } catch (_: Exception) { return null }
-            if (u.scheme != "https" || u.host.isNullOrEmpty() || u.rawUserInfo != null || u.rawFragment != null) return null
+            val host = u.host?.removePrefix("[")?.removeSuffix("]")?.lowercase() ?: return null
+            if (u.scheme != "https" || u.rawUserInfo != null || u.rawFragment != null ||
+                u.port !in -1..65535 || isLocalHost(host) || isPrivateIpLiteral(host)
+            ) return null
             if (t.any { it.isWhitespace() || it.code > 0x7e }) return null
             return t
+        }
+
+        private fun isLocalHost(host: String): Boolean =
+            host == "localhost" || host.endsWith(".localhost") ||
+                host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".home.arpa")
+
+        /** Reject private/special-use IP literals. DNS names are not resolved here: DNS rebinding cannot be
+         * eliminated by syntax validation alone and remains a documented limitation for custom RPC URLs. */
+        private fun isPrivateIpLiteral(host: String): Boolean {
+            val numeric = host.contains(':') || host.matches(Regex("[0-9.]+")) ||
+                host.matches(Regex("(?i)(0x[0-9a-f]+|[0-9a-f]+\\.[0-9a-f.]+)"))
+            if (!numeric) return false
+            val address = try { InetAddress.getByName(host) } catch (_: Exception) { return true }
+            if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress ||
+                address.isSiteLocalAddress || address.isMulticastAddress
+            ) return true
+            val bytes = address.address
+            if (bytes.size == 4) {
+                val a = bytes[0].toInt() and 0xff
+                val b = bytes[1].toInt() and 0xff
+                return a == 0 || a == 10 || a == 127 || a >= 224 ||
+                    (a == 100 && b in 64..127) ||
+                    (a == 169 && b == 254) ||
+                    (a == 172 && b in 16..31) ||
+                    (a == 192 && b == 168) ||
+                    (a == 198 && b in 18..19)
+            }
+            if (bytes.size == 16) {
+                val first = bytes[0].toInt() and 0xff
+                if (first and 0xfe == 0xfc) return true
+                if (bytes.take(10).all { it == 0.toByte() } &&
+                    bytes[10] == 0xff.toByte() && bytes[11] == 0xff.toByte()
+                ) {
+                    val v4 = InetAddress.getByAddress(bytes.copyOfRange(12, 16))
+                    return isPrivateIpLiteral(v4.hostAddress)
+                }
+            }
+            return false
         }
     }
 }

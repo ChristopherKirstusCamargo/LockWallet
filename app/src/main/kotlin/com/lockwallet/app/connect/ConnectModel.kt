@@ -202,8 +202,24 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         val m = verdict.message!!
         val writable = m.accountKeys.filterIndexed { i, k -> m.isWritable(i) && k != me }
         return try {
-            val pre = c.chain.net.withFallback { it.getMultipleAccounts(listOf(me) + writable) }
-            if (pre.size != 1 + writable.size) throw RpcException(RpcException.Kind.MALFORMED, "pre-state incompleto")
+            val network = c.chain.net
+            val requestedAccounts = listOf(me) + writable
+            val pre = network.primary().getMultipleAccounts(requestedAccounts)
+            val secondary = network.secondaryOrNull()
+                ?: return DappTxReview(
+                    verdict, null, null, emptyList(),
+                    listOf("O servidor de reserva não respondeu. O estado anterior não pôde ser confirmado."),
+                    listOf(PrepBlocker.SIMULATION_UNAVAILABLE),
+                )
+            val secondaryPre = secondary.getMultipleAccounts(requestedAccounts)
+            if (pre.size != requestedAccounts.size || secondaryPre.size != requestedAccounts.size) {
+                throw RpcException(RpcException.Kind.MALFORMED, "pre-state incompleto")
+            }
+            if (pre != secondaryPre) return DappTxReview(
+                verdict, null, null, emptyList(),
+                listOf("Os servidores discordam sobre o estado anterior das contas. Assinatura bloqueada."),
+                listOf(PrepBlocker.SIMULATION_UNAVAILABLE),
+            )
             val preWallet = pre.first()
             val inspectAllWritable = verdict.needsRawAck || m.instructions.any { ix ->
                 val program = m.accountKeys[ix.programIndex]
@@ -288,15 +304,19 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
                             problems += S_STAKE_STATE_UNKNOWN(key); null
                         }
                     } else null
-                    val beforeControlled = beforeStake?.let { it.staker == me || it.withdrawer == me } == true
-                    val afterControlled = afterStake?.let { it.staker == me || it.withdrawer == me } == true
-                    if (beforeControlled || afterControlled) {
+                    val beforeControlled = beforeStake?.let { it.staker == me && it.withdrawer == me } == true
+                    val afterControlled = afterStake?.let { it.staker == me && it.withdrawer == me } == true
+                    val touchesStake = before?.owner == ProgramIds.STAKE || afterAccount?.owner == ProgramIds.STAKE
+                    if (touchesStake) {
+                        // A dApp must not create, close, re-authorize, delegate or move lamports from stake
+                        // accounts through CPI. Both authorities must remain this wallet's keys.
                         if (before == null || afterAccount == null || beforeStake == null || afterStake == null ||
+                            !beforeControlled || !afterControlled ||
                             beforeStake != afterStake || before.lamports != afterAccount.lamports
                         ) {
                             problems += S_STAKE_CHANGED(key)
                         }
-                        if (before != null && afterAccount != null) {
+                        if (before != null && afterAccount != null && beforeControlled && afterControlled) {
                             val change = afterAccount.lamports - before.lamports
                             try { totalSolDelta = Math.addExact(totalSolDelta, change) } catch (_: ArithmeticException) {
                                 deltaOverflow = true

@@ -193,6 +193,7 @@ private fun dappBlock(b: DappBlock) = when (b) {
     DappBlock.EXTRA_SIGNER -> "Pede outras assinaturas além da sua."
     DappBlock.EMPTY -> "Transação vazia."
     DappBlock.FORBIDDEN_INSTRUCTION -> "Contém uma ação proibida para apps (ex.: dar permissão sobre seus tokens, trocar o dono de uma conta, alterar programas)."
+    DappBlock.UNKNOWN_PROGRAM -> "Programa de terceiros não reconhecido. A assinatura é bloqueada por segurança."
     DappBlock.TOO_MANY_INSTRUCTIONS -> "Instruções demais para revisar com segurança."
     DappBlock.FEE_TOO_HIGH -> "A taxa pedida passa do limite de segurança (0,005 SOL). Pode ser uma tentativa de esvaziar a carteira."
     DappBlock.FEE_UNPRICEABLE -> "A configuração de taxa é ambígua: não dá para saber quanto você pagaria."

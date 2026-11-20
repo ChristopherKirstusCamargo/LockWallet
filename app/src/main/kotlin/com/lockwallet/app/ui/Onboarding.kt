@@ -301,6 +301,7 @@ fun RestoreInput(c: AppController, p: Platform, kind: RestoreKind) {
                 }
                 val n = text.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
                 Text(if (n == 0) "0 palavras" else "$n palavra(s)" + if (valid) " ✓" else "", color = C.dim, fontSize = 13.sp)
+                Notice(S.BIP39_PASSPHRASE_UNSUPPORTED, Ic.WARN, strong = true)
             }
             RestoreKind.PRIVATE_KEY -> Field(text, { text = it.trim().take(100) }, S.PRIVKEY_INPUT, secret = true, mono = true, trailing = { pasteChip() })
             RestoreKind.KEYPAIR_JSON, RestoreKind.LWRP -> {

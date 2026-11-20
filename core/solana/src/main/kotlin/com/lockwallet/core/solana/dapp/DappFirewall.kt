@@ -28,7 +28,7 @@ enum class IxKind {
     FORBIDDEN,
 }
 
-enum class DappBlock { MALFORMED, UNSUPPORTED_FORMAT, FEE_PAYER_MISMATCH, EXTRA_SIGNER, EMPTY, FORBIDDEN_INSTRUCTION, TOO_MANY_INSTRUCTIONS, FEE_TOO_HIGH, FEE_UNPRICEABLE }
+enum class DappBlock { MALFORMED, UNSUPPORTED_FORMAT, FEE_PAYER_MISMATCH, EXTRA_SIGNER, EMPTY, FORBIDDEN_INSTRUCTION, UNKNOWN_PROGRAM, TOO_MANY_INSTRUCTIONS, FEE_TOO_HIGH, FEE_UNPRICEABLE }
 
 enum class DappWarning { RAW_PROGRAM, WALLET_SIGNS_FOR_RAW_PROGRAM, WALLET_WRITABLE_IN_RAW_PROGRAM, PRIORITY_FEE, TOKEN_DELEGATE_SET, WITHDRAW_TO_OTHER, MANY_INSTRUCTIONS }
 
@@ -67,13 +67,10 @@ class DappVerdict internal constructor(
 }
 
 /**
- * Lock Connect program firewall (spec §2.3/§23.4, ADR 0022). Pure and deterministic over the exact message bytes:
- * - legacy messages only, exactly one signer = the Connect wallet as fee payer;
- * - allowlisted programs are decoded with the same rules as the wallet's own transactions (an instruction of a core
- *   program the analyzer does not allow — Approve, SetAuthority, Assign, nonce, stake Authorize… — blocks);
- * - loaders, Vote, Config and Address Lookup Table instructions block;
- * - other programs are flagged UNKNOWN: signable only after an explicit raw acknowledgement, and the app additionally
- *   requires a successful simulation showing the wallet's SOL/token changes (enforced by the caller).
+ * Lock Connect firewall over exact message bytes:
+ * - core instructions must be decoded by the same analyzer as native wallet transactions;
+ * - loaders, governance programs, arbitrary and undecoded third-party programs block;
+ * - runtime signature-verification precompiles remain available, with explicit acknowledgement and cross-RPC simulation.
  */
 object DappFirewall {
     const val MAX_INSTRUCTIONS = 8
@@ -95,7 +92,7 @@ object DappFirewall {
         "Ed25519SigVerify111111111111111111111111111" to "Ed25519 (pré-compilado)",
         "KeccakSecp256k11111111111111111111111111111" to "Secp256k1 (pré-compilado)",
         "Secp256r1SigVerify1111111111111111111111111" to "Secp256r1 (pré-compilado)",
-    ).mapKeys { SolanaPublicKey.fromBase58(it.key) } + (ProgramIds.METAPLEX_METADATA to "Metaplex Token Metadata")
+    ).mapKeys { SolanaPublicKey.fromBase58(it.key) }
     private val CORE_NAMES = mapOf(
         ProgramIds.SYSTEM to "System Program", ProgramIds.SPL_TOKEN_LEGACY to "SPL Token", ProgramIds.TOKEN_2022 to "Token-2022",
         ProgramIds.ASSOCIATED_TOKEN to "Associated Token Account", ProgramIds.COMPUTE_BUDGET to "Compute Budget", ProgramIds.STAKE to "Stake Program",
@@ -142,11 +139,17 @@ object DappFirewall {
                 }
                 program == MEMO_V1 || program == MEMO_V2 -> {
                     val text = MessagePolicy.printableText(data, 566)
-                    if (text != null) raw(IxKind.MEMO, memo = text) else rawProgram(raw(IxKind.UNKNOWN), wallet, warns)
+                    if (text != null) raw(IxKind.MEMO, memo = text) else {
+                        blocks += DappBlock.UNKNOWN_PROGRAM
+                        rawProgram(raw(IxKind.FORBIDDEN), wallet, warns)
+                    }
                 }
                 program in FORBIDDEN_PROGRAMS -> { blocks += DappBlock.FORBIDDEN_INSTRUCTION; raw(IxKind.FORBIDDEN) }
                 program in KNOWN_UNDECODED -> rawProgram(raw(IxKind.KNOWN_UNDECODED), wallet, warns)
-                else -> rawProgram(raw(IxKind.UNKNOWN), wallet, warns)
+                else -> {
+                    blocks += DappBlock.UNKNOWN_PROGRAM
+                    rawProgram(raw(IxKind.FORBIDDEN), wallet, warns)
+                }
             }
         }
         if (computeLimits > 1 || computePrices > 1) blocks += DappBlock.FORBIDDEN_INSTRUCTION

@@ -89,6 +89,7 @@ object S {
     const val R_PRIVKEY = "Chave privada (Base58)"
     const val R_JSON = "Arquivo keypair JSON (solana-keygen)"
     const val PHRASE_INPUT = "Digite as palavras separadas por espaço"
+    const val BIP39_PASSPHRASE_UNSUPPORTED = "A senha extra da frase (passphrase BIP-39) não é suportada. A restauração usa passphrase vazia e pode abrir outro endereço."
     const val PRIVKEY_INPUT = "Cole a chave privada (Base58)"
     const val PICK_FILE = "Escolher arquivo"
     const val LWRP_PASSWORD = "Senha do Recovery Package"

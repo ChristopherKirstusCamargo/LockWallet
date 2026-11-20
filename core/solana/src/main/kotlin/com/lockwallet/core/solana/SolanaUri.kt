@@ -8,6 +8,7 @@ package com.lockwallet.core.solana
  */
 object SolanaUri {
     const val MAX_LEN = 512
+    const val MAX_QUERY_LEN = 256
 
     sealed interface Result {
         data class Address(val key: SolanaPublicKey) : Result
@@ -20,6 +21,8 @@ object SolanaUri {
         if (t.isEmpty() || t.length > MAX_LEN) return Result.Invalid
         val body = if (t.regionMatches(0, "solana:", 0, 7, ignoreCase = true)) t.substring(7) else t
         if (listOf("http:", "https:", "http%3a", "https%3a").any { body.startsWith(it, ignoreCase = true) }) return Result.TransactionRequest
+        val queryAt = body.indexOf('?')
+        if (queryAt >= 0 && body.length - queryAt - 1 > MAX_QUERY_LEN) return Result.Invalid
         val addr = body.substringBefore('?').substringBefore('#')
         if (addr.length !in 32..44) return Result.Invalid
         return SolanaPublicKey.fromBase58OrNull(addr)?.let { Result.Address(it) } ?: Result.Invalid

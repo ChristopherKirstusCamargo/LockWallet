@@ -22,15 +22,15 @@ class Prefs(context: Context) {
     var network: NetworkConfig
         get() {
             val d = NetworkConfig.MAINNET_DEFAULT
-            return NetworkConfig(Cluster.MAINNET, sp.getString("rpc.primary", null) ?: d.primaryUrl, sp.getString("rpc.secondary", null) ?: d.secondaryUrl)
+            return NetworkConfig(Cluster.MAINNET, sp.getString("rpc.primary", null) ?: d.primaryUrl, d.secondaryUrl)
         }
         set(v) {
             require(v.cluster == Cluster.MAINNET)
             val d = NetworkConfig.MAINNET_DEFAULT
             sp.edit().putString("rpc.primary", v.primaryUrl.takeIf { it != d.primaryUrl })
-                .putString("rpc.secondary", v.secondaryUrl.takeIf { it != d.secondaryUrl }).apply()
+                .remove("rpc.secondary").apply()
         }
-    val customRpc: Boolean get() = sp.getString("rpc.primary", null) != null || sp.getString("rpc.secondary", null) != null
+    val customRpc: Boolean get() = sp.getString("rpc.primary", null) != null
 
     /** Onboarding choices that are not secrets (biometric prompt skipped, backup reminder dismissed, haptics). */
     var haptics: Boolean

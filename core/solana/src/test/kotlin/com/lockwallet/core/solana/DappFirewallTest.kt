@@ -39,14 +39,25 @@ class DappFirewallTest {
         assertFalse(DappFirewall.permits(m, me, ByteArray(32), rawAcknowledged = true))
     }
 
-    @Test fun unknownProgramNeedsRawAckAndFlagsWalletSigner() {
+    @Test fun arbitraryUnknownProgramIsBlockedEvenAfterRawAcknowledgement() {
         val ix = Instruction(dex, listOf(AccountMeta(me, true, true), AccountMeta(bob, false, true)), byteArrayOf(1, 2, 3))
+        val m = msg(me, ix)
+        val v = DappFirewall.inspect(m, me)
+        assertFalse(v.signable)
+        assertTrue(DappBlock.UNKNOWN_PROGRAM in v.blockers)
+        assertEquals(IxKind.FORBIDDEN, v.instructions.single().kind)
+        assertTrue(DappWarning.WALLET_SIGNS_FOR_RAW_PROGRAM in v.warnings)
+        assertFalse(DappFirewall.permits(m, me, v.messageHash, rawAcknowledged = false))
+        assertFalse(DappFirewall.permits(m, me, v.messageHash, rawAcknowledged = true))
+    }
+
+    @Test fun knownRuntimePrecompileStillRequiresAcknowledgement() {
+        val program = SolanaPublicKey.fromBase58("Ed25519SigVerify111111111111111111111111111")
+        val ix = Instruction(program, listOf(AccountMeta(me, true, false)), ByteArray(16))
         val m = msg(me, ix)
         val v = DappFirewall.inspect(m, me)
         assertTrue(v.signable)
         assertTrue(v.needsRawAck)
-        assertEquals(IxKind.UNKNOWN, v.instructions.single().kind)
-        assertTrue(DappWarning.WALLET_SIGNS_FOR_RAW_PROGRAM in v.warnings)
         assertFalse(DappFirewall.permits(m, me, v.messageHash, rawAcknowledged = false))
         assertTrue(DappFirewall.permits(m, me, v.messageHash, rawAcknowledged = true))
     }
