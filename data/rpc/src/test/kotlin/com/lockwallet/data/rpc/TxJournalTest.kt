@@ -109,6 +109,30 @@ class TxJournalTest {
         assertFalse(temp.exists())
     }
 
+    @Test fun staleAuthenticatedTempNeverReplacesCurrentJournal() {
+        val file = File(tmp.root, "tx-journal.json")
+        val auth = TestAuthenticator()
+        val journal = TxJournal(file, auth)
+        journal.put(record())
+        val oldSnapshot = File(tmp.root, "old-snapshot.json")
+        file.copyTo(oldSnapshot, overwrite = true)
+
+        val newer = record().copy(
+            signature = "newer-signature",
+            createdAtMs = 20L,
+            updatedAtMs = 20L,
+            state = TransactionState.SUBMITTED,
+        )
+        journal.put(newer)
+        val temp = File(tmp.root, "tx-journal.json.tmp")
+        oldSnapshot.copyTo(temp, overwrite = true)
+
+        val loaded = TxJournal(file, auth).all()
+        assertTrue(loaded.any { it.signature == "newer-signature" })
+        assertFalse(loaded.any { it.signature == "test-signature" })
+        assertFalse(temp.exists())
+    }
+
     @Test fun legacyUnsignedJournalDropsBearerBytesAndBecomesUnresolved() {
         val file = File(tmp.root, "tx-journal.json")
         file.writeText(
