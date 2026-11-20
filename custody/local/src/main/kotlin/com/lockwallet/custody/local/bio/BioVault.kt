@@ -165,7 +165,7 @@ class BioVault(
             if (bb.int != RECORD_KEY_MAGIC) throw IllegalStateException("biometric wallet key marker invalid")
             val wallet = ByteArray(16).also { bb.get(it) }
             val alias = ByteArray(16).also { bb.get(it) }
-            if (marker.name != "${hex(wallet)}.key.pending") throw IllegalStateException("biometric wallet key marker mismatch")
+            if (marker.name != "${hex(wallet)}.keyref") throw IllegalStateException("biometric wallet key marker mismatch")
             aliases[hex(alias)] = alias
         }
         dir.listFiles()?.filter { it.name.endsWith(".lwbio") || it.name.endsWith(".lwbio" + AtomicFiles.TMP_SUFFIX) }?.forEach { file ->
@@ -247,8 +247,8 @@ class BioVault(
     }
 
     /**
-     * An interrupted atomic write may leave a complete record at <wallet>.lwbio.tmp with its Keystore alias.
-     * Erase that alias before deleting or replacing the temporary ciphertext; otherwise the key would be orphaned.
+     * Each per-wallet key has a durable alias reference, retained for the record's lifetime. Interrupted writes may
+     * also leave <wallet>.lwbio.tmp; erase all referenced aliases before deleting or replacing its ciphertext.
      */
     private fun recordKeyReferenceFile(walletIdHex: String) = File(dir, "$walletIdHex.keyref")
 
@@ -342,11 +342,19 @@ class BioVault(
         // A copied record under another filename is rejected without destroying the source wallet's key.
         if (hex(r.walletId) != walletIdHex) return null
         if (!r.headerHash.contentEquals(sha256(header))) { remove(walletIdHex); return null }
-        // v5.0.2 records used the policy alias directly; accept them for backward compatibility. New records use
-        // a unique alias and must still have their own private key present.
-        if (!r.aliasId.contentEquals(s.aliasId) && !keys.exists(r.aliasId)) {
-            if (!f.delete() && f.exists()) throw IllegalStateException("biometric record cleanup failed")
-            return null
+        // v5.0.2 records used the policy alias directly. New records have a durable per-wallet alias reference,
+        // which is checked before using the independent private key.
+        if (!r.aliasId.contentEquals(s.aliasId)) {
+            val reference = recordKeyReferenceFile(walletIdHex)
+            if (!reference.exists()) return null
+            val bytes = reference.readBytes()
+            if (bytes.size != 36) return null
+            val bb = ByteBuffer.wrap(bytes)
+            if (bb.int != RECORD_KEY_MAGIC) return null
+            val referencedWallet = ByteArray(16).also { bb.get(it) }
+            val referencedAlias = ByteArray(16).also { bb.get(it) }
+            if (hex(referencedWallet) != walletIdHex || !referencedAlias.contentEquals(r.aliasId)) return null
+            if (!keys.exists(r.aliasId)) return null
         }
         return r
     }
