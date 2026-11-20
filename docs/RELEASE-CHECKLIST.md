@@ -51,8 +51,8 @@ python3 tools/sbom.py /tmp/deps.txt --version <versão> --apk-sha256 <sha> -o di
 
 ## 6. Publicação da 5.0.1
 - O workflow `.github/workflows/publish-release.yml` executa `ciCheck`, compila o Release, confere o manifesto, alinha e assina o APK, verifica o certificado, gera SHA-256 e SBOM e publica os ativos na página GitHub Releases.
-- Segredos do Actions: `LOCKWALLET_KEYSTORE_BASE64` e `LOCKWALLET_KEYSTORE_PASSWORD`. O keystore privado e a senha não entram no repositório.
-- Certificado 5.0.1: `d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6`.
+- Segredo do Actions: `LOCKWALLET_KEYSTORE_PASSWORD`. O repositório contém somente `signing/lockwallet-release.p12.enc`, cifrado com AES-256-CBC/PBKDF2 (600.000 iterações); o keystore em claro e a senha não entram no repositório.
+- Certificado 5.0.1: `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 - A assinatura 5.0.1 difere da 5.0.0. Antes de desinstalar a versão anterior, validar frase de recuperação ou Recovery Package.
 
 ## Registro de releases
@@ -63,4 +63,4 @@ python3 tools/sbom.py /tmp/deps.txt --version <versão> --apk-sha256 <sha> -o di
 | 3.0.0 (3) | 2026-11-19 | `1861f89c1b531df8a5a1d28802e8d4884ea65684764fdec447ffad8f1926ca08` | `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b` |
 | 4.0.0 (4) | 2026-11-19 | `f3f4a2e2fce3b8eada0a74c3ef53aa55f96f011c90b3357d35833b42bc470753` | `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b` |
 | 5.0.0 (7) — Release anterior | 2026-11-19 | Consulte a Release histórica | `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b` |
-| 5.0.1 (8) — correções de segurança | 2026-11-20 | Será preenchido após a publicação | `d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6` |
+| 5.0.1 (8) — correções de segurança | 2026-11-20 | Será preenchido após a publicação | `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13` |

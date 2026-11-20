@@ -77,14 +77,18 @@ jobs:
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
-          KEYSTORE_BASE64: ${{ secrets.LOCKWALLET_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          test -n "$KEYSTORE_BASE64" || { echo "Missing LOCKWALLET_KEYSTORE_BASE64 Actions secret" >&2; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "Missing LOCKWALLET_KEYSTORE_PASSWORD Actions secret" >&2; exit 1; }
+          KEYSTORE_CIPHERTEXT="$RUNNER_TEMP/lockwallet-release.p12.enc"
           KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
-          trap 'rm -f "$KEYSTORE"' EXIT
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          ALIGNED="$RUNNER_TEMP/lockwallet-aligned.apk"
+          trap 'rm -f "$KEYSTORE" "$KEYSTORE_CIPHERTEXT" "$ALIGNED"' EXIT
+          cp signing/lockwallet-release.p12.enc "$KEYSTORE_CIPHERTEXT"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 \
+            -pass env:KEYSTORE_PASSWORD \
+            -in "$KEYSTORE_CIPHERTEXT" \
+            -out "$KEYSTORE"
           test -s "$KEYSTORE"
           ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
           APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
@@ -103,7 +107,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='8' versionName='5.0.1'"
           "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 31 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
           CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
-          test "$CERT_SHA256" = "d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6"
+          test "$CERT_SHA256" = "ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13"
           keytool -exportcert -rfc \
             -keystore "$KEYSTORE" -storetype PKCS12 \
             -storepass "$KEYSTORE_PASSWORD" -alias lockwallet \
