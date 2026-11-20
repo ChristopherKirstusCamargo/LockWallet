@@ -114,10 +114,10 @@ class AppFlowTest {
         c.submitName("Principal")
         if (c.hasVault()) {
             assertTrue(c.screen is Screen.Authorize)
-            c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), AuthPurpose.SealDraft)
+            c.submitPin(pin("839174"), AuthPurpose.SealDraft)
         } else {
             assertEquals(Screen.PinCreate, c.screen)
-            c.setNewPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"))
+            c.setNewPin(pin("839174"))
             assertEquals(Screen.BioChoice, c.screen)
             c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC)
         }
@@ -135,7 +135,7 @@ class AppFlowTest {
         assertEquals(1, c.wallets.size)
         c.lockNow()
         assertEquals(Screen.Lock, c.screen)
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), null); c.await()
+        c.submitPin(pin("839174"), null); c.await()
         assertEquals(Screen.Home, c.screen)
         // Second wallet: PIN verification (prompt 1) + seal (prompt 2).
         prompts = 0
@@ -144,7 +144,7 @@ class AppFlowTest {
         assertEquals(2, c.wallets.size)
         // Re-view phrase requires authorisation and yields an opened session.
         c.go(Screen.Authorize(AuthPurpose.RevealPhrase(id)))
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), AuthPurpose.RevealPhrase(id)); c.await()
+        c.submitPin(pin("839174"), AuthPurpose.RevealPhrase(id)); c.await()
         assertEquals(Screen.Reveal(id), c.screen)
         assertEquals(24, c.opened!!.session.words().size)
         c.home()
@@ -152,7 +152,7 @@ class AppFlowTest {
     }
 
     // ---- wallet delete (security review)
-    private fun delete(c: AppController, id: String, pinText: String = "listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")") {
+    private fun delete(c: AppController, id: String, pinText: String = "839174") {
         c.go(Screen.Authorize(AuthPurpose.DeleteWallet(id))); c.submitPin(pin(pinText), AuthPurpose.DeleteWallet(id)); c.await()
     }
     private fun envelopes() = (java.io.File(tmp.root, "envelopes").listFiles() ?: emptyArray()).filter { it.name.endsWith(".lwle") }
@@ -201,14 +201,14 @@ class AppFlowTest {
         c.submitPin(pin("000001"), null); c.await()
         c.refreshLockout()
         assertEquals(3_600_000L, c.lockoutMs)
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), null); c.await()
+        c.submitPin(pin("839174"), null); c.await()
         assertEquals(Screen.Lock, c.screen) // locked out even with the right PIN
         clock.t += 3_600_000L
         biometricOk = false
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), null); c.await()
+        c.submitPin(pin("839174"), null); c.await()
         assertEquals(Screen.Lock, c.screen)
         biometricOk = true
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), null); c.await()
+        c.submitPin(pin("839174"), null); c.await()
         assertEquals(Screen.Home, c.screen)
     }
 
@@ -222,12 +222,12 @@ class AppFlowTest {
         assertEquals(0, restored.index)
         assertEquals(c.draft!!.material!!.account(AccountProfile.PRIMARY, 0), restored)
         c.submitName("Restaurada")
-        c.setNewPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"))
+        c.setNewPin(pin("839174"))
         c.sealNewVault(AuthMode.PIN_ONLY); c.await()
         val id = (c.screen as Screen.Detail).walletId
         assertEquals(0, c.wallets.single().accountIndex)
         // Export: authorise, seal LWRP, the destination picker is requested with a .lwrp name.
-        c.submitPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"), AuthPurpose.ExportLwrp(id)); c.await()
+        c.submitPin(pin("839174"), AuthPurpose.ExportLwrp(id)); c.await()
         assertEquals(Screen.Export(id), c.screen)
         var requested: String? = null
         c.prepareExport("a sufficiently long password".toCharArray()) { requested = it }; c.await()
