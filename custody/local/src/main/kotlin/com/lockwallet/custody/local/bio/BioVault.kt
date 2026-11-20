@@ -158,17 +158,21 @@ class BioVault(
             val alias = ByteArray(16).also { bb.get(it) }
             aliases[hex(alias)] = alias
         }
+        val recordReferences = linkedMapOf<String, ByteArray>()
         dir.listFiles()?.filter { it.name.matches(Regex("[0-9a-f]{32}\\.keyref")) }?.forEach { marker ->
-            val bytes = marker.readBytes()
-            if (bytes.size != 36) throw IllegalStateException("biometric wallet key marker unreadable")
-            val bb = ByteBuffer.wrap(bytes)
-            if (bb.int != RECORD_KEY_MAGIC) throw IllegalStateException("biometric wallet key marker invalid")
-            val wallet = ByteArray(16).also { bb.get(it) }
-            val alias = ByteArray(16).also { bb.get(it) }
-            if (marker.name != "${hex(wallet)}.keyref") throw IllegalStateException("biometric wallet key marker mismatch")
+            val walletIdHex = marker.name.removeSuffix(".keyref")
+            val alias = readRecordKeyReference(walletIdHex)
+                ?: throw IllegalStateException("biometric wallet key reference unavailable")
+            recordReferences[walletIdHex] = alias
             aliases[hex(alias)] = alias
         }
         dir.listFiles()?.filter { it.name.endsWith(".lwbio") || it.name.endsWith(".lwbio" + AtomicFiles.TMP_SUFFIX) }?.forEach { file ->
+            val baseName = file.name.removeSuffix(AtomicFiles.TMP_SUFFIX).removeSuffix(".lwbio")
+            if (recordReferences.containsKey(baseName)) {
+                // The persistent key reference is authoritative for new records, even when the ciphertext header
+                // has been truncated/corrupted. The reference was parsed and added to aliases above.
+                return@forEach
+            }
             val bytes = file.readBytes()
             if (bytes.size < 37) throw IllegalStateException("biometric record header unreadable")
             val bb = ByteBuffer.wrap(bytes)
@@ -224,16 +228,23 @@ class BioVault(
     fun remove(walletIdHex: String) {
         require(walletIdHex.matches(Regex("[0-9a-f]{32}"))) { "wallet id" }
         val file = recordFile(walletIdHex)
-        val record = if (file.exists()) {
-            BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
-        } else null
+        val referenceAlias = readRecordKeyReference(walletIdHex)
+        val record = if (file.exists()) BioRecord.parse(file.readBytes()) else null
         if (record != null && hex(record.walletId) != walletIdHex) {
             throw IllegalStateException("biometric record wallet mismatch")
         }
-        // Process pending aliases even when a final record already exists. If both exist, they must identify
-        // the same per-wallet key; otherwise fail closed rather than deleting an unrelated key.
-        removeInterruptedRecordTemp(walletIdHex, record?.aliasId)
-        if (record == null) return
+        if (record != null && referenceAlias != null && !record.aliasId.contentEquals(referenceAlias)) {
+            throw IllegalStateException("biometric record conflicts with its key reference")
+        }
+        // The persistent key reference allows removal even if the ciphertext itself is damaged.
+        removeInterruptedRecordTemp(walletIdHex, record?.aliasId ?: referenceAlias)
+        if (record == null) {
+            if (file.exists()) {
+                if (referenceAlias == null) throw IllegalStateException("cannot identify biometric record key")
+                if (!file.delete() && file.exists()) throw IllegalStateException("biometric record cleanup failed")
+            }
+            return
+        }
         val policyAlias = state()?.aliasId
         if (policyAlias != null && record.aliasId.contentEquals(policyAlias)) {
             // v5.0.2 shared the policy key across wallets. It cannot erase one wallet in isolation, so erase the
@@ -266,16 +277,24 @@ class BioVault(
         }
     }
 
+    private fun readRecordKeyReference(walletIdHex: String): ByteArray? {
+        val marker = recordKeyReferenceFile(walletIdHex)
+        if (!marker.exists()) return null
+        val bytes = marker.readBytes()
+        if (bytes.size != 36) throw IllegalStateException("biometric wallet key reference unreadable")
+        val bb = ByteBuffer.wrap(bytes)
+        if (bb.int != RECORD_KEY_MAGIC) throw IllegalStateException("biometric wallet key reference invalid")
+        val wallet = ByteArray(16).also { bb.get(it) }
+        val alias = ByteArray(16).also { bb.get(it) }
+        if (hex(wallet) != walletIdHex) throw IllegalStateException("biometric wallet key reference mismatch")
+        return alias
+    }
+
     private fun removeInterruptedRecordTemp(walletIdHex: String, expectedAlias: ByteArray? = null) {
         val marker = recordKeyReferenceFile(walletIdHex)
-        if (marker.exists()) {
-            val bytes = marker.readBytes()
-            if (bytes.size != 36) throw IllegalStateException("biometric wallet key marker unreadable")
-            val bb = ByteBuffer.wrap(bytes)
-            if (bb.int != RECORD_KEY_MAGIC) throw IllegalStateException("biometric wallet key marker invalid")
-            val wallet = ByteArray(16).also { bb.get(it) }
-            val alias = ByteArray(16).also { bb.get(it) }
-            if (hex(wallet) != walletIdHex) throw IllegalStateException("biometric wallet key marker mismatch")
+        val aliasReference = readRecordKeyReference(walletIdHex)
+        if (aliasReference != null) {
+            val alias = aliasReference
             if (expectedAlias != null && !expectedAlias.contentEquals(alias)) {
                 throw IllegalStateException("biometric wallet key marker conflicts with stored record")
             }
@@ -345,16 +364,8 @@ class BioVault(
         // v5.0.2 records used the policy alias directly. New records have a durable per-wallet alias reference,
         // which is checked before using the independent private key.
         if (!r.aliasId.contentEquals(s.aliasId)) {
-            val reference = recordKeyReferenceFile(walletIdHex)
-            if (!reference.exists()) return null
-            val bytes = reference.readBytes()
-            if (bytes.size != 36) return null
-            val bb = ByteBuffer.wrap(bytes)
-            if (bb.int != RECORD_KEY_MAGIC) return null
-            val referencedWallet = ByteArray(16).also { bb.get(it) }
-            val referencedAlias = ByteArray(16).also { bb.get(it) }
-            if (hex(referencedWallet) != walletIdHex || !referencedAlias.contentEquals(r.aliasId)) return null
-            if (!keys.exists(r.aliasId)) return null
+            val referencedAlias = runCatching { readRecordKeyReference(walletIdHex) }.getOrNull() ?: return null
+            if (!referencedAlias.contentEquals(r.aliasId) || !keys.exists(r.aliasId)) return null
         }
         return r
     }
