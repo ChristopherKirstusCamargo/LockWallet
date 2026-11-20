@@ -305,20 +305,23 @@ class BioVault(
 
         val temp = File(dir, "$walletIdHex.lwbio" + AtomicFiles.TMP_SUFFIX)
         if (temp.exists()) {
-            val bytes = temp.readBytes()
-            if (bytes.size < 37) throw IllegalStateException("interrupted biometric record header unreadable")
-            val bb = ByteBuffer.wrap(bytes)
-            if (bb.int != BioRecord.MAGIC || bb.get() != BioRecord.VERSION) {
-                throw IllegalStateException("interrupted biometric record header invalid")
+            if (aliasReference == null) {
+                val bytes = temp.readBytes()
+                if (bytes.size < 37) throw IllegalStateException("interrupted biometric record header unreadable")
+                val bb = ByteBuffer.wrap(bytes)
+                if (bb.int != BioRecord.MAGIC || bb.get() != BioRecord.VERSION) {
+                    throw IllegalStateException("interrupted biometric record header invalid")
+                }
+                val wallet = ByteArray(16).also { bb.get(it) }
+                if (hex(wallet) != walletIdHex) throw IllegalStateException("interrupted biometric record wallet mismatch")
+                val alias = ByteArray(16).also { bb.get(it) }
+                if (expectedAlias != null && !expectedAlias.contentEquals(alias)) {
+                    throw IllegalStateException("interrupted biometric temp conflicts with stored record")
+                }
+                keys.delete(alias)
+                if (keys.exists(alias)) throw IllegalStateException("interrupted biometric key deletion could not be verified")
             }
-            val wallet = ByteArray(16).also { bb.get(it) }
-            if (hex(wallet) != walletIdHex) throw IllegalStateException("interrupted biometric record wallet mismatch")
-            val alias = ByteArray(16).also { bb.get(it) }
-            if (expectedAlias != null && !expectedAlias.contentEquals(alias)) {
-                throw IllegalStateException("interrupted biometric temp conflicts with stored record")
-            }
-            keys.delete(alias)
-            if (keys.exists(alias)) throw IllegalStateException("interrupted biometric key deletion could not be verified")
+            // If a persistent key reference exists, its alias was already erased above; a truncated temp needs no parsing.
             if (!temp.delete() && temp.exists()) throw IllegalStateException("interrupted biometric temp cleanup failed")
         }
     }
@@ -328,9 +331,8 @@ class BioVault(
         val s = state() ?: return
         require(walletId.size == 16)
         val walletIdHex = hex(walletId)
-        removeInterruptedRecordTemp(walletIdHex)
         val target = recordFile(walletIdHex)
-        if (target.exists()) remove(walletIdHex)
+        if (target.exists()) remove(walletIdHex) else removeInterruptedRecordTemp(walletIdHex)
 
         var recordAlias: ByteArray
         do { recordAlias = ByteArray(16).also(random::nextBytes) }
