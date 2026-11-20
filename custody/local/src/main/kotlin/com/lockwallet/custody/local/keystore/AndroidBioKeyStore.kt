@@ -108,8 +108,20 @@ class AndroidBioKeyStore(private val context: Context) : BioKeyStore {
     }
 
     override fun delete(aliasId: ByteArray) {
-        runCatching { ks.deleteEntry(BioKeyStore.alias(aliasId)) }
-        runCatching { ks.deleteEntry(BioKeyStore.macAlias(aliasId)) }
+        val rsaAlias = BioKeyStore.alias(aliasId)
+        val hmacAlias = BioKeyStore.macAlias(aliasId)
+        try {
+            if (ks.containsAlias(rsaAlias)) ks.deleteEntry(rsaAlias)
+            if (ks.containsAlias(hmacAlias)) ks.deleteEntry(hmacAlias)
+            // Keystore deletion is the crypto-erasure boundary. Never report success while either alias remains.
+            if (ks.containsAlias(rsaAlias) || ks.containsAlias(hmacAlias)) {
+                throw KekException(KekException.Kind.UNAVAILABLE)
+            }
+        } catch (e: KekException) {
+            throw e
+        } catch (e: Exception) {
+            throw KekException(KekException.Kind.UNAVAILABLE, e)
+        }
     }
 
     private companion object { const val PROVIDER = "AndroidKeyStore" }
