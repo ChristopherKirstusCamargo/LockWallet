@@ -224,12 +224,16 @@ class BioVault(
     fun remove(walletIdHex: String) {
         require(walletIdHex.matches(Regex("[0-9a-f]{32}"))) { "wallet id" }
         val file = recordFile(walletIdHex)
-        if (!file.exists()) {
-            removeInterruptedRecordTemp(walletIdHex)
-            return
+        val record = if (file.exists()) {
+            BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
+        } else null
+        if (record != null && hex(record.walletId) != walletIdHex) {
+            throw IllegalStateException("biometric record wallet mismatch")
         }
-        val record = BioRecord.parse(file.readBytes()) ?: throw IllegalStateException("cannot identify biometric record key")
-        if (hex(record.walletId) != walletIdHex) throw IllegalStateException("biometric record wallet mismatch")
+        // Process pending aliases even when a final record already exists. If both exist, they must identify
+        // the same per-wallet key; otherwise fail closed rather than deleting an unrelated key.
+        removeInterruptedRecordTemp(walletIdHex, record?.aliasId)
+        if (record == null) return
         val policyAlias = state()?.aliasId
         if (policyAlias != null && record.aliasId.contentEquals(policyAlias)) {
             // v5.0.2 shared the policy key across wallets. It cannot erase one wallet in isolation, so erase the
@@ -262,7 +266,7 @@ class BioVault(
         }
     }
 
-    private fun removeInterruptedRecordTemp(walletIdHex: String) {
+    private fun removeInterruptedRecordTemp(walletIdHex: String, expectedAlias: ByteArray? = null) {
         val marker = pendingRecordKeyFile(walletIdHex)
         if (marker.exists()) {
             val bytes = marker.readBytes()
@@ -272,6 +276,9 @@ class BioVault(
             val wallet = ByteArray(16).also { bb.get(it) }
             val alias = ByteArray(16).also { bb.get(it) }
             if (hex(wallet) != walletIdHex) throw IllegalStateException("biometric wallet key marker mismatch")
+            if (expectedAlias != null && !expectedAlias.contentEquals(alias)) {
+                throw IllegalStateException("biometric wallet key marker conflicts with stored record")
+            }
             keys.delete(alias)
             if (keys.exists(alias)) throw IllegalStateException("interrupted biometric key deletion could not be verified")
             if (!marker.delete() && marker.exists()) throw IllegalStateException("biometric key marker cleanup failed")
@@ -288,6 +295,9 @@ class BioVault(
             val wallet = ByteArray(16).also { bb.get(it) }
             if (hex(wallet) != walletIdHex) throw IllegalStateException("interrupted biometric record wallet mismatch")
             val alias = ByteArray(16).also { bb.get(it) }
+            if (expectedAlias != null && !expectedAlias.contentEquals(alias)) {
+                throw IllegalStateException("interrupted biometric temp conflicts with stored record")
+            }
             keys.delete(alias)
             if (keys.exists(alias)) throw IllegalStateException("interrupted biometric key deletion could not be verified")
             if (!temp.delete() && temp.exists()) throw IllegalStateException("interrupted biometric temp cleanup failed")
@@ -309,6 +319,7 @@ class BioVault(
         writePendingRecordKey(walletId, recordAlias)
         keys.create(recordAlias)
         val aesKey = ByteArray(32).also(random::nextBytes)
+        var recordPersisted = false
         try {
             val rsa = BioKeyStore.encrypt(keys.publicKey(recordAlias), aesKey)
             val nonce = ByteArray(12).also(random::nextBytes)
@@ -317,12 +328,19 @@ class BioVault(
             val ct = SecretBytes.copyOf(aesKey).use { k -> material.withBytes { AesGcm.encrypt(k, nonce, shell.aad(), it) } }
             val rec = BioRecord(walletId, recordAlias, headerHash, rsa, nonce, ct)
             atomic.write(target, rec.encode()) { requireNotNull(BioRecord.parse(it)) }
-            val marker = pendingRecordKeyFile(walletIdHex)
-            if (!marker.delete() && marker.exists()) throw IllegalStateException("biometric key marker cleanup failed")
+            recordPersisted = true
         } catch (e: Exception) {
+            // Keep the pending marker if persistence failed; disable()/remove() can retry key deletion.
             runCatching { keys.delete(recordAlias) }
             throw e
         } finally { aesKey.wipe() }
+
+        // The record is now durable. If marker cleanup fails, keep its key so the record remains usable;
+        // the leftover marker lets a later disable()/remove() clean up both consistently.
+        if (recordPersisted) {
+            val marker = pendingRecordKeyFile(walletIdHex)
+            if (!marker.delete() && marker.exists()) throw IllegalStateException("biometric key marker cleanup failed")
+        }
     }
 
     /** Loads and binds the record to the wallet, the current bio key and the envelope header. Null ⇒ use the PIN. */
