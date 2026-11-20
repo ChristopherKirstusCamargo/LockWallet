@@ -221,9 +221,9 @@ class CoordinatorTest {
         co.submit(co.prepare(intent()), sig)
         val file = java.io.File(tmp.root, "j.json")
         assertEquals(1, TxJournal(file, journalAuthenticator).all().size)
-        assertEquals(sigB58, TxJournal(file, TestTxJournalAuthenticator).all().single().signature)
+        assertEquals(sigB58, TxJournal(file, journalAuthenticator).all().single().signature)
         file.writeText("[{\"sig\":")
-        try { TxJournal(file, TestTxJournalAuthenticator).all(); fail() } catch (_: IllegalStateException) {}
+        try { TxJournal(file, journalAuthenticator).all(); fail() } catch (_: IllegalStateException) {}
     }
 
     // ---- dApp cross-check (external audit, finding 1)

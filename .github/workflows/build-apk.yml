@@ -1,8 +1,8 @@
-name: Lock Wallet — Build and publish v5.0.2
+name: Lock Wallet — Build and publish v5.0.4
 
 on:
   push:
-    branches: [main]
+    branches: [main, security/5.0.4-credential-hardening]
     paths:
       - "app/**"
       - "core/**"
@@ -58,7 +58,7 @@ jobs:
             --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
             --apk app/build/outputs/apk/release/app-release-unsigned.apk \
             --release
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='10' versionName='5.0.2'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='11' versionName='Final'"
 
       - name: Sign APK and verify release certificate
         id: sign
@@ -93,7 +93,7 @@ jobs:
             --v3-signing-enabled true \
             --out dist/lockwallet.apk \
             "$ALIGNED"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='10' versionName='5.0.2'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='11' versionName='Final'"
           "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 31 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
           CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           test "$CERT_SHA256" = "ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13"
@@ -109,12 +109,12 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon :app:dependencies --configuration releaseRuntimeClasspath -q > "$RUNNER_TEMP/deps.txt"
-          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version 5.0.2 --apk-sha256 "$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" -o dist/lockwallet.cdx.json
+          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version 5.0.4 --apk-sha256 "$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" -o dist/lockwallet.cdx.json
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: LockWallet-5.0.2-${{ github.sha }}
+          name: LockWallet-5.0.4-${{ github.sha }}
           path: |
             dist/lockwallet.apk
             dist/lockwallet.apk.sha256
@@ -124,7 +124,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish GitHub Release v5.0.2 without touching older releases
+      - name: Publish GitHub Release v5.0.4 without touching older releases
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -134,21 +135,21 @@ jobs:
             echo "::error::Stale build; main moved from $GITHUB_SHA to $current_main. No Release created."
             exit 1
           fi
-          if gh release view v5.0.2 >/dev/null 2>&1; then
-            echo "::error::Release v5.0.2 already exists; refusing to overwrite it."
+          if gh release view v5.0.4 >/dev/null 2>&1; then
+            echo "::error::Release v5.0.4 already exists; refusing to overwrite it."
             exit 1
           fi
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v5.0.2" >/dev/null 2>&1; then
-            echo "::error::Tag v5.0.2 already exists without a release; refusing to reuse it."
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v5.0.4" >/dev/null 2>&1; then
+            echo "::error::Tag v5.0.4 already exists without a release; refusing to reuse it."
             exit 1
           fi
           cat > dist/RELEASE-NOTES.md <<EOF
-          # Lock Wallet 5.0.2
+          # Lock Wallet 5.0.4
 
           Android release build.
 
-          - Android versionCode: 10
-          - Android versionName: 5.0.2
+          - Android versionCode: 11
+          - Android versionName: Final
           - APK signature and pinned certificate fingerprint verified by CI.
 
           **APK SHA-256:** ${{ steps.sign.outputs.apk_sha256 }}
@@ -158,9 +159,9 @@ jobs:
 
           Before updating an existing installation, keep a verified recovery backup. Never share your recovery phrase or Recovery Package.
           EOF
-          gh release create v5.0.2 \
+          gh release create v5.0.4 \
             --target "$GITHUB_SHA" \
-            --title "Lock Wallet 5.0.2" \
+            --title "Lock Wallet 5.0.4" \
             --notes-file dist/RELEASE-NOTES.md \
             --latest \
             dist/lockwallet.apk \
