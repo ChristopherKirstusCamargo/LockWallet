@@ -92,7 +92,9 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
     private fun key(aliasId: ByteArray): SecretKey = try {
         ks.getKey(KekStore.alias(aliasId), null) as? SecretKey ?: throw KekException(KekException.Kind.NOT_FOUND)
     } catch (e: UnrecoverableKeyException) {
-        throw KekException(KekException.Kind.NOT_FOUND, e)
+        // The alias may still exist: this exception does not prove that the key is absent.
+        // Preserve every wallet and surface a Keystore failure; only a null getKey result is NOT_FOUND.
+        throw KekException(KekException.Kind.UNAVAILABLE, e)
     }
 
     private fun op(aliasId: ByteArray, init: (Cipher, SecretKey) -> Unit): KekOperation {
