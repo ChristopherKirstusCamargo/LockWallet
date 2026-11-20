@@ -204,6 +204,18 @@ class CoordinatorTest {
         com.lockwallet.core.solana.tx.Blockhash(com.lockwallet.core.solana.Base58.decodeOrNull(bh)!!), listOf(SystemIx.transfer(payer, bob, 1000))).serialize()
     private fun sim(lamports: Long) = """{"context":{"slot":1},"value":{"err":null,"logs":[],"unitsConsumed":150,"accounts":[{"lamports":$lamports,"owner":"11111111111111111111111111111111","data":["","base64"],"executable":false,"rentEpoch":0}]}}"""
 
+    @Test fun externalDappTxBlocksWhenWatchedAccountsWouldBeTruncated() {
+        val c = twoRpc()
+        val watch = (1..16).map { n ->
+            val bytes = ByteArray(32) { i -> ((i + n) % 251 + 1).toByte() }
+            SolanaPublicKey.fromBase58(com.lockwallet.core.solana.Base58.encode(bytes))
+        }
+        val p = c.prepareExternal(payer, dappMsg(), "dApp", watch, firewallOk = true, crossCheck = true)
+        assertFalse(p.signable)
+        assertEquals(listOf(PrepBlocker.SIMULATION_ACCOUNT_LIMIT), p.blockers)
+        assertEquals(0, f.calls.count { it.second == "simulateTransaction" })
+    }
+
     @Test fun undecodedDappTxPassesOnlyWhenTwoRpcsAgree() {
         val c = twoRpc()
         val p = c.prepareExternal(payer, dappMsg(), "dApp", emptyList(), firewallOk = true, crossCheck = true)
