@@ -18,9 +18,12 @@ class TxJournalTest {
     private class TestAuthenticator : TxJournalAuthenticator {
         private val key = ByteArray(32) { (it + 1).toByte() }
         var available = true
+        private var created = false
 
         override fun mac(data: ByteArray, createIfMissing: Boolean): ByteArray {
-            if (!available) throw IllegalStateException("test Keystore key unavailable")
+            if (!available) throw IllegalStateException("test Keystore unavailable")
+            if (!created && !createIfMissing) throw TxJournalKeyMissingException()
+            if (createIfMissing) created = true
             return Mac.getInstance("HmacSHA256").apply {
                 init(SecretKeySpec(key, "HmacSHA256"))
             }.doFinal(data)
@@ -79,6 +82,16 @@ class TxJournalTest {
 
         val reopened = runCatching { TxJournal(file, auth).all() }
         assertTrue("unverifiable journal must fail closed", reopened.isFailure)
+    }
+
+    @Test fun deletingPreviouslyAuthenticatedJournalFailsClosed() {
+        val file = File(tmp.root, "tx-journal.json")
+        val auth = TestAuthenticator()
+        TxJournal(file, auth).put(record())
+        assertTrue(file.delete())
+
+        val reopened = runCatching { TxJournal(file, auth).all() }
+        assertTrue("deleted journal must not be treated as an empty wallet history", reopened.isFailure)
     }
 
     @Test fun legacyUnsignedJournalDropsBearerBytesAndBecomesUnresolved() {
