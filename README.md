@@ -10,8 +10,8 @@
 | Plataforma | Android 12+ (API 31) |
 | Rede | Solana Mainnet |
 | Pacote | `com.lockwallet.app` |
-| SHA-256 do APK | `0d0de43de7cafd9dc715117402d408345ae89a7394b66b4529a279f229e07c03` |
-| SHA-256 do certificado | `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b` |
+| SHA-256 do APK | Consulte o ativo `lockwallet.apk.sha256` na Release mais recente |
+| SHA-256 do certificado | `d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6` |
 | Licença | Apache-2.0 |
 
 ---
@@ -59,20 +59,19 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 ### Instalação
 
 1. **Baixe** o `lockwallet.apk` da [versão mais recente](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest)
-   ([download direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/download/v5.0.0/lockwallet.apk)) ou o arquivo
+   ([download direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk)) ou o arquivo
    [`release/lockwallet.apk`](release/lockwallet.apk) deste repositório. O hash esperado também está em
    [`release/lockwallet.apk.sha256`](release/lockwallet.apk.sha256).
 2. **Confira o hash do arquivo:**
    - Linux: `sha256sum lockwallet.apk` · macOS: `shasum -a 256 lockwallet.apk`
    - Windows (PowerShell): `Get-FileHash lockwallet.apk -Algorithm SHA256`
 
-   O resultado deve ser `0d0de43de7cafd9dc715117402d408345ae89a7394b66b4529a279f229e07c03`.
+   Compare o resultado com o conteúdo do ativo `lockwallet.apk.sha256` da mesma Release.
 3. **Confira o certificado de assinatura** (Android SDK build-tools):
    ```
    apksigner verify --print-certs lockwallet.apk
    ```
-   `Signer #1 certificate SHA-256 digest` deve ser `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b`. O certificado é o mesmo em todos os
-   releases; o Android só aceita atualizações assinadas por ele.
+   `Signer #1 certificate SHA-256 digest` deve ser `d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6`. **Atenção:** o certificado mudou na 5.0.1. O Android não instala esta versão sobre a 5.0.0; faça backup e valide a recuperação antes de desinstalar a versão antiga.
 4. **Instale:** abra o arquivo no aparelho e permita a instalação apenas para o app usado para abri-lo (desative a
    permissão em seguida), ou use `adb install lockwallet.apk`.
 
@@ -227,7 +226,7 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 2. **Verify the file hash** (`sha256sum`, `shasum -a 256` or `Get-FileHash -Algorithm SHA256`). It must equal
    `0d0de43de7cafd9dc715117402d408345ae89a7394b66b4529a279f229e07c03`.
 3. **Verify the signing certificate:** `apksigner verify --print-certs lockwallet.apk` —
-   `Signer #1 certificate SHA-256 digest` must equal `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b`. The certificate is the same for every release;
+   `Signer #1 certificate SHA-256 digest` must equal `d60bd5c79718688e8988a27f6f4696df17d2ca0c2ea03613e9db85161decc7a6`. The certificate is the same for every release;
    Android only accepts updates signed with it.
 4. **Install:** open the file on the device and allow installs only for the app used to open it (then revoke the
    permission), or run `adb install lockwallet.apk`.
