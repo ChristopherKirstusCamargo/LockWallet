@@ -104,6 +104,49 @@ class BioVaultDeletionTest {
         assertFalse(vault.has(walletHex))
     }
 
+    @Test fun corruptBiometricRecordStillRemovesItsReferencedKeystoreKey() {
+        val dir = File(tmp.root, "bio")
+        val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
+        vault.enable()
+        val wallet = ByteArray(16) { 0x61 }
+        val walletHex = hex(wallet)
+        val header = "corrupt-record".toByteArray()
+        SecretBytes.copyOf(ByteArray(32) { 0x72 }).use { vault.write(wallet, header, it) }
+        val record = requireNotNull(vault.record(walletHex, header))
+        val recordFile = File(dir, "$walletHex.lwbio")
+        val referenceFile = File(dir, "$walletHex.keyref")
+        assertTrue(keys.exists(record.aliasId))
+        assertTrue(referenceFile.exists())
+
+        recordFile.writeBytes(byteArrayOf(0x01, 0x02, 0x03))
+        vault.remove(walletHex)
+
+        assertFalse(keys.exists(record.aliasId))
+        assertFalse(referenceFile.exists())
+        assertFalse(recordFile.exists())
+    }
+
+    @Test fun disablingBiometricsCanEraseKeyWhenRecordHeaderIsCorrupt() {
+        val dir = File(tmp.root, "bio")
+        val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
+        vault.enable()
+        val policyAlias = requireNotNull(vault.state()).aliasId
+        val wallet = ByteArray(16) { 0x62 }
+        val walletHex = hex(wallet)
+        val header = "corrupt-record-disable".toByteArray()
+        SecretBytes.copyOf(ByteArray(32) { 0x73 }).use { vault.write(wallet, header, it) }
+        val record = requireNotNull(vault.record(walletHex, header))
+        File(dir, "$walletHex.lwbio").writeBytes(byteArrayOf(0x09, 0x08))
+
+        vault.disable()
+
+        assertFalse(keys.exists(record.aliasId))
+        assertFalse(keys.exists(policyAlias))
+        assertTrue(dir.listFiles().isNullOrEmpty())
+        assertTrue(keys.keys.isEmpty())
+        assertTrue(keys.macKeys.isEmpty())
+    }
+
     @Test fun disablingAfterInterruptedWritesFindsAliasesInTemporaryFiles() {
         val dir = File(tmp.root, "bio")
         val vault = BioVault(dir, keys, clock, AtomicFiles(), SecureRandom())
