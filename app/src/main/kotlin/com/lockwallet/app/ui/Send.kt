@@ -161,7 +161,7 @@ fun Review(c: AppController) {
             val unit = if (nativeSol) "SOL" else safeSymbol ?: "Token"
             if (amt != null) Text("$amt $unit".trim(), color = C.text, fontSize = 36.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
             if (nativeSol && amt != null && v.price != null) Text(formatFiat(Amounts.toDecimal(pt.intent.amountUnits!!, 9).multiply(v.price), v.fiat!!), color = C.dim, fontSize = 15.sp)
-            if (mint != null) Mono("Mint: ${groupedAddress(mint.toBase58())}", C.dim, 11)
+            if (mint != null) Mono("Mint: ${groupedAddress(mint)}", C.dim, 11)
             Text(pt.intent.summary, color = C.dim, fontSize = 13.sp, textAlign = TextAlign.Center)
         }
         pt.intent.counterparty?.let { cp ->
