@@ -3,6 +3,7 @@ package com.lockwallet.app
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import com.lockwallet.data.rpc.TxJournalAuthenticator
+import com.lockwallet.data.rpc.TxJournalKeyMissingException
 import java.security.KeyStore
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
@@ -18,7 +19,7 @@ class AndroidTxJournalAuthenticator : TxJournalAuthenticator {
         val store = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         var key = store.getKey(ALIAS, null) as? SecretKey
         if (key == null) {
-            if (!createIfMissing) throw IllegalStateException("transaction journal authentication key missing")
+            if (!createIfMissing) throw TxJournalKeyMissingException()
             val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, ANDROID_KEYSTORE)
             generator.init(
                 KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
