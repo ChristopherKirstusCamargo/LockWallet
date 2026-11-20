@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## [Unreleased]
+
+## [5.0.1] — 2026-11-20 — endurecimento de segurança
+
+- **Lock Connect:** elimina o truncamento silencioso das contas observadas. Se carteira + contas distintas ultrapassarem o limite suportado pela simulação (16), a transação é bloqueada antes da assinatura. Teste de regressão incluído.
+- **Android Keystore:** `UnrecoverableKeyException` passa a indicar indisponibilidade, não ausência comprovada do alias; evita quarentena indevida das carteiras.
+- **Persistência:** sincronização best-effort do diretório após renomeação atômica.
+- **Publicação:** CI executa `ciCheck`, compila Release, assina o APK e publica APK + SHA-256 + certificado na página GitHub Releases.
+- **Migração de assinatura:** 5.0.1 usa um novo certificado RSA-4096. O Android não permite instalar por cima da 5.0.0 com certificado diferente. Antes de remover a versão antiga, faça backup e valide a frase de recuperação ou Recovery Package.
+
 ## [Unreleased] — endurecimento de segurança
 
 - Lock Connect: bloquear a assinatura quando o conjunto de contas que precisa de verificação pós-simulação exceder o limite suportado; nunca truncar silenciosamente a lista observada.
