@@ -123,7 +123,7 @@ class MainUiTest {
     private fun start(): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx).also { it.hideBalance = false; it.fiat = Fiat.BRL },
-            offlinePrice(), { _, _ -> true }, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
+            offlinePrice(), { _, _ -> true }, AppTestTxJournalAuthenticator, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
