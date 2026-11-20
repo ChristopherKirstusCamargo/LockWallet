@@ -93,11 +93,12 @@ class MwaBridge(private val model: ConnectModel, private val callingPackage: Str
         override fun onSignMessagesRequest(r: SignMessagesRequest) = post { sign(r, SignKind.MESSAGES) }
 
         override fun onSignAndSendTransactionsRequest(r: SignAndSendTransactionsRequest) = post {
-            val s = model.sessionFor(r.authorizationScope, r.publicKey, r.chain ?: r.cluster)
+            val dapp = identity(r.identityName, r.identityUri)
+            val s = model.sessionFor(r.authorizationScope, r.publicKey, r.chain ?: r.cluster, dapp)
             if (s == null) { r.completeWithAuthorizationNotValid(); return@post }
             // One transaction per request: the coordinator never has two unresolved sends per wallet (no double send).
             if (r.payloads.size != 1) { r.completeWithTooManyPayloads(); return@post }
-            model.enqueue(SignRequestModel(identity(r.identityName, r.identityUri), s, SignKind.SIGN_AND_SEND, r.payloads.toList(), object : SignAnswer {
+            model.enqueue(SignRequestModel(dapp, s, SignKind.SIGN_AND_SEND, r.payloads.toList(), object : SignAnswer {
                 override fun signedPayloads(p: Array<ByteArray>) = r.completeWithDecline()
                 override fun signatures(s: Array<ByteArray>) = r.completeWithSignatures(s)
                 override fun notSubmitted(s: Array<ByteArray>) = r.completeWithNotSubmitted(s)
@@ -112,10 +113,11 @@ class MwaBridge(private val model: ConnectModel, private val callingPackage: Str
     }
 
     private fun sign(r: SignPayloadsRequest, kind: SignKind) {
-        val s = model.sessionFor(r.authorizationScope, r.authorizedPublicKey, r.chain ?: r.cluster)
+        val dapp = identity(r.identityName, r.identityUri)
+        val s = model.sessionFor(r.authorizationScope, r.authorizedPublicKey, r.chain ?: r.cluster, dapp)
         if (s == null) { r.completeWithAuthorizationNotValid(); return }
         if (r.payloads.isEmpty() || r.payloads.size > MAX_PAYLOADS) { r.completeWithTooManyPayloads(); return }
-        model.enqueue(SignRequestModel(identity(r.identityName, r.identityUri), s, kind, r.payloads.toList(), object : SignAnswer {
+        model.enqueue(SignRequestModel(dapp, s, kind, r.payloads.toList(), object : SignAnswer {
             override fun signedPayloads(p: Array<ByteArray>) = r.completeWithSignedPayloads(p)
             override fun signatures(s: Array<ByteArray>) = r.completeWithDecline()
             override fun notSubmitted(s: Array<ByteArray>) = r.completeWithDecline()

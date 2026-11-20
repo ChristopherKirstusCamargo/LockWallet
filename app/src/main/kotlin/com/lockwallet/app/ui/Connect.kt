@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.lockwallet.app.AppController
 import com.lockwallet.app.FlowMode
 import com.lockwallet.app.connect.AuthorizeRequestModel
+import com.lockwallet.app.connect.ConnectModel
 import com.lockwallet.app.connect.DappIdentity
 import com.lockwallet.app.connect.DappTxReview
 import com.lockwallet.app.connect.SignKind

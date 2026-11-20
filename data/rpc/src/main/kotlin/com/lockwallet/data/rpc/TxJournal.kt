@@ -32,9 +32,13 @@ data class TxRecord(
     val lastBroadcastMs: Long,
     val broadcasts: Int,
     val detail: String?,
+    /** True only when both configured, genesis-verified RPC sources agreed on this status. */
+    val statusVerified: Boolean = false,
 ) {
-    /** Signed and not yet known-final: blocks a new transaction from the same wallet (no double send). */
-    val unresolved: Boolean get() = state in setOf(TransactionState.SIGNED, TransactionState.SUBMITTED, TransactionState.PROCESSED, TransactionState.UNKNOWN)
+    /** Unknown or single-source terminal results must never unlock a replacement payment. */
+    val unresolved: Boolean get() =
+        state in setOf(TransactionState.SIGNED, TransactionState.SUBMITTED, TransactionState.PROCESSED, TransactionState.CONFIRMED, TransactionState.UNKNOWN) ||
+            (state in setOf(TransactionState.FAILED, TransactionState.FINALIZED) && !statusVerified)
 }
 
 /** Atomic JSON file of the last [MAX] records (temp → fsync → rename). */
@@ -69,7 +73,7 @@ class TxJournal(private val file: File) {
         """{"sig":${s(r.signature)},"cluster":${s(r.cluster.name)},"wallet":${s(r.wallet)},"kind":${s(r.kind.name)},"summary":${s(r.summary)},""" +
             """"cp":${s(r.counterparty)},"amount":${n(r.amountUnits)},"dec":${n(r.decimals?.toLong())},"mint":${s(r.mint)},"tx":${s(r.signedTxB64)},""" +
             """"lvbh":${n(r.lastValidBlockHeight)},"fee":${n(r.feeLamports)},"state":${s(r.state.name)},"created":${r.createdAtMs},"updated":${r.updatedAtMs},""" +
-            """"lastb":${r.lastBroadcastMs},"nb":${r.broadcasts},"detail":${s(r.detail)}}"""
+            """"lastb":${r.lastBroadcastMs},"nb":${r.broadcasts},"detail":${s(r.detail)},"proof":${r.statusVerified}}"""
     }
 
     private fun decode(o: Map<String, Any?>): TxRecord {
@@ -77,6 +81,6 @@ class TxJournal(private val file: File) {
         fun n(k: String) = o[k]?.let { J.long(it) }
         return TxRecord(J.str(o["sig"]), Cluster.valueOf(J.str(o["cluster"])), J.str(o["wallet"]), TxKind.valueOf(J.str(o["kind"])), J.str(o["summary"]),
             s("cp"), n("amount"), n("dec")?.toInt(), s("mint"), s("tx"), n("lvbh"), n("fee"), TransactionState.valueOf(J.str(o["state"])),
-            J.long(o["created"]), J.long(o["updated"]), J.long(o["lastb"]), J.long(o["nb"]).toInt(), s("detail"))
+            J.long(o["created"]), J.long(o["updated"]), J.long(o["lastb"]), J.long(o["nb"]).toInt(), s("detail"), o["proof"] == true)
     }
 }

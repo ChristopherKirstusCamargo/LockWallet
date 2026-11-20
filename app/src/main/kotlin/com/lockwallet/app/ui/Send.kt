@@ -151,9 +151,17 @@ fun Review(c: AppController) {
             if (pt.intent.kind == TxKind.SEND_SOL) SolLogo(56.dp, Modifier.shared("logo-sol")) else
                 Box(Modifier.size(56.dp).clip(CircleShape).background(C.text), contentAlignment = Alignment.Center) { Icon(icon, C.bg, 26.dp) }
             val amt = pt.intent.amountUnits?.let { u -> pt.intent.decimals?.let { d -> Fmt.units(u, d) } }
-            val unit = if (pt.intent.decimals == 9 && pt.intent.mint == null) "SOL" else pt.intent.mint?.let { m -> c.chain.tokenSymbols[m] } ?: ""
+            val mint = pt.intent.mint
+            val nativeSol = mint == null
+            val symbol = mint?.let { c.chain.tokenSymbols[it] }
+            val safeSymbol = symbol?.takeIf {
+                it.length in 1..12 && it.all { ch -> ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch in "._-" } &&
+                    it.uppercase() !in setOf("SOL", "USDC", "USDT")
+            }
+            val unit = if (nativeSol) "SOL" else safeSymbol ?: "Token"
             if (amt != null) Text("$amt $unit".trim(), color = C.text, fontSize = 36.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-            if (amt != null && unit == "SOL" && v.price != null) Text(formatFiat(Amounts.toDecimal(pt.intent.amountUnits!!, 9).multiply(v.price), v.fiat!!), color = C.dim, fontSize = 15.sp)
+            if (nativeSol && amt != null && v.price != null) Text(formatFiat(Amounts.toDecimal(pt.intent.amountUnits!!, 9).multiply(v.price), v.fiat!!), color = C.dim, fontSize = 15.sp)
+            if (mint != null) Mono("Mint: ${groupedAddress(mint.toBase58())}", C.dim, 11)
             Text(pt.intent.summary, color = C.dim, fontSize = 13.sp, textAlign = TextAlign.Center)
         }
         pt.intent.counterparty?.let { cp ->
@@ -170,7 +178,7 @@ fun Review(c: AppController) {
             DetailLine("Taxa de rede", (pt.feeLamports?.let { Fmt.sol(it) + " SOL" } ?: "desconhecida") +
                 (pt.feeLamports?.let { f -> v.price?.let { pr -> " · " + formatFiat(Amounts.toDecimal(f, 9).multiply(pr), v.fiat!!) } } ?: ""), Help.NETWORK_FEE)
             DetailLine("Rede", "Solana", Help.GENESIS)
-            DetailLine("Carteira", shortAddress(me.toBase58()))
+            DetailLine("Carteira", groupedAddress(me.toBase58()))
         }
         Row(verticalAlignment = Alignment.CenterVertically) { Label("O que será assinado"); HelpIcon(Help.ANALYZER, 14.dp) }
         Card {

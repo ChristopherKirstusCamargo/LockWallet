@@ -116,7 +116,7 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
     /** Reauthorize: no prompt; valid only for a live session of the same identity on the current cluster. */
     fun reauthorize(scope: ByteArray?, dapp: DappIdentity, chain: String?): Boolean {
         val s = registry.find(scope) ?: return false
-        val ok = s.name == dapp.name.take(64) && s.uri == dapp.uri?.take(200) && clusterOf(chain) == s.cluster && s.cluster == c.chain.config.cluster &&
+        val ok = s.name == dapp.name.take(64) && s.uri == dapp.uri?.take(200) && s.callingPackage == dapp.callingPackage && clusterOf(chain) == s.cluster && s.cluster == c.chain.config.cluster &&
             connectWallets().any { it.id == s.walletId && it.address.toBase58() == s.address }
         if (ok) registry.touch(s.id)
         refreshSessions()
@@ -126,8 +126,9 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
     fun deauthorized(scope: ByteArray?) { registry.find(scope)?.let { registry.revoke(it.id) }; refreshSessions() }
 
     /** Session check for sign requests: live, same cluster as now, wallet still a CONNECT wallet, same account. */
-    fun sessionFor(scope: ByteArray?, authorizedKey: ByteArray?, chain: String?): DappSession? {
+    fun sessionFor(scope: ByteArray?, authorizedKey: ByteArray?, chain: String?, dapp: DappIdentity? = null): DappSession? {
         val s = registry.find(scope) ?: return null
+        if (dapp != null && (s.name != dapp.name.take(64) || s.uri != dapp.uri?.take(200) || s.callingPackage != dapp.callingPackage)) return null
         if (s.cluster != c.chain.config.cluster || (chain != null && clusterOf(chain) != s.cluster)) return null
         if (authorizedKey != null && Base58.encode(authorizedKey) != s.address) return null
         if (connectWallets().none { it.id == s.walletId && it.address.toBase58() == s.address }) return null

@@ -27,7 +27,7 @@ data class DappSession(
  */
 class ConnectRegistry(private val file: File, private val now: () -> Long = System::currentTimeMillis, private val random: SecureRandom = SecureRandom()) {
     companion object {
-        const val VALIDITY_MS = 24L * 60 * 60 * 1000
+        const val VALIDITY_MS = 15L * 60 * 1000
         const val MAX_SESSIONS = 32
     }
 

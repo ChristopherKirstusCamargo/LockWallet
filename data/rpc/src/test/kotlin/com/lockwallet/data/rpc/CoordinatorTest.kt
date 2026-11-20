@@ -32,6 +32,7 @@ class CoordinatorTest {
     @Before fun setUp() {
         f = FakeRpc()
         f.on(FakeRpc.A, "getGenesisHash") { "\"${Cluster.DEVNET.genesisHash}\"" }
+        f.on(FakeRpc.B, "getGenesisHash") { JsonOut.str(Cluster.DEVNET.genesisHash) }
         f.on(FakeRpc.A, "getLatestBlockhash") { """{"context":{"slot":1},"value":{"blockhash":"$bh","lastValidBlockHeight":250}}""" }
         f.on(FakeRpc.A, "getFeeForMessage") { """{"context":{"slot":1},"value":5000}""" }
         f.on(FakeRpc.A, "simulateTransaction") { """{"context":{"slot":1},"value":{"err":null,"logs":["Program 11111111111111111111111111111111 success"],"unitsConsumed":150,"accounts":[{"lamports":900,"owner":"11111111111111111111111111111111","data":["","base64"],"executable":false,"rentEpoch":0}]}}""" }
@@ -39,8 +40,12 @@ class CoordinatorTest {
         f.on(FakeRpc.A, "getBlockHeight") { "$height" }
         f.on(FakeRpc.A, "isBlockhashValid") { """{"context":{"slot":1},"value":${height <= 250}}""" }
         f.on(FakeRpc.A, "getSignatureStatuses") { """{"context":{"slot":1},"value":[$status]}""" }
+        f.on(FakeRpc.B, "getSignatureStatuses") { """{"context":{"slot":1},"value":[$status]}""" }
+        f.on(FakeRpc.B, "sendTransaction") { JsonOut.str(sigB58) }
+        f.on(FakeRpc.B, "getBlockHeight") { "$height" }
+        f.on(FakeRpc.B, "isBlockhashValid") { """{"context":{"slot":1},"value":""" + (height <= 250) + "}"}
         journal = TxJournal(tmp.newFile("j.json").also { it.delete() })
-        co = TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, null), f), journal) { clock }
+        co = TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), journal) { clock }
     }
 
     private fun intent(ixs: List<Instruction> = listOf(SystemIx.transfer(payer, bob, 1000))) =
@@ -178,11 +183,35 @@ class CoordinatorTest {
         assertEquals(TransactionState.EXPIRED, co.reconcile(r).state)
     }
 
+    @Test fun oneRpcCannotDeclareFailedOrFinalizedAndUnlockAReplacement() {
+        val r = co.submit(co.prepare(intent()), sig)
+        f.on(FakeRpc.A, "getSignatureStatuses") {
+            """{"context":{"slot":1},"value":[{"slot":9,"confirmations":1,"err":{"InstructionError":[0,"Custom"]},"confirmationStatus":"confirmed"}]}"""
+        }
+        f.on(FakeRpc.B, "getSignatureStatuses") { """{"context":{"slot":1},"value":[null]}""" }
+        val unresolved = co.reconcile(r)
+        assertEquals(TransactionState.SUBMITTED, unresolved.state)
+        assertTrue(unresolved.unresolved)
+        assertEquals(listOf(PrepBlocker.BUSY), co.prepare(intent()).blockers)
+    }
+
+    @Test fun legacySingleSourceTerminalFailureReopensAsUnknown() {
+        val r = co.submit(co.prepare(intent()), sig)
+        val legacy = r.copy(state = TransactionState.FAILED, statusVerified = false)
+        journal.put(legacy)
+        val reopened = co.reconcile(legacy)
+        assertEquals(TransactionState.UNKNOWN, reopened.state)
+        assertTrue(reopened.unresolved)
+        assertEquals(listOf(PrepBlocker.BUSY), co.prepare(intent()).blockers)
+    }
+
     @Test fun failedOnChainIsTerminal() {
         val r = co.submit(co.prepare(intent()), sig)
         status = """{"slot":5,"confirmations":1,"err":{"InstructionError":[0,"Custom"]},"confirmationStatus":"confirmed"}"""
         val x = co.reconcile(r)
         assertEquals(TransactionState.FAILED, x.state)
+        assertTrue(x.statusVerified)
+        assertFalse(x.unresolved)
         assertEquals(x, co.reconcile(x))
     }
 

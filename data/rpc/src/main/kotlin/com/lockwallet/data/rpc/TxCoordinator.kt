@@ -275,52 +275,69 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
 
     /** One reconciliation step for a signed, non-final record. */
     fun reconcile(r: TxRecord): TxRecord {
-        if (r.state.terminal || !r.state.signed) return r
-        val primary = try { net.primary() } catch (_: RpcException) { return r }
-        val status = try { primary.getSignatureStatuses(listOf(r.signature), true).single() } catch (_: RpcException) { return r }
+        if (!r.state.signed) return r
+        if (r.state == EXPIRED || (r.state.terminal && r.statusVerified)) return r
         val t = now()
-        if (status != null) {
+        // Legacy releases accepted terminal status from one RPC. Reopen any such record until two sources
+        // independently re-confirm it; this migration deliberately prefers UNKNOWN over a possible double-send.
+        val base = if (r.state in setOf(FAILED, FINALIZED, CONFIRMED) && !r.statusVerified) {
+            r.copy(state = UNKNOWN, detail = "status antigo aguardando confirmação independente").also { journal.put(it) }
+        } else r
+        val primary = try { net.primary() } catch (_: RpcException) { return base }
+        val primaryStatus = try { primary.getSignatureStatuses(listOf(base.signature), true).single() } catch (_: RpcException) { return base }
+        // A single endpoint may lie about inclusion or failure. No status is trusted unless the configured
+        // secondary is genesis-verified and returns the same slot, err and confirmation state.
+        val secondary = net.secondaryOrNull() ?: return base
+        val secondaryStatus = try { secondary.getSignatureStatuses(listOf(base.signature), true).single() } catch (_: RpcException) { return base }
+        if (primaryStatus != secondaryStatus) return base
+        if (primaryStatus != null) {
             val target = when {
-                status.err != null -> FAILED
-                status.confirmationStatus == "finalized" -> FINALIZED
-                status.confirmationStatus == "confirmed" -> CONFIRMED
+                primaryStatus.err != null -> FAILED
+                primaryStatus.confirmationStatus == "finalized" -> FINALIZED
+                primaryStatus.confirmationStatus == "confirmed" -> CONFIRMED
                 else -> PROCESSED
             }
-            if (target == r.state) return r
-            val from = if (r.state == SIGNED) move(r.state, UNKNOWN) else r.state
-            if (!TransactionStateMachine.canTransition(from, target)) return r
-            return r.copy(state = move(from, target), detail = status.err ?: r.detail, updatedAtMs = t).also { journal.put(it) }
+            if (target == base.state) {
+                if (base.statusVerified) return base
+                return base.copy(statusVerified = true, detail = primaryStatus.err ?: base.detail, updatedAtMs = t).also { journal.put(it) }
+            }
+            val from = if (base.state == SIGNED) move(base.state, UNKNOWN) else base.state
+            if (!TransactionStateMachine.canTransition(from, target)) return base
+            return base.copy(state = move(from, target), statusVerified = true,
+                detail = primaryStatus.err ?: base.detail, updatedAtMs = t).also { journal.put(it) }
         }
-        val lvbh = r.lastValidBlockHeight ?: return r
-        val height = try { primary.getBlockHeight() } catch (_: RpcException) { return r }
-        val tx = r.signedTxB64?.let { Base64.getDecoder().decode(it) }
-        if (TransactionStateMachine.mayRebroadcastSameBytes(r.state, height, lvbh)) {
-            if (tx != null && t - r.lastBroadcastMs >= 2_000) return broadcast(r, tx)
-            return r
+        val lvbh = base.lastValidBlockHeight ?: return base
+        val height = try { primary.getBlockHeight() } catch (_: RpcException) { return base }
+        val tx = base.signedTxB64?.let { Base64.getDecoder().decode(it) }
+        if (TransactionStateMachine.mayRebroadcastSameBytes(base.state, height, lvbh)) {
+            if (tx != null && t - base.lastBroadcastMs >= 2_000) return broadcast(base, tx)
+            return base
         }
-        if (height <= lvbh) return r
-        // Height is past lastValidBlockHeight: gather non-inclusion evidence from every configured source.
-        // A hostile primary could lie about height/lastValidBlockHeight to make us declare EXPIRED early (and the
-        // user re-send = double payment). The blockhash itself must be dead for every source we have: if a
-        // secondary is configured it must independently confirm non-inclusion, height and blockhash invalidity.
-        val bh = tx?.let { b -> runCatching { LegacyMessage.parse(WireTransaction.split(b).second).recentBlockhash }.getOrNull() } ?: return r
-        val primaryDead = try { !primary.isBlockhashValid(bh) } catch (_: RpcException) { return r }
-        if (!primaryDead) return r
-        var without = 1; var diverged = false
-        if (net.config.secondaryUrl != null) {
-            val s = net.secondaryOrNull() ?: return r
-            try {
-                val st2 = s.getSignatureStatuses(listOf(r.signature), true).single()
-                if (st2 == null) without++ else diverged = true
-                if (s.getBlockHeight() <= lvbh || s.isBlockhashValid(bh)) return r
-            } catch (_: RpcException) { return r /* unavailable: never expire on one source when two are configured */ }
-        }
-        val ev = ExpiryEvidence(height, lvbh, historySearched = true, independentSourcesWithoutInclusion = without, sourcesDiverged = diverged)
-        val from = if (r.state == SIGNED) move(r.state, UNKNOWN) else r.state
+        if (height <= lvbh) return base
+        // Both sources returned no inclusion. Expiry still requires both to report height past the blockhash
+        // and blockhash invalidity; no single-source negative status can authorize a replacement payment.
+        val bh = tx?.let { b -> runCatching { LegacyMessage.parse(WireTransaction.split(b).second).recentBlockhash }.getOrNull() } ?: return base
+        val primaryDead = try { !primary.isBlockhashValid(bh) } catch (_: RpcException) { return base }
+        if (!primaryDead) return base
+        val secondaryHeight: Long
+        val secondaryDead: Boolean
+        try {
+            secondaryHeight = secondary.getBlockHeight()
+            secondaryDead = !secondary.isBlockhashValid(bh)
+        } catch (_: RpcException) { return base }
+        if (secondaryHeight <= lvbh || !secondaryDead) return base
+        val ev = ExpiryEvidence(
+            currentBlockHeight = minOf(height, secondaryHeight),
+            lastValidBlockHeight = lvbh,
+            historySearched = true,
+            independentSourcesWithoutInclusion = 2,
+            sourcesDiverged = false,
+        )
+        val from = if (base.state == SIGNED) move(base.state, UNKNOWN) else base.state
         if (!ev.sufficient || !TransactionStateMachine.canTransition(from, EXPIRED)) {
-            return if (from != r.state) r.copy(state = from, updatedAtMs = t).also { journal.put(it) } else r
+            return if (from != base.state) base.copy(state = from, updatedAtMs = t).also { journal.put(it) } else base
         }
-        return r.copy(state = TransactionStateMachine.transition(from, EXPIRED, ev), detail = "blockhash expirou sem inclusão", updatedAtMs = t).also { journal.put(it) }
+        return base.copy(state = TransactionStateMachine.transition(from, EXPIRED, ev), detail = "blockhash expirou sem inclusão", updatedAtMs = t).also { journal.put(it) }
     }
 
     fun records(wallet: SolanaPublicKey): List<TxRecord> =
