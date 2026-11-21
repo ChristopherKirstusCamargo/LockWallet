@@ -10,6 +10,7 @@ import com.lockwallet.core.crypto.lwrp.LwrpPayload
 import com.lockwallet.core.crypto.wipe
 import com.lockwallet.custody.local.keystore.KekException
 import com.lockwallet.custody.local.keystore.KekOperation
+import java.security.MessageDigest
 
 /** Wrong PIN, tampered ciphertext and wrong vault are indistinguishable by design (ADR 0002). */
 class EnvelopeAuthException : Exception("envelope could not be opened")
@@ -57,6 +58,73 @@ object EnvelopeCrypto {
             dekPin.wipe()
             return LocalEnvelope(vaultId, materialId, kind, profile, accountIndex, expectedPubkey, kdfProfile,
                 pinSalt, aliasId, authMode, len, rnd.seedNonce, seedCt, rnd.dekPinNonce, iv, blob)
+        }
+    }
+
+    /** Opens the PIN-wrapped DEK so a verified legacy envelope can be re-encrypted under a newer KDF. */
+    fun unwrapDek(env: LocalEnvelope, dekPin: ByteArray, pinKey: SecretBytes): SecretBytes {
+        try {
+            val dek = AesGcm.decrypt(pinKey, env.dekPinNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, env.header()), dekPin)
+            if (dek.size != 32) { dek.close(); throw EnvelopeAuthException() }
+            return dek
+        } catch (_: AeadAuthenticationException) {
+            throw EnvelopeAuthException()
+        }
+    }
+
+    /**
+     * Re-encrypts both inner AES-GCM layers because the KDF profile is authenticated in the header/AAD.
+     * The caller supplies a fresh KEK encrypt operation and performs the atomic file replacement only after
+     * this function has generated a complete, authenticated envelope.
+     */
+    fun migrateToStrong(
+        old: LocalEnvelope,
+        dek: SecretBytes,
+        material: SecretBytes,
+        strongPinKey: SecretBytes,
+        kek: KekOperation,
+        random: java.security.SecureRandom,
+    ): LocalEnvelope {
+        val seedNonce = ByteArray(12).also(random::nextBytes)
+        val dekPinNonce = ByteArray(12).also(random::nextBytes)
+        val header = LocalEnvelope.headerOf(
+            old.vaultId(), old.materialId(), old.materialKind, old.derivationProfile, old.accountIndex,
+            old.expectedPubkey(), LocalEnvelope.KDF_STRONG_V2, old.pinSalt(), old.aliasId(), old.authMode,
+            old.materialLength,
+        )
+        val seedCt = material.withBytes { AesGcm.encrypt(dek, seedNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_SEED, header), it) }
+        val dekPin = try {
+            dek.withBytes { AesGcm.encrypt(strongPinKey, dekPinNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, header), it) }
+        } catch (e: Exception) {
+            seedCt.wipe()
+            throw e
+        }
+        try {
+            val hwCt = kek.finish(LocalEnvelope.aad(LocalEnvelope.DOMAIN_HW, header), dekPin)
+            val env = LocalEnvelope(
+                old.vaultId(), old.materialId(), old.materialKind, old.derivationProfile, old.accountIndex,
+                old.expectedPubkey(), LocalEnvelope.KDF_STRONG_V2, old.pinSalt(), old.aliasId(), old.authMode,
+                old.materialLength, seedNonce, seedCt, dekPinNonce, kek.iv(), hwCt,
+            )
+            verifyStrongEnvelope(env, dek, material, strongPinKey)
+            return env
+        } finally {
+            dekPin.wipe()
+        }
+    }
+
+    /** Full inner-layer read-back verification, independent of the file parser. */
+    fun verifyStrongEnvelope(env: LocalEnvelope, dek: SecretBytes, expectedMaterial: SecretBytes, pinKey: SecretBytes) {
+        require(env.kdfProfile == LocalEnvelope.KDF_STRONG_V2)
+        AesGcm.decrypt(pinKey, env.dekPinNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, env.header()), dek.withBytes { it.copyOf() }).use { recoveredDek ->
+            if (recoveredDek.size != 32 || !recoveredDek.withBytes { it.contentEquals(dek.withBytes { b -> b }) }) {
+                throw EnvelopeAuthException()
+            }
+        }
+        val material = AesGcm.decrypt(dek, env.seedNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_SEED, env.header()), env.seedCt())
+        material.use { recovered ->
+            val matches = recovered.withBytes { got -> expectedMaterial.withBytes { want -> MessageDigest.isEqual(got, want) } }
+            if (!matches || !pubkeyMatches(env, recovered)) throw EnvelopeAuthException()
         }
     }
 
