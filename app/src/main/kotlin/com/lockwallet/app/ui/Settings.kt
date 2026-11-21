@@ -69,6 +69,13 @@ fun SettingsTab(c: AppController, p: Platform) {
         if (c.vaultPresent && c.bioCapable) {
             Divider()
             ToggleRow("Digital para consulta", c.bioEnabled, Ic.FINGER, help = Help.BIO_UNLOCK, tag = "bio-toggle") { c.setBiometricUnlock(it) }
+            if (c.bioEnabled && !c.bioReady) {
+                Divider()
+                Notice(
+                    "A digital para consulta está ativada, mas o PIN é necessário agora. Isso ocorre após reinício, expiração do prazo, tentativas erradas ou uso de “Bloquear agora”.",
+                    Ic.INFO, Help.BIO_UNLOCK,
+                )
+            }
             val w = c.bioWindowHours
             if (c.bioEnabled && w != null) {
                 Divider()
