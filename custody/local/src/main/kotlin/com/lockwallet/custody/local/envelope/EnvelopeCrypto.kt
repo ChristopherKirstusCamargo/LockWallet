@@ -25,9 +25,16 @@ class SealRandomness(val dek: ByteArray, val seedNonce: ByteArray, val dekPinNon
  * dek_pin --Keystore AES-GCM(KEK)--> dek_pin_blob. Distinct AAD domains, all bound to header H.
  */
 object EnvelopeCrypto {
-    private val KDF = KdfProfile.OWASP_V1
+    private val WRITE_KDF = KdfProfile.STRONG_V2
 
-    fun derivePinKey(pinAscii: SecretBytes, salt: ByteArray): SecretBytes = pinAscii.withBytes { Argon2id.derive(it, salt, KDF) }
+    fun derivePinKey(pinAscii: SecretBytes, salt: ByteArray, kdfProfileId: Int = LocalEnvelope.KDF_STRONG_V2): SecretBytes {
+        val profile = when (kdfProfileId) {
+            LocalEnvelope.KDF_OWASP_V1 -> KdfProfile.OWASP_V1
+            LocalEnvelope.KDF_STRONG_V2 -> WRITE_KDF
+            else -> throw IllegalArgumentException("unsupported KDF profile")
+        }
+        return pinAscii.withBytes { Argon2id.derive(it, salt, profile) }
+    }
 
     fun seal(
         vaultId: ByteArray, materialId: ByteArray, kind: Int, profile: Int, accountIndex: Int, expectedPubkey: ByteArray,
@@ -36,7 +43,7 @@ object EnvelopeCrypto {
     ): LocalEnvelope {
         val len = material.size
         val h = LocalEnvelope.headerOf(vaultId, materialId, kind, profile, accountIndex, expectedPubkey,
-            LocalEnvelope.KDF_OWASP_V1, pinSalt, aliasId, authMode, len)
+            LocalEnvelope.KDF_STRONG_V2, pinSalt, aliasId, authMode, len)
         SecretBytes.copyOf(rnd.dek).use { dek ->
             val seedCt = material.withBytes { AesGcm.encrypt(dek, rnd.seedNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_SEED, h), it) }
             val dekPin = dek.withBytes { AesGcm.encrypt(pinKey, rnd.dekPinNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, h), it) }
@@ -44,7 +51,7 @@ object EnvelopeCrypto {
             val iv = kek.iv()
             // dek_pin is only ever persisted inside the KEK wrap (ADR 0001, E-23): offline PIN guessing needs the KEK.
             dekPin.wipe()
-            return LocalEnvelope(vaultId, materialId, kind, profile, accountIndex, expectedPubkey, LocalEnvelope.KDF_OWASP_V1,
+            return LocalEnvelope(vaultId, materialId, kind, profile, accountIndex, expectedPubkey, LocalEnvelope.KDF_STRONG_V2,
                 pinSalt, aliasId, authMode, len, rnd.seedNonce, seedCt, rnd.dekPinNonce, iv, blob)
         }
     }
