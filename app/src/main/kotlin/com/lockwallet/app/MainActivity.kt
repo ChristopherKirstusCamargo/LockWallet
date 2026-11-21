@@ -10,7 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
-import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -131,7 +130,7 @@ open class MainActivity : FragmentActivity() {
     }
 
     /** BiometricPrompt bound to the Keystore cipher (CryptoObject): success unlocks exactly this operation. */
-    private suspend fun authenticate(cipher: Cipher, title: String, allowDeviceCredential: Boolean): Boolean = suspendCancellableCoroutine { cont ->
+    private suspend fun authenticate(cipher: Cipher, title: String): Boolean = suspendCancellableCoroutine { cont ->
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 if (cont.isActive) cont.resume(result.cryptoObject?.cipher != null)
@@ -140,13 +139,12 @@ open class MainActivity : FragmentActivity() {
                 if (cont.isActive) cont.resume(false)
             }
         })
-        val builder = BiometricPrompt.PromptInfo.Builder()
+        val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title).setSubtitle(S.PROMPT_SUB)
-            .setAllowedAuthenticators(if (allowDeviceCredential) BIOMETRIC_STRONG or DEVICE_CREDENTIAL else BIOMETRIC_STRONG)
+            .setAllowedAuthenticators(BIOMETRIC_STRONG)
+            .setNegativeButtonText(S.USE_PIN)
             .setConfirmationRequired(true)
-        // Android forbids a negative button when DEVICE_CREDENTIAL is one of the allowed authenticators.
-        if (!allowDeviceCredential) builder.setNegativeButtonText(S.USE_PIN)
-        val info = builder.build()
+            .build()
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
     }
