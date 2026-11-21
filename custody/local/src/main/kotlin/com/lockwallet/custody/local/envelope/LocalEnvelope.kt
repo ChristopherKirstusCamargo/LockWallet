@@ -76,6 +76,7 @@ class LocalEnvelope(
         const val AUTH_PIN_ONLY = 0x01
         const val AUTH_PIN_BIOMETRIC = 0x02
         const val KDF_OWASP_V1 = 0x01
+        const val KDF_STRONG_V2 = 0x02
         val BIP39_LENGTHS = setOf(16, 20, 24, 28, 32)
         const val KEYPAIR_LENGTH = 64
         val MIN_SIZE = totalSize(16)
@@ -117,7 +118,7 @@ class LocalEnvelope(
                 }
                 else -> fail(EnvelopeError.BAD_MATERIAL_KIND)
             }
-            if (kdf != KDF_OWASP_V1) fail(EnvelopeError.BAD_KDF_PROFILE)
+            if (kdf != KDF_OWASP_V1 && kdf != KDF_STRONG_V2) fail(EnvelopeError.BAD_KDF_PROFILE)
             if (auth != AUTH_PIN_ONLY && auth != AUTH_PIN_BIOMETRIC) fail(EnvelopeError.BAD_AUTH_MODE)
             if (flags != 0) fail(EnvelopeError.UNKNOWN_FLAGS)
         }
