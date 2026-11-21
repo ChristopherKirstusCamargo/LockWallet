@@ -350,40 +350,33 @@ fun PinCreate(c: AppController) {
 private fun isTrivialPin(p: CharArray): Boolean = p.all { it == p[0] } ||
     (1 until p.size).all { p[it] - p[it - 1] == 1 } || (1 until p.size).all { p[it - 1] - p[it] == 1 }
 
-/** Biometrics opt-in: illustration, "Ativar biometria"; "Saltar" asks "Tem a certeza?" in a sheet first. */
+/** New local vaults always require per-use Android user authentication at the Keystore boundary. */
 @Composable
 fun BioChoice(c: AppController) {
-    val bio = remember { c.capabilities.biometricAvailability() }
-    val sheets = LocalSheets.current
-    val available = bio == BiometricAvailability.AVAILABLE
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            CircleButton(Ic.BACK, S.BACK) { c.go(Screen.PinCreate) }
-            Spacer(Modifier.weight(1f))
-            if (available && !c.busy) TextAction("Saltar", Modifier.testTag("bio-skip")) {
-                sheets.show {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(64.dp).glass(CircleShape), contentAlignment = Alignment.Center) { Icon(Ic.WARN, size = 30.dp) }
-                    }
-                    Text("Tem a certeza?", color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                    Body(S.BIO_SKIP_WARN, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PillButton("Voltar", Modifier.weight(1f), filled = false) { sheets.dismiss() }
-                        PillButton("Saltar", Modifier.weight(1f), tag = "bio-skip-confirm") { sheets.dismiss(); c.sealNewVault(AuthMode.PIN_ONLY) }
-                    }
-                }
+    val deviceSecure = remember { runCatching { c.capabilities.facts().deviceSecure }.getOrDefault(false) }
+    Screen("Proteção do cofre", onBack = { c.go(Screen.PinCreate) }, help = Help.BIOMETRIC) {
+        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(112.dp).glass(CircleShape, strong = true), contentAlignment = Alignment.Center) {
+                Icon(Ic.LOCK, size = 52.dp)
             }
         }
-        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { FingerIllustration() }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Title(if (available) "Proteja com biometria" else "Biometria indisponível", align = TextAlign.Center)
-            HelpIcon(Help.BIOMETRIC, 20.dp)
-        }
-        SpacerH(8.dp)
-        SpacerH(24.dp)
+        Title("PIN + autenticação do aparelho", align = TextAlign.Center)
+        SpacerH(10.dp)
+        Body(
+            "A chave do cofre só pode ser usada depois de uma confirmação do Android em cada operação. O sistema aceita biometria forte ou o PIN, padrão ou senha de bloqueio do aparelho. Depois, a Lock Wallet também exige o PIN próprio.",
+            align = TextAlign.Center,
+        )
+        SpacerH(20.dp)
         ErrorText(c.error)
-        if (c.busy) Busy() else if (available) PillButton("Ativar biometria", Modifier.fillMaxWidth(), icon = Ic.FINGER, tag = "bio-enable") { c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC) }
-        else PillButton(S.CONTINUE, Modifier.fillMaxWidth(), tag = "bio-continue") { c.sealNewVault(AuthMode.PIN_ONLY) }
+        if (!deviceSecure) {
+            Notice("Antes de continuar, configure um PIN, padrão ou senha de bloqueio nas configurações do Android. Sem bloqueio seguro do aparelho, não é criado um cofre local.", Ic.WARN, strong = true)
+        } else if (c.busy) {
+            Busy()
+        } else {
+            PillButton("Criar cofre com proteção por uso", Modifier.fillMaxWidth(), icon = Ic.SHIELD, tag = "device-auth-enable") {
+                c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH)
+            }
+        }
         SpacerH(12.dp)
     }
 }
