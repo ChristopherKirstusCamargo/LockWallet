@@ -359,21 +359,35 @@ class LocalSecureProvider(
             throw mapKek(x) // auth missing / keystore error: not a PIN failure — the counted attempt stays (fail closed)
         }
         try {
-            val pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt()) }
+            // Existing LWLE v1 files keep using their recorded KDF profile. A successful legacy unlock
+            // upgrades the in-memory PIN key immediately, so any newly sealed account is written as v2.
+            val unlockPinKey = Pin.encode(pin).use {
+                EnvelopeCrypto.derivePinKey(it, env.pinSalt(), env.kdfProfile)
+            }
             val material = try {
-                EnvelopeCrypto.openWithPinKey(env, dekPin, pinKey)
+                EnvelopeCrypto.openWithPinKey(env, dekPin, unlockPinKey)
             } catch (_: EnvelopeAuthException) {
-                pinKey.close(); return failed
+                unlockPinKey.close()
+                return failed
             }
             try {
                 attempts.recordSuccess()
             } catch (_: Exception) {
                 material.close()
-                pinKey.close()
+                unlockPinKey.close()
                 throw CustodyException(CustodyException.Reason.STORAGE)
             }
+            val sessionPinKey = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) {
+                unlockPinKey
+            } else {
+                try {
+                    Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), LocalEnvelope.KDF_STRONG_V2) }
+                } finally {
+                    unlockPinKey.close()
+                }
+            }
             bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
-            return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, pinKey, env.pinSalt(), env.header()))
+            return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, sessionPinKey, env.pinSalt(), env.header()))
         } finally {
             dekPin.wipe()
         }
