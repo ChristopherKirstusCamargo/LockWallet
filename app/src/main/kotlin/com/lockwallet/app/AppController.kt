@@ -53,7 +53,7 @@ sealed interface AuthPurpose {
     data class SetBioWindow(val hours: Int) : AuthPurpose
 }
 
-/** Purposes biometrics may authorise instead of the PIN (ADR 0024). Phrase, export, new accounts and wallets: PIN only. */
+/** Biometrics replace the PIN only for view unlock; every explicit authorization purpose requires the PIN. */
 fun AuthPurpose?.biometricAllowed(): Boolean = this == null
 
 enum class Tab { HOME, STAKE, CONNECT, SETTINGS }
