@@ -227,6 +227,24 @@ class LocalSecureProvider(
 
     fun keySecurityLevel(): KeySecurityLevel? = snapshot().vault?.let { kek.securityLevel(hex(it.aliasIdHex)) }
 
+    /** Number of active local envelopes still using the legacy KDF; derived from authenticated headers on disk. */
+    fun legacyKdfWalletCount(): Int = snapshot().wallets.count {
+        it.state == WalletState.ACTIVE && loadEnvelope(it).kdfProfile != LocalEnvelope.KDF_STRONG_V2
+    }
+
+    /**
+     * Keystore HMAC for the transaction journal. Reuses the non-exportable per-vault HMAC key with a
+     * separate domain; the callback keeps custody details out of the RPC module.
+     */
+    fun transactionJournalMac(payload: ByteArray): ByteArray {
+        val vault = snapshot().vault ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
+        return try {
+            kek.attemptMac(hex(vault.aliasIdHex), TX_JOURNAL_MAC_DOMAIN + payload)
+        } catch (e: KekException) {
+            throw mapKek(e)
+        }
+    }
+
     // ------------------------------------------------------------------ sealing
 
     /** First wallet: creates a fresh KEK (new alias, never reusing one) and returns the encrypt ticket. */
@@ -292,7 +310,7 @@ class LocalSecureProvider(
         val nv = ticket.newVault
         if (nv != null) {
             val pin = newPin ?: throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
-            if (!Pin.isValid(pin) || pin.size != Pin.LENGTH) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+            if (!Pin.isValid(pin)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
             if (Pin.isTrivial(pin)) throw CustodyException(CustodyException.Reason.WEAK_PIN)
             vault = VaultConfig(hexOf(nv.vaultId), hexOf(nv.aliasId), nv.mode.id)
             salt = rand(16)
@@ -684,6 +702,8 @@ class LocalSecureProvider(
     }
 
     companion object {
+        private val TX_JOURNAL_MAC_DOMAIN = "LockWallet/TxJournal/v1\u0000".toByteArray(Charsets.US_ASCII)
+
         internal fun hexOf(b: ByteArray) = b.joinToString("") { "%02x".format(it.toInt() and 0xff) }
         internal fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     }

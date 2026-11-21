@@ -56,7 +56,8 @@ object S {
     const val NAME_TITLE = "Nome da carteira"
     const val NAME_HINT = "Ex.: Principal"
 
-    const val PIN_CREATE = "Crie um PIN de 6 dígitos"
+    const val PIN_CREATE = "Crie um PIN"
+    fun pinCreate(length: Int) = "Crie um PIN de " + length + " dígitos"
     const val PIN_CONFIRM = "Confirme o PIN"
     const val PIN_MISMATCH = "Os PINs não conferem. Tente de novo."
     const val PIN_TRIVIAL = "PIN fácil demais (sequência ou repetido). Escolha outro."
@@ -157,7 +158,7 @@ object S {
     }
 
     fun recovery(r: RecoveryException.Reason): String = when (r) {
-        RecoveryException.Reason.PASSWORD_TOO_SHORT -> "Senha curta demais (mínimo 16 bytes)."
+        RecoveryException.Reason.PASSWORD_TOO_SHORT -> "Senha curta demais: mínimo 16 bytes para restaurar; 20 bytes para novas exportações."
         RecoveryException.Reason.PASSWORD_TOO_LONG -> "Senha longa demais (máximo 256 bytes)."
         RecoveryException.Reason.PASSWORD_INVALID -> "A senha contém caracteres inválidos."
         RecoveryException.Reason.OPEN_FAILED -> "Não foi possível abrir o pacote: senha incorreta ou arquivo alterado."

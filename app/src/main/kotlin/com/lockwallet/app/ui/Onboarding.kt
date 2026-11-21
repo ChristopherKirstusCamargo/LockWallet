@@ -331,13 +331,21 @@ fun NameWallet(c: AppController) {
 fun PinCreate(c: AppController) {
     var first by remember { mutableStateOf<CharArray?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
+    var pinLength by remember { mutableIntStateOf(6) }
+    val lengths = listOf(6, 8, 10, 12)
     DisposableEffect(Unit) { onDispose { first?.fill('\u0000') } }
     Screen("", onBack = { c.home() }, actions = { HelpIcon(Help.PIN, 22.dp) }) {
+        if (first == null) {
+            Body("Escolha o comprimento do PIN. Mais dígitos aumentam a resistência contra tentativas de adivinhação.", align = TextAlign.Center)
+            Segmented(listOf("6 dígitos", "8 dígitos", "10 dígitos", "12 dígitos"), lengths.indexOf(pinLength)) {
+                pinLength = lengths[it]
+            }
+        }
         AnimatedContent(first == null, transitionSpec = { (slideInHorizontally(Motion.slide) { it / 3 } + fadeIn()) togetherWith fadeOut() }, label = "pin") { isFirst ->
-            PinPad(if (isFirst) S.PIN_CREATE else S.PIN_CONFIRM, msg, subtitle = null) { pin ->
+            PinPad(if (isFirst) S.pinCreate(pinLength) else S.PIN_CONFIRM, msg, subtitle = null, digits = pinLength) { pin ->
                 val f = first
                 when {
-                    f == null && isTrivialPin(pin) -> { pin.fill('\u0000'); msg = S.PIN_TRIVIAL }
+                    f == null && com.lockwallet.custody.local.pin.Pin.isTrivial(pin) -> { pin.fill('\u0000'); msg = S.PIN_TRIVIAL }
                     f == null -> { first = pin; msg = null }
                     f.contentEquals(pin) -> { f.fill('\u0000'); first = null; c.setNewPin(pin) }
                     else -> { f.fill('\u0000'); pin.fill('\u0000'); first = null; msg = S.PIN_MISMATCH }
@@ -346,9 +354,6 @@ fun PinCreate(c: AppController) {
         }
     }
 }
-
-private fun isTrivialPin(p: CharArray): Boolean = p.all { it == p[0] } ||
-    (1 until p.size).all { p[it] - p[it - 1] == 1 } || (1 until p.size).all { p[it - 1] - p[it] == 1 }
 
 /** New local vaults require BIOMETRIC_STRONG for every KEK operation. */
 @Composable

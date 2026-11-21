@@ -20,7 +20,7 @@ class RecoveryException(val reason: Reason) : Exception("recovery: $reason") {
 }
 
 object RecoveryPasswords {
-    const val MIN_BYTES = LwrpCipher.MIN_PASSWORD_BYTES
+    const val MIN_BYTES = LwrpCipher.MIN_EXPORT_PASSWORD_BYTES
     /** 8 random BIP-39 words (88 bits). Caller wipes the result. */
     fun generate(): CharArray = LwrpCipher.generatePassword()
 }

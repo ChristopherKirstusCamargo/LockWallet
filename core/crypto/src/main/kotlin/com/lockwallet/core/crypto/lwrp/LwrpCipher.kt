@@ -26,7 +26,10 @@ class LwrpOpenException : Exception("package could not be opened")
  * Both versions retain the 46-byte header, authenticated in full as AES-256-GCM AAD. Independent of the PIN.
  */
 object LwrpCipher {
+    /** Minimum retained for restoring every existing LWRP package. */
     const val MIN_PASSWORD_BYTES = 16
+    /** Stronger minimum applied only when creating new recovery packages. */
+    const val MIN_EXPORT_PASSWORD_BYTES = 20
     const val MAX_PASSWORD_BYTES = 256
     const val GENERATED_WORDS = 8 // 8 × 11 bits = 88 bits
 
@@ -51,7 +54,8 @@ object LwrpCipher {
      * NFC + UTF-8 (strict: unpaired surrogates rejected). If the input is already NFC (always true for ASCII)
      * no String copy is made; otherwise java.text.Normalizer necessarily creates one (ADR 0013 residual risk).
      */
-    fun encodePassword(password: CharArray): SecretBytes {
+    fun encodePassword(password: CharArray, minimumBytes: Int = MIN_PASSWORD_BYTES): SecretBytes {
+        require(minimumBytes in MIN_PASSWORD_BYTES..MAX_PASSWORD_BYTES)
         val cs = CharBuffer.wrap(password)
         var normalized: CharArray? = null
         val source: CharBuffer = if (Normalizer.isNormalized(cs, Normalizer.Form.NFC)) {
@@ -70,7 +74,7 @@ object LwrpCipher {
             }
             val out = ByteArray(bb.remaining()).also { bb.get(it) }
             if (bb.hasArray()) bb.array().wipe()
-            if (out.size < MIN_PASSWORD_BYTES) { out.wipe(); throw LwrpPasswordException(LwrpPasswordError.TOO_SHORT) }
+            if (out.size < minimumBytes) { out.wipe(); throw LwrpPasswordException(LwrpPasswordError.TOO_SHORT) }
             if (out.size > MAX_PASSWORD_BYTES) { out.wipe(); throw LwrpPasswordException(LwrpPasswordError.TOO_LONG) }
             return SecretBytes.adopt(out)
         } finally {
@@ -98,7 +102,7 @@ object LwrpCipher {
         val header = LwrpHeader(salt, LwrpKdfProfile.STRONG_V2, nonce, LwrpHeader.VERSION_STRONG).encode()
         val plain = payload.encode()
         try {
-            encodePassword(password).use { pw ->
+            encodePassword(password, MIN_EXPORT_PASSWORD_BYTES).use { pw ->
                 pw.withBytes { p -> Argon2id.derive(p, salt, WRITE_KDF) }.use { key ->
                     val ct = AesGcm.encrypt(key, nonce, header, plain)
                     return header + ct

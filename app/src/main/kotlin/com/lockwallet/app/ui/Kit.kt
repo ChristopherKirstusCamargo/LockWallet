@@ -576,20 +576,22 @@ fun WipeOnDispose(vararg secrets: CharArray) {
  * The dots shake (spring) whenever [message] changes to a new error.
  */
 @Composable
-fun PinPad(title: String, message: String?, enabled: Boolean = true, subtitle: String? = null, onBiometric: (() -> Unit)? = null, onComplete: (CharArray) -> Unit) {
-    val buf = remember { CharArray(6) }
-    var n by remember { mutableIntStateOf(0) }
+fun PinPad(title: String, message: String?, enabled: Boolean = true, subtitle: String? = null, onBiometric: (() -> Unit)? = null, digits: Int = 6, onComplete: (CharArray) -> Unit) {
+    require(digits in 6..12)
+    val buf = remember(digits) { CharArray(digits) }
+    var n by remember(digits) { mutableIntStateOf(0) }
     val shake = remember { Animatable(0f) }
     val h = LocalHaptics.current
-    DisposableEffect(Unit) { onDispose { buf.fill('\u0000') } }
+    DisposableEffect(buf) { onDispose { buf.fill('\u0000') } }
     LaunchedEffect(message) { if (message != null) { h(Haptic.REJECT); for (x in listOf(18f, -16f, 12f, -8f, 4f, 0f)) shake.animateTo(x, tween(45)) } }
     // Compact keypad (v3): keys sized from the available width (never wider than 280 dp, never taller than 56 dp), so it
     // fits a 320 dp phone with large fonts and the thumb travels less. Digits react on press with a spring.
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(title, color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 26.sp)
         if (subtitle != null) Text(subtitle, color = C.dim, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
-        Row(Modifier.offset { IntOffset(shake.value.roundToInt(), 0) }.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            repeat(6) { i ->
+        Row(Modifier.offset { IntOffset(shake.value.roundToInt(), 0) }.padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (digits >= 10) 6.dp else 14.dp)) {
+            repeat(digits) { i ->
                 val sz by animateDpAsState(if (i < n) 14.dp else 10.dp, Motion.bouncy(), label = "dot")
                 Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(sz).clip(CircleShape).background(if (i < n) C.text else C.faint)) }
             }
@@ -609,9 +611,9 @@ fun PinPad(title: String, message: String?, enabled: Boolean = true, subtitle: S
                             when (k) {
                                 "⌫" -> if (n > 0) { n--; buf[n] = '\u0000' }
                                 "bio" -> onBiometric?.invoke()
-                                else -> if (n < 6) {
+                                else -> if (n < digits) {
                                     buf[n] = k[0]; n++
-                                    if (n == 6) { val copy = buf.copyOf(); buf.fill('\u0000'); n = 0; onComplete(copy) }
+                                    if (n == digits) { val copy = buf.copyOf(); buf.fill('\u0000'); n = 0; onComplete(copy) }
                                 }
                             }
                         }.semantics { contentDescription = when (k) { "⌫" -> "apagar"; "bio" -> "usar biometria"; else -> k } }
