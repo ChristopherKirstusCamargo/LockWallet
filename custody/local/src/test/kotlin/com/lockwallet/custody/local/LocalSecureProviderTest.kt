@@ -26,10 +26,11 @@ class LocalSecureProviderTest {
 
     private fun reason(block: () -> Unit) = (runCatching(block).exceptionOrNull() as CustodyException).reason
 
-    private fun createFirst(p: LocalSecureProvider, mode: AuthMode = AuthMode.PIN_AND_BIOMETRIC, phrase: String = spec, role: WalletRole = WalletRole.VAULT) =
+    private fun createFirst(p: LocalSecureProvider, mode: AuthMode = AuthMode.PIN_AND_DEVICE_AUTH, phrase: String = spec, role: WalletRole = WalletRole.VAULT) =
         PendingMaterial.fromPhrase(phrase.toCharArray()).use { m ->
             val t = p.beginNewVault(mode)
-            assertEquals(mode == AuthMode.PIN_AND_BIOMETRIC, t.needsBiometric)
+            assertEquals(mode != AuthMode.PIN_ONLY, t.needsBiometric)
+            assertEquals(mode == AuthMode.PIN_AND_DEVICE_AUTH, t.allowsDeviceCredential)
             if (t.needsBiometric) assertTrue(t.cipher != null)
             kek.biometricsPresented = 1
             p.seal(t, m, m.discover(1)[0], "Principal", role, newPin = pin.toCharArray())
