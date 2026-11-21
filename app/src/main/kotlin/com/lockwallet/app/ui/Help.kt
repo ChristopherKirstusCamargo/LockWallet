@@ -221,9 +221,9 @@ object Help {
 
     // ------------------------------------------------------------ custody / recovery
     val CUSTODY_LOCAL = t("Neste aparelho",
-        "O material da carteira é cifrado localmente, com a chave protegida pelo Android Keystore. O PIN é obrigatório para operações sensíveis; biometria forte adicional pode ser exigida por uso.",
-        "A chave permanece neste aparelho, sem servidor próprio nem sincronização.",
-        "Você cria a carteira, anota a frase num papel e guarda em casa. No dia a dia usa PIN; a digital, quando ativada, serve apenas para consultar a carteira.")
+        "O material da carteira é cifrado localmente. Todo cofre local novo exige o PIN da Lock Wallet e biometria forte por uso para liberar a chave principal no Android Keystore. Cofres antigos protegidos só por PIN continuam reconhecidos.",
+        "A chave permanece neste aparelho, sem servidor próprio nem sincronização. Uma chave biométrica separada pode liberar somente a visualização.",
+        "Ao consultar, use o PIN e confirme a biometria forte. Assinaturas e ações sensíveis também exigem o PIN; a biometria auxiliar nunca autoriza transações.")
     val CUSTODY_SEED_VAULT = t("Seed Vault",
         "Um cofre de chaves embutido nos celulares Solana (Saga e Seeker). A Lock Wallet nunca vê a frase.",
         "Segurança extra: cada assinatura é autorizada pelo próprio cofre do aparelho.",
@@ -245,9 +245,9 @@ object Help {
         "Impedir que alguém com seu celular nas mãos abra a carteira. Depois de erros, há espera crescente; a carteira nunca é apagada.",
         "Evite datas e sequências como 123456. Algo que só você saiba, como 4 9 1 7 3 8.")
     val BIOMETRIC = t("Biometria",
-        "Digital ou rosto, verificados pelo hardware do aparelho. A biometria pode abrir o cofre para consultar a carteira.",
-        "Assinaturas e operações que movimentam fundos exigem PIN, mesmo quando a biometria está ativada.",
-        "Use a digital para abrir a carteira; antes de confirmar um envio, digite o PIN.")
+        "A biometria forte é exigida em cada uso da chave principal do cofre local. Há também uma chave auxiliar opcional para abrir somente a visualização.",
+        "A chave auxiliar nunca assina. Para operações sensíveis, a Lock Wallet exige o PIN próprio e a confirmação biométrica por uso da KEK.",
+        "Ao entrar com o PIN, confirme a biometria. A biometria auxiliar pode abrir apenas a tela de consulta, dentro do prazo configurado.")
     val LWRP = t("Recovery Package",
         "Um arquivo de backup criptografado (.lwrp) com sua carteira, protegido por uma senha própria, diferente do PIN.",
         "Uma segunda forma de recuperação, útil principalmente para carteiras importadas por chave privada, que não têm frase.",
@@ -295,9 +295,9 @@ object Help {
         "Ver o saldo na moeda que você usa no dia a dia. Se a fonte de reserva não tiver a sua moeda, o valor aparece em dólar, marcado como tal.",
         "Escolha Euro para ver “€ 1.650,00”; volte para Real para ver “R$ 10.800,00”.")
     val BIO_UNLOCK = t("Desbloquear com a digital",
-        "Abre a carteira para consultar saldos com digital ou rosto. Assinar transações e autorizar dApps continua exigindo PIN.",
-        "Reduzir a digitação no acesso diário sem permitir que uma digital autorize movimentações. Depois de reiniciar o celular, após erros ou quando o prazo expira, o PIN volta a ser exigido.",
-        "Abra o app com a digital, consulte o saldo e digite o PIN quando for confirmar um envio.")
+        "A chave auxiliar abre somente a visualização de saldos e dados. Ela não substitui a autenticação biométrica por uso da chave principal.",
+        "Reduzir a digitação na consulta sem permitir que essa chave auxiliar assine. Depois de reiniciar, após erros ou quando o prazo expira, o PIN volta a ser exigido.",
+        "Use a digital para consultar; para assinar ou alterar dados, informe o PIN e confirme a biometria da chave principal.")
     val ABOUT = t("Sobre a Lock Wallet",
         "Carteira Solana de código aberto. Sem servidor próprio, sem rastreamento, sem anúncios.",
         "Saber exatamente com quem o app conversa: só a rede Solana e a cotação pública do SOL.",
