@@ -8,8 +8,10 @@ import org.bouncycastle.crypto.params.Argon2Parameters
  * Only allowlisted parameter sets are used by production code (ADR 0002 / ADR 0004): [KdfProfile].
  */
 enum class KdfProfile(val id: Int, val memoryKiB: Int, val iterations: Int, val parallelism: Int) {
-    /** 0x01 — OWASP floor (m=19 MiB, t=2, p=1). Shared by LWLE (PIN) and LWRP (password). */
-    OWASP_V1(0x01, 19456, 2, 1);
+    /** 0x01 — legacy compatibility profile already present in existing LWLE and LWRP v1 files. */
+    OWASP_V1(0x01, 19456, 2, 1),
+    /** 0x02 — current high-cost profile: 64 MiB, 3 passes, one lane. Only new writes use this profile. */
+    STRONG_V2(0x02, 65536, 3, 1);
 
     companion object {
         fun ofId(id: Int): KdfProfile? = entries.firstOrNull { it.id == id }
