@@ -35,6 +35,9 @@ pequenos.
   como expirada com evidência de dois RPCs independentes (evita pagamento duplo); `id` JSON-RPC conferido.
 - **Interface:** folhas e avisos desenhados dentro da janela protegida (nunca diálogos/popups separados); com o app
   bloqueado nada além da tela de bloqueio é desenhado; colar a frase apaga a área de transferência.
+- **StrongBox:** se a chave ativa do cofre estiver confirmada como StrongBox e o patch Android for anterior a
+  05/04/2026, a Central de Segurança marca o patch como **Risco** por causa da CVE-2025-48651. A correção exige
+  atualizar o Android; o app não desativa nem migra silenciosamente uma chave existente.
 - **Sinais de risco** (root, depurador, hooking como Frida/Xposed) são **informativos** na Central de Segurança;
   nada é apagado automaticamente. Esses sinais são heurísticos e contornáveis por um atacante com root.
 
