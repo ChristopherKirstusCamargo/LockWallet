@@ -123,13 +123,13 @@ class MainUiTest {
     private fun start(): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx).also { it.hideBalance = false; it.fiat = Fiat.BRL },
-            offlinePrice(), { _, _, _ -> true }, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
+            offlinePrice(), { _, _ -> true }, transport = AppFakeRpc(), dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Conta 1")
         c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
-        c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH); await(c)
+        c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); await(c)
         c.home()
         rule.runOnUiThread { rule.activity.setContent { App(c, Platform({}, {}, { copied += it })) } }
         rule.waitForIdle()
