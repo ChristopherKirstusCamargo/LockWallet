@@ -1,170 +1,17 @@
-name: Lock Wallet — Build and publish v5.0.2
+name: Retired — signed release automation disabled
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "app/**"
-      - "core/**"
-      - "custody/**"
-      - "data/**"
-      - "gradle/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle.properties"
-      - "gradlew"
-      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: lockwallet-versioned-release
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  build-sign-publish:
+  retired:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
     steps:
-      - name: Checkout current commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
-        with:
-          packages: ""
-
-      - name: Install Android SDK packages
+      - name: Explain retirement
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-
-      - name: Compile and verify Release APK
-        run: |
-          set -euo pipefail
-          chmod +x ./gradlew
-          ./gradlew --no-daemon :app:assembleRelease
-          python3 tools/verify_apk_manifest.py \
-            --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
-            --apk app/build/outputs/apk/release/app-release-unsigned.apk \
-            --release
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging app/build/outputs/apk/release/app-release-unsigned.apk | grep -F "versionCode='10' versionName='5.0.2'"
-
-      - name: Sign APK and verify release certificate
-        id: sign
-        shell: bash
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.LOCKWALLET_KEYSTORE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$KEYSTORE_PASSWORD" || { echo "Missing LOCKWALLET_KEYSTORE_PASSWORD Actions secret" >&2; exit 1; }
-          KEYSTORE_CIPHERTEXT="$RUNNER_TEMP/lockwallet-release.p12.enc"
-          KEYSTORE="$RUNNER_TEMP/lockwallet-release.p12"
-          ALIGNED="$RUNNER_TEMP/lockwallet-aligned.apk"
-          trap 'rm -f "$KEYSTORE" "$KEYSTORE_CIPHERTEXT" "$ALIGNED"' EXIT
-          cp signing/lockwallet-release.p12.enc "$KEYSTORE_CIPHERTEXT"
-          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 \
-            -pass env:KEYSTORE_PASSWORD \
-            -in "$KEYSTORE_CIPHERTEXT" \
-            -out "$KEYSTORE"
-          test -s "$KEYSTORE"
-          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
-          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
-          mkdir -p dist
-          "$ZIPALIGN" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "$ALIGNED"
-          "$APKSIGNER" sign \
-            --ks "$KEYSTORE" \
-            --ks-type PKCS12 \
-            --ks-key-alias lockwallet \
-            --ks-pass env:KEYSTORE_PASSWORD \
-            --key-pass env:KEYSTORE_PASSWORD \
-            --v1-signing-enabled false \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out dist/lockwallet.apk \
-            "$ALIGNED"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/lockwallet.apk | grep -F "versionCode='10' versionName='5.0.2'"
-          "$APKSIGNER" verify --verbose --print-certs --min-sdk-version 31 dist/lockwallet.apk | tee dist/apk-signature-verification.txt
-          CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' dist/apk-signature-verification.txt | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
-          test "$CERT_SHA256" = "ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13"
-          keytool -exportcert -rfc \
-            -keystore "$KEYSTORE" -storetype PKCS12 \
-            -storepass "$KEYSTORE_PASSWORD" -alias lockwallet \
-            -file dist/lockwallet-signing-certificate.pem
-          (cd dist && sha256sum lockwallet.apk > lockwallet.apk.sha256)
-          echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
-          echo "apk_sha256=$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" >> "$GITHUB_OUTPUT"
-
-      - name: Generate SBOM
-        run: |
-          set -euo pipefail
-          ./gradlew --no-daemon :app:dependencies --configuration releaseRuntimeClasspath -q > "$RUNNER_TEMP/deps.txt"
-          python3 tools/sbom.py "$RUNNER_TEMP/deps.txt" --version 5.0.2 --apk-sha256 "$(cut -d' ' -f1 dist/lockwallet.apk.sha256)" -o dist/lockwallet.cdx.json
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: LockWallet-5.0.2-${{ github.sha }}
-          path: |
-            dist/lockwallet.apk
-            dist/lockwallet.apk.sha256
-            dist/apk-signature-verification.txt
-            dist/lockwallet-signing-certificate.pem
-            dist/lockwallet.cdx.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Publish GitHub Release v5.0.2 without touching older releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-          if [ "$current_main" != "$GITHUB_SHA" ]; then
-            echo "::error::Stale build; main moved from $GITHUB_SHA to $current_main. No Release created."
-            exit 1
-          fi
-          if gh release view v5.0.2 >/dev/null 2>&1; then
-            echo "::error::Release v5.0.2 already exists; refusing to overwrite it."
-            exit 1
-          fi
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v5.0.2" >/dev/null 2>&1; then
-            echo "::error::Tag v5.0.2 already exists without a release; refusing to reuse it."
-            exit 1
-          fi
-          cat > dist/RELEASE-NOTES.md <<EOF
-          # Lock Wallet 5.0.2
-
-          Android release build.
-
-          - Android versionCode: 10
-          - Android versionName: 5.0.2
-          - APK signature and pinned certificate fingerprint verified by CI.
-
-          **APK SHA-256:** ${{ steps.sign.outputs.apk_sha256 }}
-          **Signing certificate SHA-256:** ${{ steps.sign.outputs.cert_sha256 }}
-
-          This release contains the security-hardening changes present in the tagged source commit. The build validates compilation, manifest policy and APK signing; it is not a substitute for completion of the full security audit or test suite.
-
-          Before updating an existing installation, keep a verified recovery backup. Never share your recovery phrase or Recovery Package.
-          EOF
-          gh release create v5.0.2 \
-            --target "$GITHUB_SHA" \
-            --title "Lock Wallet 5.0.2" \
-            --notes-file dist/RELEASE-NOTES.md \
-            --latest \
-            dist/lockwallet.apk \
-            dist/lockwallet.apk.sha256 \
-            dist/apk-signature-verification.txt \
-            dist/lockwallet-signing-certificate.pem \
-            dist/lockwallet.cdx.json
+          echo "::error::Automated release signing and publishing are disabled."
+          echo "Do not restore the release keystore or signing password to Git or GitHub Actions."
+          exit 1
