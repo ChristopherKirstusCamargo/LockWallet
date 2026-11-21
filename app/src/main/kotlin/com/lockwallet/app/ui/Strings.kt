@@ -70,7 +70,7 @@ object S {
     const val BIO_NONE = "Biometria forte indisponível ou não cadastrada neste aparelho. O cofre usará só PIN."
     const val PROMPT_UNLOCK = "Desbloquear cofre"
     const val PROMPT_SIGN = "Confirmar assinatura"
-    const val USE_PIN = "Usar PIN"
+    const val USE_PIN = "Cancelar"
     const val BIO_INVALIDATED = "A biometria do aparelho mudou. Use o PIN e ative a digital de novo nos Ajustes."
     const val PROMPT_SEAL = "Proteger a nova carteira"
     const val PROMPT_UPGRADE = "Atualizar proteção do cofre"
@@ -203,8 +203,7 @@ object S {
             else -> "Nível não informado pelo aparelho."
         }
         CheckId.VAULT_AUTH_MODE -> when (v) {
-            "PIN_AND_BIOMETRIC" -> "PIN + biometria forte por uso (modo legado)."
-            "PIN_AND_DEVICE_AUTH" -> "PIN da carteira + biometria forte ou credencial do Android em cada uso da chave."
+            "PIN_AND_BIOMETRIC" -> "PIN da Lock Wallet + biometria forte por uso para liberar a chave no Android Keystore."
             "PIN_ONLY" -> "Só PIN; KEK sem autenticação por uso. Modo legado de menor proteção."
             else -> "Nenhum cofre criado ainda."
         }
