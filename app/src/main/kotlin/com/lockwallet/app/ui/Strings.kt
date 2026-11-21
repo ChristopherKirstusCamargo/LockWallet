@@ -25,7 +25,7 @@ object S {
 
     const val CUSTODY_TITLE = "Onde a chave vai ficar?"
     const val CUSTODY_LOCAL = "Neste aparelho"
-    const val CUSTODY_LOCAL_DESC = "Criptografada no chip de segurança do celular, protegida por PIN e biometria. Nada sai do aparelho."
+    const val CUSTODY_LOCAL_DESC = "Cifrada com chave do Android Keystore. O nível de hardware (StrongBox, TEE ou software) é conferido na Central de Segurança. O PIN é obrigatório; biometria forte é opcional."
     const val CUSTODY_SEED_VAULT = "Seed Vault"
 
     const val ROLE_TITLE = "Tipo de carteira"
