@@ -35,6 +35,8 @@ class DeviceSecurityCapabilityManagerTest {
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(vaultKeyLevel = KeySecurityLevel.SOFTWARE) }), CheckId.VAULT_KEY_LEVEL))
         assertEquals(CheckStatus.WARN, status(facts({ it.copy(vaultAuthMode = AuthMode.PIN_ONLY) }), CheckId.VAULT_AUTH_MODE))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(securityPatch = "2025-01-01") }), CheckId.SECURITY_PATCH))
+        assertEquals(CheckStatus.RISK, status(facts({ it.copy(securityPatch = "2026-04-04") }), CheckId.SECURITY_PATCH))
+        assertEquals(CheckStatus.WARN, status(facts({ it.copy(securityPatch = "2026-04-04", vaultKeyLevel = KeySecurityLevel.TRUSTED_ENVIRONMENT) }), CheckId.SECURITY_PATCH))
         assertEquals(CheckStatus.WARN, status(facts({ it.copy(securityPatch = "garbage") }), CheckId.SECURITY_PATCH))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(rootIndicators = listOf("/system/xbin/su")) }), CheckId.ROOT_HEURISTIC))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(lockoutRemainingMs = 5) }), CheckId.PIN_ATTEMPTS))
