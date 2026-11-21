@@ -64,18 +64,30 @@ class PinAttemptLimiterTest {
         assertEquals(HOUR / 2, l.lockoutRemainingMs())
     }
 
-    @Test fun deletingOneCopyDoesNotReset() {
+    @Test fun deletingBothCopiesFailsClosedWithoutAFreeGuess() {
         vault = false
         val l = limiter()
         repeat(5) { l.gate() }
         File(tmp.root, "a.bin").delete()
-        assertTrue(limiter().lockoutRemainingMs() > 0)
-        File(tmp.root, "a.mirror").writeBytes(ByteArray(10)) // corrupt the other one too
-        File(tmp.root, "a.bin").delete()
+        File(tmp.root, "a.mirror").delete()
         vault = true
-        // Both gone/corrupt while a vault exists ⇒ conservative: one attempt left before lockout.
-        assertEquals(4, limiter().failures())
-        assertEquals(HOUR, (limiter().gate() as AttemptGate.Allowed).lockoutIfWrongMs)
+        assertEquals(24 * HOUR, limiter().lockoutRemainingMs())
+        assertTrue(limiter().gate() is AttemptGate.LockedOut)
+    }
+
+    @Test fun equalFailureCountUsesTheLaterLockoutState() {
+        vault = false
+        val l = limiter()
+        repeat(5) { l.gate() }
+        clock.elapsed += 10_000
+        l.gate()
+        val newer = File(tmp.root, "a.mirror").readBytes()
+        // Reset, then construct a stale snapshot with the same failure count.
+        l.recordSuccess()
+        repeat(5) { l.gate() }
+        File(tmp.root, "a.bin").writeBytes(newer)
+        File(tmp.root, "a.mirror").writeBytes(File(tmp.root, "a.bin").readBytes())
+        assertTrue(limiter().lockoutRemainingMs() > 0)
     }
 
     @Test fun olderCopyLoses() {
@@ -93,10 +105,9 @@ class PinAttemptLimiterTest {
         l.gate(); l.gate()
         File(tmp.root, "a.bin").writeBytes(ByteArray(80) { 0x41 })
         File(tmp.root, "a.mirror").writeBytes(ByteArray(80) { 0x41 })
-        assertEquals(4, limiter().failures())
-        val fifth = limiter().gate() as AttemptGate.Allowed
-        assertEquals(HOUR, fifth.lockoutIfWrongMs)
-        assertTrue(limiter().lockoutRemainingMs() > 0)
+        assertEquals(10, limiter().failures())
+        assertEquals(24 * HOUR, limiter().lockoutRemainingMs())
+        assertTrue(limiter().gate() is AttemptGate.LockedOut)
     }
 
     @Test fun pinEncodingRejectsNonAsciiDigits() {
