@@ -452,18 +452,17 @@ class AppController(
     }
 
     /**
-     * Biometric instead of the PIN (lock screen, signing). Custody decides whether it is allowed right now; any refusal
-     * simply leaves the PIN pad (never counted as a PIN attempt, never wipes anything).
+     * Biometric authentication is view-only. Every authorization purpose (including all signing) requires the PIN.
+     * A cancelled or refused biometric prompt leaves the lock screen unchanged.
      */
     fun submitBiometric(purpose: AuthPurpose?) {
         if (!purpose.biometricAllowed() || !bioReady) return
         launchOp {
-            val walletId = when (purpose) { is AuthPurpose.Sign -> purpose.walletId; is AuthPurpose.DappSign -> purpose.walletId; else -> null }
             try {
-                val t = io { provider.beginBiometricUnlock(walletId) }
-                if (!biometric(t.cipher, if (purpose == null) S.PROMPT_UNLOCK else S.PROMPT_SIGN)) return@launchOp
+                val t = io { provider.beginBiometricUnlock(null) }
+                if (!biometric(t.cipher, S.PROMPT_UNLOCK)) return@launchOp
                 val session = io { provider.completeBiometricUnlock(t) }
-                lockMessage = null; onUnlocked(session, purpose)
+                lockMessage = null; onUnlocked(session, null)
             } catch (e: CustodyException) {
                 refreshBiometric()
                 when (e.reason) {
