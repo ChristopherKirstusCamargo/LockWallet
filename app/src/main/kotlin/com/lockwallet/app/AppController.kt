@@ -210,13 +210,21 @@ class AppController(
     /** Durable KDF status is derived from each authenticated local envelope, not a transient UI flag. */
     var legacyKdfWalletCount by mutableStateOf(-1)
         private set
+    var legacyKekPinOnly by mutableStateOf(false)
+        private set
     var migrationWarning by mutableStateOf<String?>(null)
         private set
 
     fun refreshKdfMigrationStatus() {
         scope.launch {
-            val count = runCatching { io { provider.legacyKdfWalletCount() } }.getOrDefault(-1)
+            val (count, pinOnlyKek) = io {
+                runCatching { provider.legacyKdfWalletCount() }.getOrDefault(-1) to
+                    runCatching {
+                        provider.vaultAuthMode() == com.lockwallet.custody.local.keystore.AuthMode.PIN_ONLY
+                    }.getOrDefault(false)
+            }
             legacyKdfWalletCount = count
+            legacyKekPinOnly = pinOnlyKek
             if (count == 0) migrationWarning = null
         }
     }
