@@ -60,7 +60,6 @@ class CustodyException(val reason: Reason) : Exception("custody: $reason") {
 class KekTicket internal constructor(internal val op: KekOperation, internal val walletId: String?, internal val newVault: NewVault?) {
     val cipher: Cipher? get() = op.cipher
     val needsBiometric: Boolean get() = op.requiresUserAuth
-    val allowsDeviceCredential: Boolean get() = op.allowsDeviceCredential
     internal class NewVault(val vaultId: ByteArray, val aliasId: ByteArray, val mode: AuthMode)
 }
 
@@ -80,7 +79,6 @@ class KdfMigrationTicket internal constructor(
     internal val op: KekOperation,
 ) : AutoCloseable {
     val needsUserAuth: Boolean get() = op.requiresUserAuth
-    val allowsDeviceCredential: Boolean get() = op.allowsDeviceCredential
     val cipher: Cipher? get() = op.cipher
     override fun close() {
         originalEnvelope.wipe(); dek.close(); material.close(); strongPinKey.close()
