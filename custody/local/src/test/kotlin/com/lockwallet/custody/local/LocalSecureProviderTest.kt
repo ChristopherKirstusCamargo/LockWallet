@@ -53,6 +53,52 @@ class LocalSecureProviderTest {
         (unlock(provider(), w.id) as UnlockResult.Success).session.close()
     }
 
+    @Test fun legacyKdfIsMigratedAfterPinAndWalletReopensFromDisk() {
+        val p = provider()
+        val wallet = createFirst(p, AuthMode.PIN_ONLY)
+        val envelopeFile = File(tmp.root, "envelopes/${wallet.id}.lwle")
+        val original = com.lockwallet.custody.local.envelope.LocalEnvelope.parse(envelopeFile.readBytes())
+
+        // Simulate a real pre-migration v1 envelope with the same wallet IDs, KEK alias and material.
+        PendingMaterial.fromPhrase(spec.toCharArray()).use { material ->
+            val legacyPinKey = com.lockwallet.custody.local.pin.Pin.encode(pin.toCharArray()).use {
+                com.lockwallet.custody.local.envelope.EnvelopeCrypto.derivePinKey(
+                    it, original.pinSalt(), com.lockwallet.custody.local.envelope.LocalEnvelope.KDF_OWASP_V1,
+                )
+            }
+            material.copySecret().use { secret ->
+                val legacy = com.lockwallet.custody.local.envelope.EnvelopeCrypto.seal(
+                    original.vaultId(), original.materialId(), original.materialKind, original.derivationProfile,
+                    original.accountIndex, original.expectedPubkey(), original.pinSalt(), original.aliasId(),
+                    original.authMode, secret, legacyPinKey,
+                    com.lockwallet.custody.local.envelope.SealRandomness(
+                        ByteArray(32) { 0x31 }, ByteArray(12) { 0x41 }, ByteArray(12) { 0x51 },
+                    ),
+                    kek.encryptor(original.aliasId()),
+                    com.lockwallet.custody.local.envelope.LocalEnvelope.KDF_OWASP_V1,
+                )
+                envelopeFile.writeBytes(legacy.encode())
+            }
+            legacyPinKey.close()
+        }
+
+        val unlocked = unlock(p, wallet.id) as UnlockResult.Success
+        val ticket = requireNotNull(unlocked.migration)
+        assertTrue("legacy KDF migration should commit", p.completeKdfMigration(ticket, unlocked.session))
+        unlocked.session.close()
+        assertEquals(
+            com.lockwallet.custody.local.envelope.LocalEnvelope.KDF_STRONG_V2,
+            com.lockwallet.custody.local.envelope.LocalEnvelope.parse(envelopeFile.readBytes()).kdfProfile,
+        )
+
+        // A new provider instance must reopen the migrated wallet with the same PIN and material.
+        val reopened = unlock(provider(), wallet.id) as UnlockResult.Success
+        reopened.session.use { session ->
+            assertEquals(spec, session.words().joinToString(" ") { String(it) })
+        }
+        reopened.migration?.close()
+    }
+
     @Test fun biometricIsRequiredPerUse() {
         val p = provider()
         val w = createFirst(p)
