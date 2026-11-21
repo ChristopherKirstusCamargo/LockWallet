@@ -79,15 +79,15 @@ class PinAttemptLimiterTest {
         vault = false
         val l = limiter()
         repeat(5) { l.gate() }
+        val stale = File(tmp.root, "a.bin").readBytes()
         clock.elapsed += 10_000
-        l.gate()
-        val newer = File(tmp.root, "a.mirror").readBytes()
-        // Reset, then construct a stale snapshot with the same failure count.
         l.recordSuccess()
         repeat(5) { l.gate() }
-        File(tmp.root, "a.bin").writeBytes(newer)
-        File(tmp.root, "a.mirror").writeBytes(File(tmp.root, "a.bin").readBytes())
-        assertTrue(limiter().lockoutRemainingMs() > 0)
+        val newer = File(tmp.root, "a.mirror").readBytes()
+        // Both copies have five failures; only the mirror carries the later lockout start.
+        File(tmp.root, "a.bin").writeBytes(stale)
+        File(tmp.root, "a.mirror").writeBytes(newer)
+        assertEquals(HOUR, limiter().lockoutRemainingMs())
     }
 
     @Test fun olderCopyLoses() {
