@@ -23,7 +23,9 @@ sealed class AttemptGate {
  * process mid-attempt counts as a failure. Two copies are kept and the most restrictive wins (deleting one
  * does not reset); a missing/corrupt state while a vault exists is treated as "one attempt left".
  * A reboot restarts the remaining lockout from the full duration (never shortens it).
- * Residual: root/snapshot can restore old state — this is UX defense, not a crypto boundary.
+ * Both copies missing/corrupt while a vault exists ⇒ fail closed with the maximum 24 h lockout.
+ * Residual: a full same-device snapshot can still roll back both valid copies; Android exposes no app-level
+ * hardware monotonic counter. Per-use hardware authentication on new vaults is the primary brute-force boundary.
  */
 class PinAttemptLimiter(
     private val primary: File,
@@ -69,11 +71,30 @@ class PinAttemptLimiter(
         val a = read(primary)
         val b = read(mirror)
         if (a == null && b == null) {
-            return if (vaultExists()) State(FREE_ATTEMPTS - 1, 0, 0, clock.bootCount()) else State(0, 0, 0, clock.bootCount())
+            if (!vaultExists()) return State(0, 0, 0, clock.bootCount())
+            // Deleting/corrupting both files must never grant a sequence of one free PIN guess per deletion.
+            val locked = State(MAX_FAILURES, clock.elapsedRealtimeMs(), MAX_LOCK, clock.bootCount())
+            persist(locked)
+            return locked
         }
         if (a == null) return b!!
         if (b == null) return a
-        return if (b.failures > a.failures) b else a
+        if (a.failures != b.failures) return if (a.failures > b.failures) a else b
+        val now = clock.elapsedRealtimeMs()
+        val boot = clock.bootCount()
+        fun remainingWithoutWrite(s: State): Long = when {
+            s.lockDurationMs <= 0 -> 0
+            s.boot != boot || now < s.lockStartElapsed -> s.lockDurationMs
+            else -> (s.lockStartElapsed + s.lockDurationMs - now).coerceAtLeast(0)
+        }
+        val ar = remainingWithoutWrite(a)
+        val br = remainingWithoutWrite(b)
+        if (ar != br) return if (ar > br) a else b
+        if (a.lockDurationMs != b.lockDurationMs) return if (a.lockDurationMs > b.lockDurationMs) a else b
+        if (a.boot == b.boot && a.lockStartElapsed != b.lockStartElapsed) {
+            return if (a.lockStartElapsed > b.lockStartElapsed) a else b
+        }
+        return a
     }
 
     private fun persist(s: State) {
