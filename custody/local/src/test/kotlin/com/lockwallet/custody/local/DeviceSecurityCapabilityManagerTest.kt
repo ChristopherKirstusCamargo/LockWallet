@@ -34,7 +34,7 @@ class DeviceSecurityCapabilityManagerTest {
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(deviceSecure = false) }), CheckId.LOCK_SCREEN))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(vaultKeyLevel = KeySecurityLevel.SOFTWARE) }), CheckId.VAULT_KEY_LEVEL))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(vaultAuthMode = AuthMode.PIN_ONLY) }), CheckId.VAULT_AUTH_MODE))
-        assertEquals(CheckStatus.OK, status(facts({ it.copy(vaultAuthMode = AuthMode.PIN_AND_DEVICE_AUTH) }), CheckId.VAULT_AUTH_MODE))
+        assertEquals(CheckStatus.OK, status(facts({ it.copy(vaultAuthMode = AuthMode.PIN_AND_BIOMETRIC) }), CheckId.VAULT_AUTH_MODE))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(securityPatch = "2025-01-01") }), CheckId.SECURITY_PATCH))
         assertEquals(CheckStatus.RISK, status(facts({ it.copy(securityPatch = "2026-04-04") }), CheckId.SECURITY_PATCH))
         assertEquals(CheckStatus.WARN, status(facts({ it.copy(securityPatch = "2026-04-04", vaultKeyLevel = KeySecurityLevel.TRUSTED_ENVIRONMENT) }), CheckId.SECURITY_PATCH))
