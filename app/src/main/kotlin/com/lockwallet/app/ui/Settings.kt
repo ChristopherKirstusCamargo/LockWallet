@@ -68,7 +68,7 @@ fun SettingsTab(c: AppController, p: Platform) {
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
         if (c.vaultPresent && c.bioCapable) {
             Divider()
-            ToggleRow("Desbloquear com a digital", c.bioEnabled, Ic.FINGER, help = Help.BIO_UNLOCK, tag = "bio-toggle") { c.setBiometricUnlock(it) }
+            ToggleRow("Digital para consulta", c.bioEnabled, Ic.FINGER, help = Help.BIO_UNLOCK, tag = "bio-toggle") { c.setBiometricUnlock(it) }
             val w = c.bioWindowHours
             if (c.bioEnabled && w != null) {
                 Divider()
@@ -269,7 +269,7 @@ fun Export(c: AppController, p: Platform) {
             val g = generated
             if (g == null) {
                 ChoiceCard(S.EXPORT_GENERATE, "8 palavras aleatórias — forte e fácil de anotar", Ic.SPARK) { generated = RecoveryPasswords.generate() }
-                ChoiceCard(S.EXPORT_OWN, "No mínimo 16 caracteres", Ic.KEY) { own = true }
+                ChoiceCard(S.EXPORT_OWN, "Mínimo de 20 bytes em UTF-8", Ic.KEY) { own = true }
             } else {
                 // v3 fix: the generated password used to be drawn on ONE canvas line and was clipped on most phones.
                 // Now it is shown as a numbered, wrapping word grid; the exact same CharArray is what gets used.
@@ -281,15 +281,39 @@ fun Export(c: AppController, p: Platform) {
                 if (c.busy) Busy() else Primary(S.EXPORT_SAVE, icon = Ic.FILE) { val copy = g.copyOf(); c.prepareExport(copy) { name -> p.createDocument(name) } }
             }
         } else {
+            val passwordBytes = remember(pw) { utf8NfcByteLength(pw) }
             Field(pw, { pw = it.take(256) }, "Senha", secret = true)
             Field(pw2, { pw2 = it.take(256) }, S.EXPORT_CONFIRM, secret = true)
+            when {
+                pw.isNotEmpty() && passwordBytes < 0 -> ErrorText(S.EXPORT_PW_INVALID_UNICODE)
+                pw.isNotEmpty() && passwordBytes < RecoveryPasswords.MIN_BYTES -> ErrorText(S.EXPORT_PW_TOO_SHORT)
+                pw.isNotEmpty() && passwordBytes > RecoveryPasswords.MAX_BYTES -> ErrorText(S.EXPORT_PW_TOO_LONG)
+            }
             if (pw2.isNotEmpty() && pw != pw2) ErrorText(S.EXPORT_MISMATCH)
             ErrorText(c.error)
-            if (c.busy) Busy() else Primary(S.EXPORT_SAVE, enabled = pw.isNotEmpty() && pw == pw2, icon = Ic.FILE) {
+            val passwordLengthValid = passwordBytes in RecoveryPasswords.MIN_BYTES..RecoveryPasswords.MAX_BYTES
+            if (c.busy) Busy() else Primary(S.EXPORT_SAVE, enabled = passwordLengthValid && pw == pw2, icon = Ic.FILE) {
                 val chars = pw.toCharArray(); pw = ""; pw2 = ""
                 c.prepareExport(chars) { name -> p.createDocument(name) }
             }
         }
         Text(shortAddress(s.info.address.toBase58()), color = C.dim, fontSize = 13.sp)
     }
+}
+
+
+/** Mirrors LWRP's NFC + strict UTF-8 length check so invalid passwords are rejected before export. */
+private fun utf8NfcByteLength(value: String): Int {
+    val normalized = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFC)
+    val encoder = Charsets.UTF_8.newEncoder()
+        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+        .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+    val encoded = try {
+        encoder.encode(java.nio.CharBuffer.wrap(normalized))
+    } catch (_: java.nio.charset.CharacterCodingException) {
+        return -1
+    }
+    val length = encoded.remaining()
+    if (encoded.hasArray()) encoded.array().fill(0)
+    return length
 }
