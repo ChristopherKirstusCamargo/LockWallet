@@ -350,31 +350,38 @@ fun PinCreate(c: AppController) {
 private fun isTrivialPin(p: CharArray): Boolean = p.all { it == p[0] } ||
     (1 until p.size).all { p[it] - p[it - 1] == 1 } || (1 until p.size).all { p[it - 1] - p[it] == 1 }
 
-/** New local vaults always require per-use Android user authentication at the Keystore boundary. */
+/** New local vaults require BIOMETRIC_STRONG for every KEK operation. */
 @Composable
 fun BioChoice(c: AppController) {
     val deviceSecure = remember { runCatching { c.capabilities.facts().deviceSecure }.getOrDefault(false) }
+    val biometric = remember { c.capabilities.biometricAvailability() }
+    val biometricReady = biometric == com.lockwallet.custody.local.BiometricAvailability.AVAILABLE
     Screen("Proteção do cofre", onBack = { c.go(Screen.PinCreate) }, help = Help.BIOMETRIC) {
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             Box(Modifier.size(112.dp).glass(CircleShape, strong = true), contentAlignment = Alignment.Center) {
                 Icon(Ic.LOCK, size = 52.dp)
             }
         }
-        Title("PIN + autenticação do aparelho", align = TextAlign.Center)
+        Title("PIN + biometria forte", align = TextAlign.Center)
         SpacerH(10.dp)
         Body(
-            "A chave do cofre só pode ser usada depois de uma confirmação do Android em cada operação. O sistema aceita biometria forte ou o PIN, padrão ou senha de bloqueio do aparelho. Depois, a Lock Wallet também exige o PIN próprio.",
+            "A chave principal do cofre fica no Android Keystore e só é liberada após uma biometria forte em cada operação. Depois, a Lock Wallet também exige o PIN próprio para abrir a carteira e autorizar ações sensíveis. Não há opção de criar um cofre local protegido apenas pelo PIN.",
             align = TextAlign.Center,
         )
         SpacerH(20.dp)
         ErrorText(c.error)
-        if (!deviceSecure) {
-            Notice("Antes de continuar, configure um PIN, padrão ou senha de bloqueio nas configurações do Android. Sem bloqueio seguro do aparelho, não é criado um cofre local.", Ic.WARN, strong = true)
-        } else if (c.busy) {
-            Busy()
-        } else {
-            PillButton("Criar cofre com proteção por uso", Modifier.fillMaxWidth(), icon = Ic.SHIELD, tag = "device-auth-enable") {
-                c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH)
+        when {
+            !deviceSecure -> Notice(
+                "Configure primeiro um bloqueio de tela seguro no Android (PIN, padrão ou senha). Sem ele, a Lock Wallet não cria um cofre local.",
+                Ic.WARN, strong = true,
+            )
+            !biometricReady -> Notice(
+                "Cadastre uma biometria forte nas configurações do Android. A Lock Wallet exige essa confirmação em cada uso da chave principal; biometria fraca, indisponível ou não cadastrada não é aceita.",
+                Ic.WARN, strong = true,
+            )
+            c.busy -> Busy()
+            else -> PillButton("Criar cofre protegido", Modifier.fillMaxWidth(), icon = Ic.SHIELD, tag = "bio-enable") {
+                c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC)
             }
         }
         SpacerH(12.dp)
