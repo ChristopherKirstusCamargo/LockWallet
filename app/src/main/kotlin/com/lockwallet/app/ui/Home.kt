@@ -388,6 +388,8 @@ private fun HomeSecurityAttention(c: AppController) {
         }
         if (c.legacyKdfWalletCount > 0) {
             add("Há ${c.legacyKdfWalletCount} carteira(s) com o perfil antigo de Argon2id. A atualização é tentada após o desbloqueio por PIN.")
+        } else if (c.legacyKdfWalletCount < 0) {
+            add("Não foi possível verificar o perfil de proteção das carteiras. Consulte a Central de Segurança; não considere a migração concluída.")
         }
         c.migrationWarning?.let { add(it) }
     }
