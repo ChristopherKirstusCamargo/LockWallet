@@ -294,7 +294,7 @@ object Help {
         "A moeda usada para mostrar valores: dólar, euro, iene, libra, yuan, real, dólar canadense, dólar australiano, franco suíço ou rupia. A cotação vem de fontes públicas (Coinbase, com Kraken de reserva) e nunca é inventada.",
         "Ver o saldo na moeda que você usa no dia a dia. Se a fonte de reserva não tiver a sua moeda, o valor aparece em dólar, marcado como tal.",
         "Escolha Euro para ver “€ 1.650,00”; volte para Real para ver “R$ 10.800,00”.")
-    val BIO_UNLOCK = t("Desbloquear com a digital",
+    val BIO_UNLOCK = t("Digital para consulta",
         "A chave auxiliar abre somente a visualização de saldos e dados. Ela não substitui a autenticação biométrica por uso da chave principal.",
         "Reduzir a digitação na consulta sem permitir que essa chave auxiliar assine. Depois de reiniciar, após erros ou quando o prazo expira, o PIN volta a ser exigido.",
         "Use a digital para consultar; para assinar ou alterar dados, informe o PIN e confirme a biometria da chave principal.")
