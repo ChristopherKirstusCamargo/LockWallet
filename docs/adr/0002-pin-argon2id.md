@@ -28,7 +28,7 @@ Central de Segurança diferencia “PIN de conveniência”, “segredo de alta 
 OWASP Password Storage Cheat Sheet (G3-1); RFC 9106; Android Keystore auth docs (G2-1).
 
 ## Teste
-Fase B: rejeição de dígitos não ASCII, vetor Argon2id RFC 9106 + oracle independente, PIN errado ≡ blob adulterado; aparelho físico: KEK inutilizável fora do BiometricPrompt.
+Testes existentes cobrem rejeição de dígitos não ASCII, vetor Argon2id RFC 9106 + oracle independente e PIN errado ≡ blob adulterado. Foram adicionados testes para perfil `0x02` e migração v1→v2, mas ainda não foram executados após esta alteração. CI e validação em aparelho físico (incluindo tempo/memória do Argon2id e KEK inutilizável fora do BiometricPrompt) permanecem pendentes.
 
 ## Condição para reabrir
 Benchmark mostrar DoS/UX inaceitável ou nova API de hardware (ex.: Weaver público).
