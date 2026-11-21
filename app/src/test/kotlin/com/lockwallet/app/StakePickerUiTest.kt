@@ -55,11 +55,11 @@ class StakePickerUiTest {
         rpc.handlers["getVoteAccounts"] = { """{"current":[${current.joinToString(",")}],"delinquent":[${json(a.vote, a.node, a.baselineCommission)}]}""" }
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx).also { it.hideBalance = false },
-            com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _, _ -> true }, transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
+            com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true }, transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
-        c.submitName("Conta 1"); c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray()); c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH); await(c)
+        c.submitName("Conta 1"); c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray()); c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); await(c)
         c.go(Screen.StakeNew)
         rule.runOnUiThread { rule.activity.setContent { App(c, Platform({}, {}, {})) } }
         rule.waitUntil(10_000) { rule.onAllNodesWithTag("curated").fetchSemanticsNodes().isNotEmpty() }
