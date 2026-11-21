@@ -119,7 +119,7 @@ class AppController(
     internal val scope: CoroutineScope,
     val prefs: Prefs,
     private val price: PriceService?,
-    private val biometric: suspend (Cipher, String) -> Boolean,
+    private val biometric: suspend (Cipher, String, Boolean) -> Boolean,
     /** Null = offline (tests): every chain call reports "sem conexão"; nothing is invented. */
     transport: com.lockwallet.data.rpc.RpcTransport? = null,
     dataDir: java.io.File? = null,
@@ -413,7 +413,7 @@ class AppController(
 
     private suspend fun passBiometric(ticket: KekTicket, title: String): Boolean {
         if (!ticket.needsBiometric) return true
-        val ok = biometric(ticket.cipher!!, title)
+        val ok = biometric(ticket.cipher!!, title, ticket.allowsDeviceCredential)
         if (!ok) error = S.BIO_CANCELLED
         return ok
     }
@@ -448,7 +448,7 @@ class AppController(
                     if (migration != null) {
                         try {
                             val authorized = !migration.needsUserAuth ||
-                                (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE))
+                                (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE, migration.allowsDeviceCredential))
                             if (authorized) {
                                 // Migration is best-effort and atomic. If it fails or is cancelled, the old
                                 // envelope is still valid and this already-authenticated session continues.
@@ -477,7 +477,7 @@ class AppController(
         launchOp {
             try {
                 val t = io { provider.beginBiometricUnlock(null) }
-                if (!biometric(t.cipher, S.PROMPT_UNLOCK)) return@launchOp
+                if (!biometric(t.cipher, S.PROMPT_UNLOCK, false)) return@launchOp
                 val session = io { provider.completeBiometricUnlock(t) }
                 lockMessage = null; onUnlocked(session, null)
             } catch (e: CustodyException) {
