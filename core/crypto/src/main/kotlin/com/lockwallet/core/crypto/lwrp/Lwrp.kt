@@ -32,8 +32,10 @@ private fun fail(e: LwrpError): Nothing = throw LwrpFormatException(e)
 
 /** Approved Argon2id (v=0x13, 32-byte output) profiles. Only exact matches are accepted (v2.1 §2). */
 enum class LwrpKdfProfile(val memoryKiB: Long, val iterations: Long, val parallelism: Long) {
-    /** OWASP minimum / compatibility profile. Stronger profiles need benchmark + ADR + vectors. */
-    COMPAT_V1(19456, 2, 1);
+    /** Existing LWRP v1 profile; kept readable for previously exported Recovery Packages. */
+    COMPAT_V1(19456, 2, 1),
+    /** Current LWRP v2 profile: 64 MiB, 3 passes, one lane. */
+    STRONG_V2(65536, 3, 1);
 
     companion object {
         fun of(m: Long, t: Long, p: Long): LwrpKdfProfile? =
@@ -41,7 +43,7 @@ enum class LwrpKdfProfile(val memoryKiB: Long, val iterations: Long, val paralle
     }
 }
 
-class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray) {
+class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray, val version: Byte = VERSION_STRONG) {
     private val saltBytes = salt.copyOf()
     private val nonceBytes = nonce.copyOf()
 
@@ -56,7 +58,7 @@ class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray) {
     fun encode(): ByteArray {
         val b = ByteArray(HEADER_LEN)
         MAGIC.copyInto(b, 0)
-        b[4] = VERSION
+        b[4] = version
         b[5] = KDF_ARGON2ID_V13
         saltBytes.copyInto(b, 6)
         putU32(b, 22, kdf.memoryKiB); putU32(b, 26, kdf.iterations); putU32(b, 30, kdf.parallelism)
@@ -69,7 +71,8 @@ class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray) {
         const val TAG_LEN = 16
         const val SALT_LEN = 16
         const val NONCE_LEN = 12
-        const val VERSION: Byte = 0x01
+        const val VERSION: Byte = 0x01 // legacy LWRP v1
+        const val VERSION_STRONG: Byte = 0x02 // current LWRP v2; same fixed binary shape
         const val KDF_ARGON2ID_V13: Byte = 0x01
         val MAGIC = byteArrayOf(0x4C, 0x57, 0x52, 0x50) // "LWRP"
 
@@ -86,11 +89,16 @@ class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray) {
         fun parseFile(file: ByteArray): LwrpHeader {
             if (file.size !in VALID_FILE_SIZES) fail(LwrpError.BAD_SIZE)
             for (i in 0 until 4) if (file[i] != MAGIC[i]) fail(LwrpError.BAD_MAGIC)
-            if (file[4] != VERSION) fail(LwrpError.BAD_VERSION)
+            val version = file[4]
+            if (version != VERSION && version != VERSION_STRONG) fail(LwrpError.BAD_VERSION)
             if (file[5] != KDF_ARGON2ID_V13) fail(LwrpError.BAD_KDF_ID)
             val kdf = LwrpKdfProfile.of(getU32(file, 22), getU32(file, 26), getU32(file, 30))
                 ?: fail(LwrpError.KDF_PROFILE_NOT_ALLOWED)
-            return LwrpHeader(file.copyOfRange(6, 22), kdf, file.copyOfRange(34, 46))
+            // The version selects one exact, allowlisted profile. No caller-controlled KDF parameters.
+            if ((version == VERSION && kdf != LwrpKdfProfile.COMPAT_V1) ||
+                (version == VERSION_STRONG && kdf != LwrpKdfProfile.STRONG_V2)
+            ) fail(LwrpError.KDF_PROFILE_NOT_ALLOWED)
+            return LwrpHeader(file.copyOfRange(6, 22), kdf, file.copyOfRange(34, 46), version)
         }
     }
 }
