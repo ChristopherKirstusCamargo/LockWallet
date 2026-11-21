@@ -384,7 +384,7 @@ private fun HomeSecurityAttention(c: AppController) {
     if (!c.vaultPresent) return
     val warnings = buildList {
         if (c.legacyKekPinOnly) {
-            add("A chave principal deste cofre ainda usa o modo legado, sem biometria forte exigida a cada uso. A migração dessa proteção ainda não foi realizada.")
+            add("Este cofre ainda usa uma chave principal legada, sem biometria forte exigida a cada uso. A atualização dessa chave é separada da migração do Argon2id e ainda não foi implementada.")
         }
         if (c.legacyKdfWalletCount > 0) {
             add("Há ${c.legacyKdfWalletCount} carteira(s) com o perfil antigo de Argon2id. A atualização é tentada após o desbloqueio por PIN.")
