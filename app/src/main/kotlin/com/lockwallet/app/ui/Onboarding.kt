@@ -353,7 +353,7 @@ private fun isTrivialPin(p: CharArray): Boolean = p.all { it == p[0] } ||
 /** New local vaults require BIOMETRIC_STRONG for every KEK operation. */
 @Composable
 fun BioChoice(c: AppController) {
-    val deviceSecure = remember { runCatching { c.capabilities.facts().deviceSecure }.getOrDefault(false) }
+    val deviceSecure = remember { c.capabilities.hasSecureLockScreen() }
     val biometric = remember { c.capabilities.biometricAvailability() }
     val biometricReady = biometric == com.lockwallet.custody.local.BiometricAvailability.AVAILABLE
     Screen("Proteção do cofre", onBack = { c.go(Screen.PinCreate) }, help = Help.BIOMETRIC) {
