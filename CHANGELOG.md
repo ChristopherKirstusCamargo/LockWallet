@@ -3,6 +3,13 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
 
+## [5.0.4] — 2026-11-21 — publicação (versionCode 12)
+
+- `versionName` permanece `Final`. `versionCode` 12, para o Android aceitar a atualização quando o certificado for o mesmo.
+- Correção de compilação: o setter privado de `UnlockedWallet.header` saiu da lista de parâmetros do construtor (Kotlin não aceita `private set` ali) e foi para o corpo da classe. O setter continua privado.
+- Certificado de assinatura novo. Não instala por cima da v5.0.3 nem das versões 5.0.1/5.0.2. Faça backup verificado antes de desinstalar.
+- A chave privada e a senha não entram no repositório nem na Release.
+
 ## [5.0.1] — 2026-11-20 — correções de segurança
 
 - **Lock Connect:** bloqueia a preparação de transações dApp quando carteira + contas observadas excedem o limite de 16 contas da simulação. Remove o truncamento silencioso que poderia deixar contas fora da verificação de estado posterior.

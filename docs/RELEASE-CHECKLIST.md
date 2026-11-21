@@ -51,11 +51,12 @@ python3 tools/sbom.py /tmp/deps.txt --version <versão> --apk-sha256 <sha> -o di
 
 ## 6. Estado atual da publicação
 
-- A Release `v5.0.2` e seus artefatos publicados devem permanecer preservados. Não substituir nem apagar o APK já distribuído.
+- As Releases `v5.0.1` e `v5.0.2` foram removidas porque o código dessas tags continha `signing/lockwallet-release.p12.enc`. Apagar a tag não apaga o blob: ele continua acessível pelo histórico da `main`. Reescrever esse histórico mudaria os SHAs da `main` e não foi feito.
+- A v5.0.3 não contém esse arquivo. A v5.0.4 também não.
 - A automação de assinatura/publicação do GitHub Actions foi aposentada. `.github/workflows/build-apk.yml` está desativado para
   assinatura e publicação; não restaurar esse fluxo nem reutilizar credenciais de CI.
-- O Secret legado `LOCKWALLET_KEYSTORE_PASSWORD` deve ser removido manualmente em
-  **Settings → Secrets and variables → Actions**. O conector de repositório não administra valores de Secrets.
+- O Secret legado `LOCKWALLET_KEYSTORE_PASSWORD` (e `LOCKWALLET_KEYSTORE_BASE64`, se ainda existir) deve ser removido manualmente em
+  **Settings → Secrets and variables → Actions**. O token usado aqui não tem permissão de Secrets.
 - A chave privada e sua senha devem ficar sob custódia offline, fora do GitHub e do ambiente de CI. Nunca versionar
   `.p12`, `.p12.enc`, `signing.properties` ou arquivos equivalentes. O `.gitignore` bloqueia esses caminhos para
   reduzir reincidência.

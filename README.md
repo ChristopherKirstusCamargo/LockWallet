@@ -12,7 +12,7 @@
 | Pacote | `com.lockwallet.app` |
 | Versão pública | Final (a Release é atualizada a cada publicação) |
 | SHA-256 do APK | Confira o hash informado na descrição da Release final |
-| SHA-256 do certificado | `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13` |
+| SHA-256 do certificado | `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3` |
 | Licença | Apache-2.0 |
 
 ---
@@ -61,7 +61,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 
 1. Baixe o único arquivo `lockwallet.apk` na [Release oficial](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) ou pelo [link direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
 2. Confira o SHA-256 do arquivo com o hash informado na descrição da Release.
-3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado da Release mais recente (v5.0.3) é `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`.
+3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado da Release mais recente (v5.0.4) é `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. O certificado da v5.0.3 era `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. O certificado aposentado da v5.0.1/v5.0.2 era `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
 **Migração de instalações antigas:** se o Android informar incompatibilidade de assinatura ao atualizar, a instalação anterior foi assinada por outro certificado. Antes de desinstalar a versão antiga, faça backup da frase de recuperação ou do Recovery Package e confirme que consegue restaurá-lo. Não desinstale antes de verificar o backup; nunca compartilhe as palavras ou o pacote de recuperação.
 
@@ -212,7 +212,7 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 
 1. Download the only file, `lockwallet.apk`, from the [official Release](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) or the [direct download link](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
 2. Compare the APK's SHA-256 with the hash shown in the Release description.
-3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint is `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint of the latest Release (v5.0.4) is `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. The v5.0.3 certificate was `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. The retired v5.0.1/v5.0.2 certificate was `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
 **Migrating older installations:** if Android reports a signature mismatch during an update, the previous installation was signed with a different certificate. Before uninstalling it, back up the recovery phrase or Recovery Package and confirm that it can be restored. Never uninstall before verifying the backup, and never share recovery words or the package.
 

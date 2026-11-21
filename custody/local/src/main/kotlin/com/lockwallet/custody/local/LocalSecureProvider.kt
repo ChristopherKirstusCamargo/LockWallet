@@ -105,9 +105,10 @@ class UnlockedWallet internal constructor(
     /** Null when opened by biometrics: such a session cannot vouch for the PIN (no sealing / adding accounts). */
     private val pinKey: SecretBytes?,
     private val pinSalt: ByteArray,
-    internal var header: ByteArray = ByteArray(0)
-        private set,
+    header: ByteArray = ByteArray(0),
 ) : AutoCloseable {
+    internal var header: ByteArray = header
+        private set
     /** True when opened with the PIN (not with biometrics). */
     val viaPin: Boolean get() = pinKey != null
     val isMnemonic: Boolean get() = info.isMnemonic
