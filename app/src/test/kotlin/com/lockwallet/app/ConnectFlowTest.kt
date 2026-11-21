@@ -70,7 +70,7 @@ class ConnectFlowTest {
 
     private fun controller(role: WalletRole): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
-        val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _, _ -> true },
+        val c = AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true },
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.draft!!.role = role
@@ -78,7 +78,7 @@ class ConnectFlowTest {
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Connect")
         c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
-        c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH); c.await()
+        c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); c.await()
         return c
     }
 
