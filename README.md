@@ -52,7 +52,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
   estimado; modo Avançado com a lista completa. Desativar, sacar, dividir e juntar contas de stake.
 - **dApps** via Mobile Wallet Adapter 2.x (Lock Connect), com cada pedido analisado antes da aprovação.
 - **Backup** pela frase de recuperação e pelo Recovery Package (`.lwrp`) cifrado com senha de 8 palavras.
-- **Digital opcional** com prazo máximo sem PIN configurável (1/4/24/72 h, padrão 24 h) e ação **Bloquear agora**.
+- **Digital opcional para desbloqueio de visualização** com prazo máximo sem PIN configurável (1/4/24/72 h, padrão 24 h) e ação **Bloquear agora**. Toda assinatura exige PIN.
 - **Central de Segurança** com as proteções que o aparelho realmente oferece (StrongBox/TEE, biometria, sinais de
   root/depurador).
 - Tema escuro e claro; sem anúncios, sem conta, sem e-mail.
@@ -81,7 +81,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 **Enviar**
 1. **Início → Enviar**: cole ou leia (QR) o endereço e informe o valor, com vírgula decimal (ex.: `1,5`).
 2. Na revisão, confira destino completo, valor, taxa e avisos.
-3. Confirme com PIN ou digital. **Máximo** usa somente o saldo *Disponível*.
+3. Confirme com PIN. A digital só desbloqueia a visualização; não autoriza assinaturas. **Máximo** usa somente o saldo *Disponível*.
 
 **Stake**
 1. **Stake → Novo stake.**
@@ -113,8 +113,8 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 - **Chaves só no aparelho:** semente cifrada com Argon2id + AES-GCM e chave do Keystore (StrongBox quando houver);
   a chave do Keystore nunca é recriada silenciosamente.
 - **PIN errado nunca apaga a carteira:** a espera cresce até 24 h; cada tentativa é gravada antes da conferência.
-- **Digital:** chave biométrica por uso; PIN obrigatório após reinício, após erro, ao fim do prazo e para frase ou
-  exportação.
+- **Digital:** chave biométrica por uso, limitada ao desbloqueio de visualização; toda assinatura, revelação da frase,
+  exportação e operação sensível continua exigindo PIN, com verificação também na camada de custódia.
 - **Rede:** só Mainnet, servidor conferido pelo hash genesis; envio para todos os servidores; transação só é dada
   como expirada com evidência de dois servidores.
 - **Tokens:** extensões Token-2022 perigosas negadas por padrão.
@@ -132,8 +132,9 @@ Detalhes em [`SECURITY.md`](SECURITY.md) e [`docs/`](docs/).
 - A suíte automatizada roda em Android simulado (Robolectric); a verificação em aparelho físico está em
   [`docs/RELEASE-CHECKLIST.md`](docs/RELEASE-CHECKLIST.md). Recomenda-se começar com valores pequenos.
 - Aparelho com root ou sistema comprometido pode ler a tela e controlar o app; sinais de root/hook são informativos.
-- Com a digital ativada, uma digital obtida sob coação permite assinar dentro do prazo escolhido; frase e exportação
-  continuam exigindo o PIN.
+- Com a digital ativada, uma digital obtida sob coação pode abrir a visualização de saldos durante o prazo escolhido,
+  mas não autoriza assinaturas nem a exportação da frase/backup; essas operações exigem PIN. Um aparelho com root ou
+  sistema comprometido continua fora dessa garantia.
 - Servidores RPC em conluio podem exibir saldo incorreto; não podem assinar nem mover fundos.
 - O retorno estimado do stake não inclui comissão de MEV, que o RPC padrão não informa.
 
@@ -201,8 +202,8 @@ Development follows a master specification, with decisions recorded in [`docs/ad
   Advanced mode with the full list. Deactivate, withdraw, split and merge stake accounts.
 - **dApps** via Mobile Wallet Adapter 2.x (Lock Connect), with every request analyzed before approval.
 - **Backup** through the recovery phrase and an encrypted Recovery Package (`.lwrp`) with an 8-word password.
-- **Optional biometrics** with a configurable maximum PIN-free window (1/4/24/72 h, default 24 h) and a **Lock now**
-  action.
+- **Optional view-only biometrics** with a configurable maximum PIN-free window (1/4/24/72 h, default 24 h) and a
+  **Lock now** action. Every signature still requires the wallet PIN.
 - **Security Center** showing the protections the device actually provides (StrongBox/TEE, biometrics, root/debugger
   signals).
 - Dark and light themes; no ads, no account, no e-mail.
@@ -238,8 +239,8 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 - **Keys stay on the device:** seed encrypted with Argon2id + AES-GCM under a Keystore key (StrongBox when present);
   the Keystore key is never silently recreated.
 - **Wrong PINs never wipe the wallet:** the delay grows up to 24 h; each attempt is recorded before it is checked.
-- **Biometrics:** per-use biometric key; PIN required after reboot, after an error, at the end of the window and for
-  the phrase or export.
+- **Biometrics:** per-use biometric key for view unlock only; every transaction, dApp/message signature, phrase reveal
+  and backup export still requires the wallet PIN, enforced inside the custody layer.
 - **Network:** Mainnet only, RPC pinned by genesis hash; broadcast to every RPC; a transaction is declared expired only
   with evidence from two RPCs.
 - **Tokens:** dangerous Token-2022 extensions denied by default.
@@ -256,8 +257,9 @@ See [`SECURITY.md`](SECURITY.md) and [`docs/`](docs/).
 - The automated suite runs on simulated Android (Robolectric); physical-device verification is listed in
   [`docs/RELEASE-CHECKLIST.md`](docs/RELEASE-CHECKLIST.md). Starting with small amounts is recommended.
 - A rooted or compromised device can read the screen and drive the app; root/hook signals are informational.
-- With biometrics enabled, a coerced fingerprint can sign within the chosen window; the phrase and export still
-  require the PIN.
+- With biometrics enabled, a coerced fingerprint can open the portfolio view within the selected window, but cannot
+  authorize signatures or reveal/export recovery secrets; those actions require the wallet PIN. A rooted or otherwise
+  compromised operating system remains outside this guarantee.
 - Colluding RPC servers can display an incorrect balance; they cannot sign or move funds.
 - The staking return estimate excludes MEV commission, which standard RPC does not expose.
 
