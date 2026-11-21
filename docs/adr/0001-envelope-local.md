@@ -24,7 +24,7 @@ A v2.0 §6.1 descreve as camadas AES-GCM; v2.1 §4 e v2.2 SEC-01 exigem um contr
 | 40 | 1 | derivation_profile | 0x01/0x02 (BIP-39) ou 0x00 |
 | 41 | 4 | account_index | < 2^31; 0 para keypair |
 | 45 | 32 | expected_pubkey | raw |
-| 77 | 1 | kdf_profile_id | 0x01 = m 19456 KiB, t 2, p 1 (allowlist) |
+| 77 | 1 | kdf_profile_id | 0x01 legacy = m 19456 KiB, t 2, p 1; 0x02 current = m 65536 KiB, t 3, p 1 (allowlist) |
 | 78 | 16 | pin_salt | aleatório |
 | 94 | 16 | keystore_alias_id | aleatório; alias = `lw.kek.` + hex |
 | 110 | 1 | auth_mode | 0x01 PIN-only, 0x02 PIN + BIOMETRIC_STRONG auth-per-use |
@@ -47,6 +47,8 @@ Tamanho total exato = 130 + (material_length+16) + 12 + 12 + 2 + 64 = material_l
 
 **Migração/escrita:** temp → fsync → read-back → validar estrutura, autenticação, material e pubkey derivada → rename atômico; versão anterior preservada até sucesso; versão futura desconhecida é recusada sem tocar no arquivo (downgrade nunca reescreve).
 
+**Migração KDF (adendo 21/11/2026):** LWLE continua com o mesmo layout v1 e o mesmo AAD; `kdf_profile_id` diferencia os parâmetros. Novas gravações usam `0x02` (Argon2id m=65536 KiB, t=3, p=1). Ao abrir um envelope `0x01` com PIN válido, a aplicação prepara um novo envelope sob `0x02`, verifica novamente DEK/material/pubkey e só substitui o arquivo por rename atômico. Cancelamento ou falha deixa o arquivo anterior utilizável e a migração pode ser tentada de novo. Essa migração **não** muda `auth_mode` nem a KEK: envelopes legados `PIN_ONLY` continuam sem autenticação por uso e exigem restauração/recriação em cofre novo para obter esse controle.
+
 ## Alternativas rejeitadas
 JSON/Protobuf como contrato criptográfico (ordem/representação variável); AAD apenas com string fixa (não vincula metadados); assinar Ed25519 no Keystore (não suportado); recriar alias após falha (proibido, §7.4).
 
@@ -60,7 +62,7 @@ Processo comprometido no mesmo UID pode usar a KEK enquanto desbloqueada; JVM n�
 Android Keystore docs (G1-1, G1-2 no verification-log); v2.1 §4; v2.2 SEC-01.
 
 ## Teste
-Implementado: `LocalEnvelopeTest` (3 envelopes byte a byte × Python independente, 21 negativos estruturais, bit-flip em todos os bytes, mistura de blobs), `LocalSecureProviderTest` (troca de arquivos entre carteiras, versão futura intocada, crash entre envelope e registro), `AtomicFilesTest` (crash em cada passo). Plano original: vetores positivos/negativos do layout (Kotlin × implementação Python independente), mistura de arquivos de dois cofres, bit-flip em cada região, truncamento/trailing, versão futura, interrupção em cada passo da migração (fake FS).
+Implementado anteriormente: `LocalEnvelopeTest` (3 envelopes byte a byte × Python independente, negativos estruturais, bit-flip em todos os bytes e mistura de blobs), `LocalSecureProviderTest` e `AtomicFilesTest`. Adicionados testes para perfil `0x02` e migração v1→v2 com reabertura em instância nova; ainda precisam ser executados em CI/aparelho físico antes de considerar a migração validada.
 
 ## Condição para reabrir
 Mudança de suite/algoritmo, evidência de falha de Keystore em OEM, ou necessidade de multi-material por arquivo.
