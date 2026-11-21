@@ -236,13 +236,30 @@ class LocalSecureProvider(
     }
 
     /**
-     * Keystore HMAC for the transaction journal. Reuses the non-exportable per-vault HMAC key with a
-     * separate domain; the callback keeps custody details out of the RPC module.
+     * Keystore HMAC for the application-wide transaction journal. This key is deliberately independent
+     * of the current vault: deleting the last wallet and creating a new vault must not strand old journal data.
+     * The HMAC key is non-exportable and is lazily created once per app installation.
      */
     fun transactionJournalMac(payload: ByteArray): ByteArray {
-        val vault = snapshot().vault ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
+        val aliasId = TX_JOURNAL_KEY_ID
         return try {
-            kek.attemptMac(hex(vault.aliasIdHex), TX_JOURNAL_MAC_DOMAIN + payload)
+            try {
+                kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+            } catch (missing: KekException) {
+                if (missing.kind != KekException.Kind.NOT_FOUND) throw missing
+                // Only NOT_FOUND may create the stable app-scoped key. Other failures fail closed.
+                try {
+                    kek.createAttemptMacKey(aliasId)
+                } catch (createFailure: KekException) {
+                    // A concurrent first use may have created it; accept only if the follow-up MAC succeeds.
+                    try {
+                        return kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+                    } catch (_: Exception) {
+                        throw createFailure
+                    }
+                }
+                kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+            }
         } catch (e: KekException) {
             throw mapKek(e)
         }
@@ -705,6 +722,8 @@ class LocalSecureProvider(
     }
 
     companion object {
+        /** Reserved 16-byte alias ID, independent of random per-vault aliases. */
+        private val TX_JOURNAL_KEY_ID = "lw.tx.journal.v1".toByteArray(Charsets.US_ASCII)
         private val TX_JOURNAL_MAC_DOMAIN = "LockWallet/TxJournal/v1\u0000".toByteArray(Charsets.US_ASCII)
 
         internal fun hexOf(b: ByteArray) = b.joinToString("") { "%02x".format(it.toInt() and 0xff) }
