@@ -94,7 +94,7 @@ class UnlockedWallet internal constructor(
     val viaPin: Boolean get() = pinKey != null
     val isMnemonic: Boolean get() = info.isMnemonic
 
-    /** Biometric sessions may sign only; revealing / exporting / deriving needs a PIN session (ADR 0024, enforced here). */
+    /** Biometric sessions are view-only; every signature and secret operation requires a PIN session. */
     internal fun hasPin(): Boolean = pinKey != null
     private fun requirePin() { if (pinKey == null) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED) }
 
@@ -129,6 +129,7 @@ class UnlockedWallet internal constructor(
      * and fee payer, and the derived key must equal the registered address. No blind signing: any doubt throws.
      */
     fun signApproved(message: ByteArray, approvedHash: ByteArray): ByteArray {
+        requirePin()
         val a = TransactionAnalyzer.analyze(message, info.address)
         if (!a.messageHash.contentEquals(approvedHash)) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
         if (!a.signable) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
@@ -141,6 +142,7 @@ class UnlockedWallet internal constructor(
      * these exact bytes (hash shown on the review) and raw instructions, if any, were explicitly acknowledged.
      */
     fun signDappTransaction(message: ByteArray, approvedHash: ByteArray, rawAcknowledged: Boolean): ByteArray {
+        requirePin()
         if (info.role != com.lockwallet.custody.local.storage.WalletRole.CONNECT) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
         if (!com.lockwallet.core.solana.dapp.DappFirewall.permits(message, info.address, approvedHash, rawAcknowledged)) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
         val pending = PendingMaterial.fromEnvelope(if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR, material.copy())
@@ -149,6 +151,7 @@ class UnlockedWallet internal constructor(
 
     /** Lock Connect: off-chain text message (sign_messages / SIWS); never anything that parses as a transaction. */
     fun signDappMessage(text: ByteArray): ByteArray {
+        requirePin()
         if (info.role != com.lockwallet.custody.local.storage.WalletRole.CONNECT) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
         if (com.lockwallet.core.solana.dapp.MessagePolicy.check(text) != null) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
         val pending = PendingMaterial.fromEnvelope(if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR, material.copy())
