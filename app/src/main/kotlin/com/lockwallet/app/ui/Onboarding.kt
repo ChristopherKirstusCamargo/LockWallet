@@ -463,7 +463,9 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
         is com.lockwallet.app.AuthPurpose.DeleteWallet -> "Confirme o PIN para excluir a carteira"
     }
     val sub = when (purpose) {
-        null -> S.PIN_ENTER
+        null -> if (c.bioReady) {
+            "A digital desta tela libera apenas a consulta. Para enviar, assinar ou autorizar dApps, digite o PIN e confirme a biometria da chave principal."
+        } else S.PIN_ENTER
         is com.lockwallet.app.AuthPurpose.Sign -> c.chain.prepared?.intent?.summary
         is com.lockwallet.app.AuthPurpose.DappSign -> c.connect.current?.dapp?.name?.take(32)
         else -> S.PIN_ENTER
