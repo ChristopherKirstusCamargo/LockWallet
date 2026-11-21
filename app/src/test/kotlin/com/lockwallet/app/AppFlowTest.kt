@@ -60,8 +60,7 @@ internal class SoftKek : KekStore {
         return object : KekOperation {
             override val cipher: Cipher = c
             override val requiresUserAuth = true
-            override val allowsDeviceCredential = true
-            override fun iv(): ByteArray = c.iv
+                        override fun iv(): ByteArray = c.iv
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray =
                 try { c.updateAAD(aad); c.doFinal(input) } catch (e: AEADBadTagException) { throw KekException(KekException.Kind.BAD_TAG, e) }
         }
@@ -83,7 +82,7 @@ class AppFlowTest {
 
     private fun controller(): AppController {
         val p = LocalSecureProvider(tmp.root, SoftKek().also { kek = it }, clock)
-        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _, _ -> prompts++; biometricOk })
+        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> prompts++; biometricOk })
             .also { it.start() }
     }
     private var kek: SoftKek? = null
@@ -120,7 +119,7 @@ class AppFlowTest {
             assertEquals(Screen.PinCreate, c.screen)
             c.setNewPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"))
             assertEquals(Screen.BioChoice, c.screen)
-            c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH)
+            c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC)
         }
         c.await()
         assertNull(c.error)
@@ -234,7 +233,7 @@ class AppFlowTest {
         assertEquals(c.draft!!.material!!.account(AccountProfile.PRIMARY, 0), restored)
         c.submitName("Restaurada")
         c.setNewPin(pin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"))
-        c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH); c.await()
+        c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); c.await()
         val id = (c.screen as Screen.Detail).walletId
         assertEquals(0, c.wallets.single().accountIndex)
         // Export: authorise, seal LWRP, the destination picker is requested with a .lwrp name.
