@@ -13,9 +13,11 @@ keystore.properties
 __pycache__/
 tools/oracle/venv/
 
-# Release signing material (kept outside the repo; belt and braces)
+# Private release-signing material must never be committed (encrypted or plaintext)
+signing/
 lockwallet-signing/
 *.p12
+*.p12.enc
 signing.properties
 dist/*.apk
 
