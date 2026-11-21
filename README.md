@@ -40,6 +40,8 @@
 
 
 
+## Português
+
 ### Visão geral
 
 A Lock Wallet é uma carteira de autocustódia exclusiva para Solana. Suas chaves ficam no seu aparelho, toda
