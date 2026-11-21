@@ -73,6 +73,7 @@ object S {
     const val USE_PIN = "Usar PIN"
     const val BIO_INVALIDATED = "A biometria do aparelho mudou. Use o PIN e ative a digital de novo nos Ajustes."
     const val PROMPT_SEAL = "Proteger a nova carteira"
+    const val PROMPT_UPGRADE = "Atualizar proteção do cofre"
     const val PROMPT_SUB = "Confirme com sua biometria"
     const val BIO_CANCELLED = "Biometria cancelada. Nada foi alterado."
 
