@@ -75,6 +75,7 @@ class LocalEnvelope(
         const val KIND_KEYPAIR = 0x02
         const val AUTH_PIN_ONLY = 0x01
         const val AUTH_PIN_BIOMETRIC = 0x02
+        const val AUTH_PIN_DEVICE_AUTH = 0x03
         const val KDF_OWASP_V1 = 0x01
         const val KDF_STRONG_V2 = 0x02
         val BIP39_LENGTHS = setOf(16, 20, 24, 28, 32)
