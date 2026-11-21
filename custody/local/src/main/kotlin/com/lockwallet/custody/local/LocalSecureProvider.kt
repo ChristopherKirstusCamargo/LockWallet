@@ -396,6 +396,10 @@ class LocalSecureProvider(
                 unlockPinKey.close()
                 throw CustodyException(CustodyException.Reason.STORAGE)
             }
+            // Extract the DEK while the legacy PIN key is still available. The one-shot ticket will rewrap
+            // the current envelope only after any required second Keystore authorization succeeds.
+            val migrationDek = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) null else
+                runCatching { EnvelopeCrypto.unwrapDek(env, dekPin, unlockPinKey) }.getOrNull()
             val sessionPinKey = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) {
                 unlockPinKey
             } else {
@@ -406,9 +410,64 @@ class LocalSecureProvider(
                 }
             }
             bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
-            return UnlockResult.Success(UnlockedWallet(e.toInfo(), material, sessionPinKey, env.pinSalt(), env.header()))
+            val session = UnlockedWallet(e.toInfo(), material, sessionPinKey, env.pinSalt(), env.header())
+            val migration = migrationDek?.let { dek ->
+                try {
+                    KdfMigrationTicket(
+                        walletId, env.encode(), env, dek, material.copy(), sessionPinKey.copy(),
+                        kek.encryptor(env.aliasId()),
+                    )
+                } catch (_: Exception) {
+                    dek.close()
+                    null // The PIN unlock remains valid; a failed optional migration is retried next time.
+                }
+            }
+            return UnlockResult.Success(session, migration)
         } finally {
             dekPin.wipe()
+        }
+    }
+
+    /**
+     * Upgrade one legacy LWLE envelope after the PIN has already been verified. The previous file remains intact
+     * unless the complete v2 envelope passes validation and AtomicFiles successfully renames it into place.
+     * Failure/cancellation is non-destructive; the next PIN unlock can retry.
+     */
+    fun completeKdfMigration(ticket: KdfMigrationTicket, session: UnlockedWallet): Boolean {
+        try {
+            if (session.info.id != ticket.walletId || !session.viaPin) return false
+            val current = entry(ticket.walletId)
+            if (current.state != WalletState.ACTIVE) return false
+            val target = envFile(ticket.walletId)
+            if (!target.isFile || !target.readBytes().contentEquals(ticket.originalEnvelope)) return false
+
+            val migrated = EnvelopeCrypto.migrateToStrong(
+                ticket.envelope, ticket.dek, ticket.material, ticket.strongPinKey, ticket.op, random,
+            )
+            val bytes = migrated.encode()
+            atomic.write(target, bytes) { readBack ->
+                val parsed = LocalEnvelope.parse(readBack)
+                check(parsed.kdfProfile == LocalEnvelope.KDF_STRONG_V2)
+                check(parsed.materialId().contentEquals(ticket.envelope.materialId()))
+                check(parsed.expectedPubkey().contentEquals(ticket.envelope.expectedPubkey()))
+                check(parsed.aliasId().contentEquals(ticket.envelope.aliasId()))
+                check(parsed.authMode == ticket.envelope.authMode)
+                check(parsed.header().contentEquals(migrated.header()))
+            }
+            session.replaceHeader(migrated.header())
+            // A biometric view record is bound to the envelope header. Recreate it for the new AAD;
+            // if that optional write fails, the wallet remains usable by PIN.
+            bio?.let { b ->
+                runCatching {
+                    b.remove(ticket.walletId)
+                    if (b.enabled()) b.write(hex(ticket.walletId), migrated.header(), ticket.material)
+                }
+            }
+            return true
+        } catch (_: Exception) {
+            return false
+        } finally {
+            ticket.close()
         }
     }
 
