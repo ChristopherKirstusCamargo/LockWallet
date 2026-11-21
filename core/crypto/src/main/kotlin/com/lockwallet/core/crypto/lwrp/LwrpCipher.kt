@@ -22,15 +22,21 @@ class LwrpPasswordException(val error: LwrpPasswordError) : IllegalArgumentExcep
 class LwrpOpenException : Exception("package could not be opened")
 
 /**
- * LWRP v1 encryption (spec §10, ADR 0004): key = Argon2id v0x13(NFC-UTF-8(password), salt, COMPAT_V1) (32 B),
- * ciphertext = AES-256-GCM(key, nonce, AAD = the 46 header bytes, payload). Independent of the PIN.
+ * New exports use LWRP v2 / STRONG_V2. LWRP v1 / COMPAT_V1 remains readable for existing backups.
+ * Both versions retain the 46-byte header, authenticated in full as AES-256-GCM AAD. Independent of the PIN.
  */
 object LwrpCipher {
     const val MIN_PASSWORD_BYTES = 16
     const val MAX_PASSWORD_BYTES = 256
     const val GENERATED_WORDS = 8 // 8 × 11 bits = 88 bits
 
-    private val KDF = KdfProfile.OWASP_V1
+    private val LEGACY_KDF = KdfProfile.OWASP_V1
+    private val WRITE_KDF = KdfProfile.STRONG_V2
+
+    private fun cryptoProfile(profile: LwrpKdfProfile): KdfProfile = when (profile) {
+        LwrpKdfProfile.COMPAT_V1 -> LEGACY_KDF
+        LwrpKdfProfile.STRONG_V2 -> WRITE_KDF
+    }
 
     init {
         check(KDF.memoryKiB.toLong() == LwrpKdfProfile.COMPAT_V1.memoryKiB && KDF.iterations.toLong() == LwrpKdfProfile.COMPAT_V1.iterations &&
@@ -80,21 +86,33 @@ object LwrpCipher {
         return out
     }
 
-    /** Encrypts [payload] into a complete LWRP v1 file. Verifies the payload pubkey first. */
+    /** Encrypts new backups as LWRP v2 with the current high-cost Argon2id profile. */
     fun seal(payload: LwrpPayload, password: CharArray, random: SecureRandom = SecureRandom()): ByteArray {
+        payload.verifyPublicKey()
         val salt = ByteArray(LwrpHeader.SALT_LEN).also(random::nextBytes)
         val nonce = ByteArray(LwrpHeader.NONCE_LEN).also(random::nextBytes)
-        return sealWith(payload, password, salt, nonce)
+        val header = LwrpHeader(salt, LwrpKdfProfile.STRONG_V2, nonce, LwrpHeader.VERSION_STRONG).encode()
+        val plain = payload.encode()
+        try {
+            encodePassword(password).use { pw ->
+                pw.withBytes { p -> Argon2id.derive(p, salt, WRITE_KDF) }.use { key ->
+                    val ct = AesGcm.encrypt(key, nonce, header, plain)
+                    return header + ct
+                }
+            }
+        } finally {
+            plain.wipe()
+        }
     }
 
     /** Deterministic variant for regression vectors only. */
     internal fun sealWith(payload: LwrpPayload, password: CharArray, salt: ByteArray, nonce: ByteArray): ByteArray {
         payload.verifyPublicKey()
-        val header = LwrpHeader(salt, LwrpKdfProfile.COMPAT_V1, nonce).encode()
+        val header = LwrpHeader(salt, LwrpKdfProfile.COMPAT_V1, nonce, LwrpHeader.VERSION).encode()
         val plain = payload.encode()
         try {
             encodePassword(password).use { pw ->
-                pw.withBytes { p -> Argon2id.derive(p, salt, KDF) }.use { key ->
+                pw.withBytes { p -> Argon2id.derive(p, salt, LEGACY_KDF) }.use { key ->
                     val ct = AesGcm.encrypt(key, nonce, header, plain)
                     return header + ct
                 }
@@ -113,7 +131,8 @@ object LwrpCipher {
         val aad = file.copyOfRange(0, LwrpHeader.HEADER_LEN)
         val ct = file.copyOfRange(LwrpHeader.HEADER_LEN, file.size)
         encodePassword(password).use { pw ->
-            pw.withBytes { p -> Argon2id.derive(p, header.salt(), KDF) }.use { key ->
+            val profile = cryptoProfile(header.kdf)
+            pw.withBytes { p -> Argon2id.derive(p, header.salt(), profile) }.use { key ->
                 val plain = try {
                     AesGcm.decrypt(key, header.nonce(), aad, ct)
                 } catch (_: AeadAuthenticationException) {
