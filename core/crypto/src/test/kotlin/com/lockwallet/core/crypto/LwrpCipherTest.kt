@@ -4,6 +4,8 @@ import com.lockwallet.core.crypto.lwrp.LwrpCipher
 import com.lockwallet.core.crypto.lwrp.LwrpError
 import com.lockwallet.core.crypto.lwrp.LwrpFormatException
 import com.lockwallet.core.crypto.lwrp.LwrpOpenException
+import com.lockwallet.core.crypto.lwrp.LwrpHeader
+import com.lockwallet.core.crypto.lwrp.LwrpKdfProfile
 import com.lockwallet.core.crypto.lwrp.LwrpPasswordError
 import com.lockwallet.core.crypto.lwrp.LwrpPasswordException
 import com.lockwallet.core.crypto.lwrp.LwrpPayload
