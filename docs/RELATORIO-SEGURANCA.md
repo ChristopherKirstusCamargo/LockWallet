@@ -1,7 +1,13 @@
 # Relatório de segurança — Lock Wallet
 
-Público: usuários e revisores · Data: 19/11/2026 · App avaliado: **Lock Wallet (versão final)** — inclui tudo o que foi testado nas
+Público: usuários e revisores · Data-base: 19/11/2026 · App avaliado: **Lock Wallet (versão final)** — inclui tudo o que foi testado nas
 rodadas anteriores. (Internamente o build se chama 5.0.0; o app não mostra número de versão.)
+
+> **Correção de segurança — 21/11/2026:** o código atual restringe a biometria ao desbloqueio de visualização. Toda
+> assinatura (transação, stake, dApp e mensagem) exige PIN, e a própria camada de custódia agora rejeita sessões
+> biométricas nos três métodos de assinatura. Portanto, as descrições antigas deste relatório que diziam que uma
+> digital coagida poderia assinar estavam desatualizadas. A coação ainda pode expor saldos e informações exibidas;
+> esta correção não protege um sistema operacional comprometido ou um aparelho já controlado pelo atacante.
 
 Este relatório explica, em linguagem simples, **quais ataques nós tentamos contra a Lock Wallet**, **como** cada um
 foi tentado, **o que aconteceu** (bloqueado, ou encontrado e corrigido), **qual proteção existe hoje** e **o que ainda
@@ -77,7 +83,7 @@ Como ler o resultado de cada ataque:
 
 | # | Ataque | Como tentamos | Resultado | Proteção que existe hoje |
 |---|---|---|---|---|
-| 22 | **Abrir com a digital e ver a frase / exportar o backup** (só a tela impedia) | chamamos direto as funções internas numa sessão aberta pela digital | 🔧 **Encontrado (médio) e corrigido** | O próprio cofre recusa frase, backup e novas contas sem o **PIN** |
+| 22 | **Usar sessão biométrica para acessar segredo ou assinar** (só a tela impedia) | chamadas diretas à API de custódia com sessão biométrica | 🔧 **Endurecido na camada de custódia** | O cofre recusa frase, backup, novas contas e todos os métodos de assinatura sem o **PIN** |
 | 23 | **Editar o arquivo da digital** para ela valer para sempre (sem pedir PIN a cada 72 h nem após reiniciar) | editamos o arquivo e recalculamos a “soma de conferência” | 🔧 **Encontrado (médio) e corrigido** | O arquivo agora tem um selo feito com uma chave guardada no chip de segurança; editou ⇒ digital desligada, PIN funciona |
 | 24 | **Gerador de números aleatórios quebrado** (frase previsível) | simulamos gerador que sempre devolve o mesmo valor | 🔧 **Encontrado (baixo) e corrigido** | A carteira se recusa a criar a frase |
 | 25 | **Senha do backup cortada na tela** (você anota incompleta e perde o backup) | celular pequeno + fonte grande | 🔧 **Encontrado e corrigido** | Senha numa grade numerada que se adapta; teste prova que as palavras mostradas são exatamente a senha usada |
@@ -126,7 +132,7 @@ Foco: tudo de novo, com olhar de atacante, mais os pontos fracos apontados na av
 | 50 | **Valor gigante digitado** (perto do limite do número) para “estourar” a conta saldo + taxa e passar pela checagem | valores de 9 bilhões de SOL e mais | 🔧 **Encontrado (baixo) e corrigido** | Conta feita de forma que não estoura + teto de 1 bilhão de SOL; nada chega à revisão. (A rede recusaria de qualquer jeito; ninguém perderia dinheiro) |
 | 51 | **“1.000” lido como 1 SOL** (no Brasil, “1.000” é mil) | digitamos valores com ponto de milhar | 🔧 **Encontrado (baixo) e corrigido** | “1.000”, “12.500” etc. são recusados como **ambíguos**, com a dica “use vírgula para decimais” |
 | 52 | **Digital depois de reiniciar** num celular que **não informa o contador de reinícios** (alguns fabricantes) | contador ausente + esperar o celular ficar ligado mais tempo que antes | 🔧 **Encontrado (médio) e corrigido** | Sem contador ⇒ a carteira **sempre pede o PIN** depois de qualquer dúvida; o PIN sempre funciona |
-| 53 | **Coação com a digital** (forçar seu dedo) dentro de uma janela longa de 72 h | revisão do desenho + testes | 🔧 **Endurecido** | Prazo padrão agora **24 h** (você escolhe 1, 4, 24 ou 72 h); **aumentar o prazo exige o PIN**; botão **“Bloquear agora”** desliga a digital até o próximo PIN |
+| 53 | **Coação com a digital** (forçar seu dedo) dentro de uma janela longa de 72 h | revisão do fluxo e da camada de custódia | 🔧 **Endurecido** | Biometria só abre a visualização; não assina. Prazo padrão **24 h** (1/4/24/72 h), aumento exige PIN e **“Bloquear agora”** bloqueia a biometria até o próximo PIN |
 | 54 | **Editar o arquivo da digital** para aumentar o prazo ou apagar o “Bloquear agora” | editamos o arquivo e recalculamos somas | ✅ Bloqueado | O arquivo é selado com chave do chip de segurança; editou ⇒ digital desligada, PIN funciona |
 | 55 | **Arquivo antigo da digital** (de versões anteriores, sem prazo) | carregamos o formato antigo | ✅ Bloqueado | Recebe o padrão mais rígido (24 h) |
 | 56 | **Relógio do celular voltando** (ou falha do relógio) para esticar o prazo da digital | voltamos o relógio interno | ✅ Bloqueado | Relógio voltou ⇒ pede o PIN; o relógio de parede nunca é usado |
@@ -158,8 +164,8 @@ histórico inteiro do repositório (sem chaves, senhas ou keystore).
 3. **Simulação obrigatória** antes de assinar.
 4. **Frase e chaves só no seu celular**, cifradas com chave do chip de segurança + PIN (Argon2id).
 5. **PIN errado nunca apaga** a carteira; só faz esperar.
-6. **Digital opcional**, com PIN obrigatório após reiniciar, após erro de PIN, a cada **24 h** (padrão; 1/4/24/72 h) e
-   para ver frase/exportar; **“Bloquear agora”** força o PIN na hora.
+6. **Digital opcional somente para visualização**, com PIN obrigatório após reiniciar, após erro de PIN, a cada **24 h**
+   (padrão; 1/4/24/72 h), para ver frase/exportar e para **toda assinatura**; **“Bloquear agora”** força o PIN na hora.
 7. **Sem servidor nosso, sem telemetria, sem registros.**
 8. **Só rede principal**, conferida.
 9. **Token-2022 perigoso bloqueado por padrão.**
@@ -177,8 +183,8 @@ histórico inteiro do repositório (sem chaves, senhas ou keystore).
 - **Celular com root ou sistema comprometido** pode ver tudo o que o app mostra e mexer no app. Nenhuma carteira de
   celular resolve isso por completo.
 - **Coação com a digital:** se a digital estiver ligada, dentro do prazo escolhido (padrão 24 h) alguém pode forçar seu
-  dedo e **assinar** (não pode ver a frase nem exportar). Diminua o prazo, use **“Bloquear agora”** antes de situações
-  de risco, ou deixe a digital desligada.
+  dedo e abrir a **visualização** de saldos e dados exibidos, mas não pode assinar nem ver/exportar a frase. Diminua o
+  prazo, use **“Bloquear agora”** antes de situações de risco ou deixe a digital desligada.
 - **PIN de 6 dígitos é curto** fora do celular; a proteção real vem do chip de segurança do aparelho.
 - **Servidores da rede podem mentir sobre o saldo mostrado** (não podem roubar, mas podem mostrar número errado). Se os
   dois servidores padrão combinarem uma mentira, a carteira não percebe. Isso vale também para a simulação de dApps: com os dois servidores de acordo na mentira, a estimativa mostrada fica errada (a simulação é uma estimativa de servidores externos, não uma garantia).
