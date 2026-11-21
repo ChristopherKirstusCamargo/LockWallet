@@ -26,6 +26,8 @@ pequenos.
 - **Biometria (opcional, 3.0.0):** chave RSA no Keystore só com biometria forte por uso (CryptoObject), invalidada
   com nova digital; estado da política autenticado por HMAC Keystore; PIN após reboot (ou contador de boot
   indisponível), após erro e a cada 1/4/24/72 h (padrão 24 h; aumentar exige PIN); “Bloquear agora” força o PIN.
+  A biometria só autoriza desbloqueio de visualização; toda assinatura é PIN-only e essa regra também é aplicada
+  diretamente pelos métodos de assinatura da camada de custódia.
 - **Seed Vault (Solana Mobile):** usado só quando o aparelho realmente o oferece; a semente nunca entra no app.
 - **Lock Connect (MWA 2.x):** só associação local; sessões por dApp com revogação; pedidos de redes de teste ou
   desconhecidas são recusados; transações v0/multiassinante recusadas; taxa de prioridade acima de 0,005 SOL bloqueada.
@@ -47,9 +49,10 @@ pequenos.
 
 ## Limites conhecidos
 Ver `docs/threat-model.md` (riscos residuais), `docs/RELATORIO-SEGURANCA.md` e `CHANGELOG.md`:
-- Biometria (opcional, desligada por padrão; ADR 0024) permite desbloquear e **assinar** sem o PIN dentro da janela
-  (mesmo boot, prazo escolhido — padrão 24 h, máximo 72 h —, sem erros de PIN, sem “Bloquear agora”). Coação biométrica nessa janela é um risco aceito; frase, exportação e
-  criação de carteira sempre exigem o PIN, imposto na custódia.
+- Biometria (opcional, desligada por padrão; ADR 0024) permite somente abrir a visualização dentro da janela
+  (mesmo boot, prazo escolhido — padrão 24 h, máximo 72 h —, sem erros de PIN, sem “Bloquear agora”). Coação biométrica
+  nessa janela pode expor saldos e dados visíveis, mas não autoriza assinaturas: a camada de custódia exige PIN em
+  toda assinatura. Frase, exportação e criação de carteira também exigem PIN.
 - Sem auditoria externa e sem teste com fundos reais em aparelho por esta equipe; comece com valores pequenos.
 
 ## Verificação do release
