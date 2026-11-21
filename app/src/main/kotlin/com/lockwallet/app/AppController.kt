@@ -134,6 +134,9 @@ class AppController(
     val chain = ChainModel(this, prefs, transport, dataDir)
     val connect = com.lockwallet.app.connect.ConnectModel(this, dataDir)
 
+    /** Length is persisted with the vault and read from the registry; six is the legacy default. */
+    val pinLength: Int get() = runCatching { provider.pinLength() }.getOrDefault(6)
+
     var tab by mutableStateOf(Tab.HOME)
     var actionsOpen by mutableStateOf(false)
     /** Home: 0 = Tokens, 1 = Atividade. */

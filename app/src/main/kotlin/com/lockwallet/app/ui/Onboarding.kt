@@ -457,7 +457,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
             val bio = c.bioReady && purpose.biometricAllowed()
             // Biometric first when allowed (once per appearance); the PIN pad stays as the fallback, with a finger key.
             LaunchedEffect(purpose, bio) { if (bio) c.autoBiometric(purpose) }
-            PinPad(title, c.lockMessage ?: c.error, subtitle = sub, onBiometric = if (bio) ({ c.submitBiometric(purpose) }) else null) { pin -> c.submitPin(pin, purpose) }
+            PinPad(title, c.lockMessage ?: c.error, subtitle = sub, onBiometric = if (bio) ({ c.submitBiometric(purpose) }) else null, digits = c.pinLength) { pin -> c.submitPin(pin, purpose) }
             Spacer(Modifier.weight(1f))
         }
         if (purpose == null) HelpIcon(Help.AUTO_LOCK, 16.dp)

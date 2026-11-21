@@ -35,7 +35,13 @@ data class WalletEntry(
 )
 
 /** Vault-level config: one KEK per vault, shared by all its envelopes. */
-data class VaultConfig(val vaultIdHex: String, val aliasIdHex: String, val authModeId: Int)
+data class VaultConfig(
+    val vaultIdHex: String,
+    val aliasIdHex: String,
+    val authModeId: Int,
+    /** Backward-compatible default for registries written before variable-length PINs were offered. */
+    val pinLength: Int = 6,
+)
 
 class RegistryFormatException(msg: String) : Exception(msg)
 
@@ -63,7 +69,10 @@ class WalletRegistry(private val file: File, private val atomic: AtomicFiles) {
 
         fun encode(s: Snapshot): ByteArray {
             val sb = StringBuilder().append(HEADER).append('\n')
-            s.vault?.let { sb.append("vault\t${it.vaultIdHex}\t${it.aliasIdHex}\t${it.authModeId}\n") }
+            s.vault?.let {
+                if (it.pinLength !in 6..12) throw RegistryFormatException("pin length")
+                sb.append("vault\t${it.vaultIdHex}\t${it.aliasIdHex}\t${it.authModeId}\t${it.pinLength}\n")
+            }
             for (w in s.wallets) {
                 val name = Base64.getEncoder().encodeToString(w.name.toByteArray(Charsets.UTF_8))
                 sb.append("wallet\t${w.walletIdHex}\t$name\t${w.role.code}\t${w.materialKind}\t${w.derivationProfile}\t${w.accountIndex}\t" +
@@ -89,8 +98,11 @@ class WalletRegistry(private val file: File, private val atomic: AtomicFiles) {
                 val f = line.split('\t')
                 when (f[0]) {
                     "vault" -> {
-                        if (f.size != 4 || vault != null) throw RegistryFormatException("bad vault line")
-                        vault = VaultConfig(hex16(f[1]), hex16(f[2]), f[3].toIntOrNull() ?: throw RegistryFormatException("auth"))
+                        if (f.size !in 4..5 || vault != null) throw RegistryFormatException("bad vault line")
+                        val authMode = f[3].toIntOrNull() ?: throw RegistryFormatException("auth")
+                        val pinLength = if (f.size == 4) 6 else
+                            f[4].toIntOrNull()?.takeIf { it in 6..12 } ?: throw RegistryFormatException("pin length")
+                        vault = VaultConfig(hex16(f[1]), hex16(f[2]), authMode, pinLength)
                     }
                     "wallet" -> {
                         if (f.size != 12) throw RegistryFormatException("bad wallet line")

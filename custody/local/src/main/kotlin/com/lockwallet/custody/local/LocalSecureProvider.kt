@@ -225,6 +225,9 @@ class LocalSecureProvider(
 
     fun vaultAuthMode(): AuthMode? = if (hasVault()) AuthMode.ofId(snapshot().vault!!.authModeId) else null
 
+    /** The vault stores one PIN length for every wallet; old registry records default to six. */
+    fun pinLength(): Int = snapshot().vault?.pinLength ?: Pin.LENGTH
+
     fun keySecurityLevel(): KeySecurityLevel? = snapshot().vault?.let { kek.securityLevel(hex(it.aliasIdHex)) }
 
     /** Number of active local envelopes still using the legacy KDF; derived from authenticated headers on disk. */
@@ -286,7 +289,7 @@ class LocalSecureProvider(
     }
 
     /**
-     * Seals one account of [material] into a new envelope. For a new vault pass [newPin] (6 ASCII digits);
+     * Seals one account of [material] into a new envelope. For a new vault pass [newPin] (6–12 ASCII digits);
      * otherwise pass [verification] from a just-opened wallet of this vault. Writes envelope then registry,
      * each atomically; a crash between them leaves an orphan envelope that is ignored (never a dangling entry).
      */
@@ -312,7 +315,7 @@ class LocalSecureProvider(
             val pin = newPin ?: throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
             if (!Pin.isValid(pin)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
             if (Pin.isTrivial(pin)) throw CustodyException(CustodyException.Reason.WEAK_PIN)
-            vault = VaultConfig(hexOf(nv.vaultId), hexOf(nv.aliasId), nv.mode.id)
+            vault = VaultConfig(hexOf(nv.vaultId), hexOf(nv.aliasId), nv.mode.id, pin.size)
             salt = rand(16)
             pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, salt) }
         } else {
