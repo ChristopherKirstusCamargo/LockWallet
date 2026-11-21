@@ -182,6 +182,16 @@ class AppFlowTest {
         assertEquals(1, c.wallets.size); assertEquals(1, envelopes().size)
     }
 
+    @Test fun biometricsAreAllowedOnlyForViewUnlock() {
+        assertTrue((null as AuthPurpose?).biometricAllowed())
+        assertTrue(!AuthPurpose.Sign("wallet").biometricAllowed())
+        assertTrue(!AuthPurpose.DappSign("wallet").biometricAllowed())
+        assertTrue(!AuthPurpose.RevealPhrase("wallet").biometricAllowed())
+        assertTrue(!AuthPurpose.ExportLwrp("wallet").biometricAllowed())
+        assertTrue(!AuthPurpose.DeleteWallet("wallet").biometricAllowed())
+        assertTrue(!AuthPurpose.AddAccount("wallet").biometricAllowed())
+    }
+
     @Test fun lockoutCannotBeBypassedByDeleting() {
         val c = controller()
         val a = createWallet(c)
