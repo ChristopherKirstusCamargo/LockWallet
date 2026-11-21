@@ -490,10 +490,14 @@ class AppController(
         else go(Screen.Authorize(AuthPurpose.SetBioWindow(hours)))
     }
 
-    /** "Bloquear agora": locks the app AND refuses biometrics until the next correct PIN (coercion/panic). */
-    fun lockdown() {
-        scope.launch { io { provider.biometricLockdown() }; refreshBiometric() }
-        lockNow()
+    /** Persist the biometric lockdown first; lock locally even if persistence fails, and surface that failure. */
+    fun lockdown() = launchOp {
+        try {
+            io { provider.biometricLockdown() }
+        } finally {
+            lockNow()
+            refreshBiometric()
+        }
     }
 
     /** Settings toggle: on ⇒ PIN screen (EnableBiometric); off ⇒ immediate. */
