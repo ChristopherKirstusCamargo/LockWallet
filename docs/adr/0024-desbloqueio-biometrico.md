@@ -21,9 +21,11 @@
    - mesmo boot que o último PIN correto (reiniciar ⇒ PIN), relógio monotônico não voltou;
    - no máximo **72 h** desde o último PIN (mesma regra do Android para “autenticação forte”);
    - nenhum erro de PIN pendente e nenhum bloqueio por tentativas.
-5. **Escopo**: biometria serve para desbloquear o app e para assinar (envio, stake, dApp). **Ver frase, exportar
-   LWRP, adicionar conta, criar/selar carteira e ativar a própria biometria exigem o PIN** — imposto na custódia
-   (`UnlockedWallet.words/exportLwrp/toPending/pinVerification` recusam sessão biométrica), não só na UI.
+5. **Escopo atual (revisado em 21/11/2026)**: biometria serve somente para desbloquear a visualização do app.
+   **Toda assinatura** (envio, stake, transação/mensagem dApp e SIWS), além de ver frase, exportar LWRP, adicionar
+   conta, criar/selar carteira e ativar a própria biometria, exige PIN. A regra é imposta na custódia:
+   sessões biométricas são recusadas por `signApproved`, `signDappTransaction` e `signDappMessage`, além de
+   `words/exportLwrp/toPending/pinVerification`; não depende apenas da UI.
 6. **Falhas nunca apagam nada**: cancelar, biometria errada, chave invalidada ⇒ volta ao teclado do PIN; não conta
    como tentativa de PIN. Invalidação (nova digital cadastrada, bloqueio de tela removido) ⇒ recurso desligado com
    aviso; o PIN funciona.
@@ -33,10 +35,11 @@
 
 - O material passa a existir também cifrado sob uma segunda chave (biométrica). Um atacante precisa da biometria do
   usuário **ou** de comprometer o TEE/StrongBox — o mesmo nível que já protege o KEK. Em troca o PIN é digitado menos
-  vezes, o que reduz exposição a olhares e gravação de tela.
-- Biometria é “algo que você é”: pode ser forçada (coação, usuário dormindo). Mitigações: janela padrão de 24 h (configurável, ver adendo), “Bloquear agora”, PIN após
-  reiniciar, PIN para frase/exportação, desligar a qualquer momento nos Ajustes. Quem teme coação deve deixar
-  desligado (texto na Ajuda).
+  vezes para consultar a carteira.
+- Biometria é “algo que você é”: pode ser forçada (coação, usuário dormindo). No comportamento atual, essa autorização
+  abre somente a visualização; não assina transações. A janela padrão é 24 h (configurável, ver adendo), “Bloquear
+  agora” exige PIN até o próximo PIN correto e toda assinatura continua PIN-only. Ainda assim, a coação pode expor
+  saldos e dados exibidos; quem considera isso inaceitável deve manter a biometria desligada.
 - Alternativa rejeitada: envolver a chave do PIN com uma chave AES biométrica — no modo PIN+biometria exigiria dois
   prompts; e chave com `AUTH_DEVICE_CREDENTIAL` permitiria o PIN do aparelho no lugar do da carteira.
 
