@@ -37,9 +37,13 @@ pequenos.
   nada é apagado automaticamente. Esses sinais são heurísticos e contornáveis por um atacante com root.
 
 ## Cadeia de fornecimento e release
-- Versões exatas em `gradle/libs.versions.toml`; hashes sha256 verificados (`gradle/verification-metadata.xml`).
-- Cada release publica: SHA-256 do APK, SHA-256 do certificado de assinatura e SBOM CycloneDX
-  (ver `docs/RELEASE-CHECKLIST.md`). A chave de assinatura é dedicada à Lock Wallet e fica fora do repositório.
+- Versões exatas em `gradle/libs.versions.toml`; hashes SHA-256 verificados (`gradle/verification-metadata.xml`).
+- A automação de assinatura/publicação pelo GitHub Actions foi aposentada. Nenhuma chave privada, keystore (cifrado ou não)
+  ou senha de assinatura deve ser armazenada no Git, em artefatos de CI ou em Secrets do GitHub.
+- A assinatura de uma futura versão deve ocorrer em ambiente controlado, fora do CI, com a chave mantida offline e fora
+  do repositório. Publique apenas o APK final, seu SHA-256, o certificado público e o SBOM.
+- Remover um arquivo da branch atual não elimina cópias em commits ou tags antigos; a limpeza do histórico Git é uma
+  etapa separada e obrigatória antes de declarar qualquer exposição histórica totalmente saneada.
 
 ## Limites conhecidos
 Ver `docs/threat-model.md` (riscos residuais), `docs/RELATORIO-SEGURANCA.md` e `CHANGELOG.md`:
@@ -49,5 +53,7 @@ Ver `docs/threat-model.md` (riscos residuais), `docs/RELATORIO-SEGURANCA.md` e `
 - Sem auditoria externa e sem teste com fundos reais em aparelho por esta equipe; comece com valores pequenos.
 
 ## Verificação do release
-- SHA-256 do certificado de assinatura (todas as versões): `3ce562ce3ac3bce9a87ab8745fb549ef8adfad692b280d13a22fdb7bd35d0b6b`.
-- SHA-256 do APK final: ver `README.md` e `docs/RELEASE-CHECKLIST.md`.
+- A impressão digital do certificado é específica de cada versão; compare-a com a publicada na página da Release
+  correspondente. Para a versão 5.0.2, o SHA-256 do certificado é
+  `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+- SHA-256 do APK: confira o valor publicado na página da Release correspondente.
