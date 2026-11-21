@@ -211,9 +211,11 @@ object S {
             CheckStatus.WARN -> "$v tentativa(s) errada(s) desde o último acesso correto."
             else -> "Nenhuma tentativa errada."
         }
-        CheckId.SECURITY_PATCH -> when (st) {
-            CheckStatus.OK -> "Recente ($v)."
-            CheckStatus.WARN -> "Antiga ou desconhecida (${v?.ifEmpty { "?" }})."
+        CheckId.SECURITY_PATCH -> when {
+            v?.contains("CVE-2025-48651") == true ->
+                "A chave do cofre está no StrongBox afetado pela CVE-2025-48651. Atualize o Android para patch 05/04/2026 ou mais recente."
+            st == CheckStatus.OK -> "Recente ($v)."
+            st == CheckStatus.WARN -> "Antiga ou desconhecida (${v?.ifEmpty { "?" }})."
             else -> "Muito antiga ($v): o aparelho tem falhas conhecidas sem correção."
         }
         CheckId.ADB -> if (st == CheckStatus.OK) "Desligada." else "Ligada: um computador conectado pode controlar o aparelho. Desligue se não usa."
