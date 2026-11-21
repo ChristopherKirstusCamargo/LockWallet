@@ -133,7 +133,7 @@ object Help {
         "Ver de verdade quanto você tem. Para enviar, só conta o “Disponível”: o SOL em stake precisa ser desativado e sacado antes. “Última época” é a recompensa que a rede informou para a época passada; se a rede não responder de forma confiável, a carteira não mostra nada em vez de chutar.",
         "Você tem 2 SOL disponíveis e 10 SOL em stake que renderam 0,004 SOL na última época: o saldo mostra 12,004 SOL, mas “Máximo” no envio usa só os 2 SOL.")
     val BIO_WINDOW = t("Prazo da digital",
-        "O tempo máximo que a digital pode substituir o PIN. Passado esse prazo, a carteira pede o PIN de novo.",
+        "O tempo máximo em que a digital pode desbloquear a visualização sem digitar o PIN. Toda assinatura, envio e autorização de dApp exige o PIN.",
         "Quanto menor o prazo, menor o risco de alguém usar seu dedo à força. Diminuir vale na hora; aumentar pede o PIN, para que ninguém estenda o prazo só com a sua digital.",
         "Com 4 h: você digita o PIN de manhã e usa a digital até o almoço; depois disso, PIN de novo.")
     val LOCKDOWN = t("Bloquear agora",
@@ -221,9 +221,9 @@ object Help {
 
     // ------------------------------------------------------------ custody / recovery
     val CUSTODY_LOCAL = t("Neste aparelho",
-        "A chave fica criptografada no chip de segurança do celular, protegida pelo PIN e pela biometria.",
-        "O jeito mais simples e seguro para a maioria das pessoas — nada sai do aparelho.",
-        "Você cria a carteira, anota a frase num papel e guarda em casa. No dia a dia usa só PIN e digital.")
+        "O material da carteira é cifrado localmente, com a chave protegida pelo Android Keystore. O PIN é obrigatório para operações sensíveis; biometria forte adicional pode ser exigida por uso.",
+        "A chave permanece neste aparelho, sem servidor próprio nem sincronização.",
+        "Você cria a carteira, anota a frase num papel e guarda em casa. No dia a dia usa PIN; a digital, quando ativada, serve apenas para consultar a carteira.")
     val CUSTODY_SEED_VAULT = t("Seed Vault",
         "Um cofre de chaves embutido nos celulares Solana (Saga e Seeker). A Lock Wallet nunca vê a frase.",
         "Segurança extra: cada assinatura é autorizada pelo próprio cofre do aparelho.",
