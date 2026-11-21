@@ -55,6 +55,10 @@ class DeviceSecurityCapabilityManager(private val context: Context, private val 
     /** Set by the app: selected cluster label (informational). */
     var clusterLabel: () -> String = { "Devnet" }
 
+    /** Lightweight gate for local-vault creation; do not run the full root/hooking scan during Compose. */
+    fun hasSecureLockScreen(): Boolean =
+        context.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
+
     fun biometricAvailability(): BiometricAvailability {
         val bm = context.getSystemService(BiometricManager::class.java) ?: return BiometricAvailability.UNKNOWN
         return when (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
