@@ -74,13 +74,15 @@ class LocalEnvelopeTest {
         val pinKey = Pin.encode(o["pin"].asString.toCharArray()).use {
             EnvelopeCrypto.derivePinKey(it, salt, LocalEnvelope.KDF_STRONG_V2)
         }
-        val env = EnvelopeCrypto.seal(
-            o["vault_id"].asString.hex(), "ab".repeat(16).hex(), o["kind"].asInt, o["profile"].asInt,
-            o["account"].asInt, o["pub"].asString.hex(), salt, o["alias_id"].asString.hex(),
-            o["auth"].asInt, SecretBytes.copyOf(o["material"].asString.hex()), pinKey,
-            SealRandomness(ByteArray(32) { 7 }, ByteArray(12) { 8 }, ByteArray(12) { 9 }),
-            kek.encryptor(o["alias_id"].asString.hex()),
-        )
+        val env = SecretBytes.copyOf(o["material"].asString.hex()).use { material ->
+            EnvelopeCrypto.seal(
+                o["vault_id"].asString.hex(), "ab".repeat(16).hex(), o["kind"].asInt, o["profile"].asInt,
+                o["account"].asInt, o["pub"].asString.hex(), salt, o["alias_id"].asString.hex(),
+                o["auth"].asInt, material, pinKey,
+                SealRandomness(ByteArray(32) { 7 }, ByteArray(12) { 8 }, ByteArray(12) { 9 }),
+                kek.encryptor(o["alias_id"].asString.hex()),
+            )
+        }
         assertEquals(LocalEnvelope.KDF_STRONG_V2, env.kdfProfile)
         val encoded = env.encode()
         assertEquals(LocalEnvelope.KDF_STRONG_V2, LocalEnvelope.parse(encoded).kdfProfile)
@@ -90,6 +92,46 @@ class LocalEnvelopeTest {
             assertArrayEquals(o["material"].asString.hex(), opened.withBytes { it.copyOf() })
         }
         for (legacy in pos) assertEquals(LocalEnvelope.KDF_OWASP_V1, LocalEnvelope.parse(legacy["envelope_hex"].asString.hex()).kdfProfile)
+    }
+
+    @Test fun legacyEnvelopeMigrationReencryptsBothInnerLayersWithStrongKdf() {
+        val o = pos[0]
+        val old = LocalEnvelope.parse(o["envelope_hex"].asString.hex())
+        val kek = kekFor(o)
+        val oldDekPin = EnvelopeCrypto.unwrapHardware(old, kek.decryptor(old.aliasId(), old.hwIv()))
+        val oldPinKey = Pin.encode(o["pin"].asString.toCharArray()).use {
+            EnvelopeCrypto.derivePinKey(it, old.pinSalt(), old.kdfProfile)
+        }
+        val oldDek = EnvelopeCrypto.unwrapDek(old, oldDekPin, oldPinKey)
+        val material = EnvelopeCrypto.openWithPinKey(old, oldDekPin, oldPinKey)
+        val strongPinKey = Pin.encode(o["pin"].asString.toCharArray()).use {
+            EnvelopeCrypto.derivePinKey(it, old.pinSalt(), LocalEnvelope.KDF_STRONG_V2)
+        }
+
+        try {
+            val migrated = EnvelopeCrypto.migrateToStrong(
+                old, oldDek, material, strongPinKey, kek.encryptor(old.aliasId()), java.security.SecureRandom(),
+            )
+            val parsed = LocalEnvelope.parse(migrated.encode())
+            assertEquals(LocalEnvelope.KDF_STRONG_V2, parsed.kdfProfile)
+            assertEquals(old.vaultId().toList(), parsed.vaultId().toList())
+            assertEquals(old.materialId().toList(), parsed.materialId().toList())
+            assertEquals(old.expectedPubkey().toList(), parsed.expectedPubkey().toList())
+            assertEquals(old.authMode, parsed.authMode)
+            val newDekPin = EnvelopeCrypto.unwrapHardware(parsed, kek.decryptor(parsed.aliasId(), parsed.hwIv()))
+            try {
+                EnvelopeCrypto.openWithPinKey(parsed, newDekPin, strongPinKey).use { opened ->
+                    assertArrayEquals(o["material"].asString.hex(), opened.withBytes { it.copyOf() })
+                    assertTrue(EnvelopeCrypto.pubkeyMatches(parsed, opened))
+                }
+            } finally { newDekPin.fill(0) }
+        } finally {
+            oldDekPin.fill(0)
+            oldDek.close()
+            oldPinKey.close()
+            strongPinKey.close()
+            material.close()
+        }
     }
 
     @Test fun wrongPinFails() {
