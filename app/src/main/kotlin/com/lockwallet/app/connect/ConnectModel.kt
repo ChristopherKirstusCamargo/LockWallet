@@ -114,9 +114,15 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         if (queue.size == 1) onCurrentChanged()
     }
 
-    /** Reauthorize: no prompt; valid only for a live session of the same identity on the current cluster. */
+    /** Reauthorize silently only when Android supplied a verifiable caller package. */
     fun reauthorize(scope: ByteArray?, dapp: DappIdentity, chain: String?): Boolean {
         val s = registry.find(scope) ?: return false
+        // Android 12–13 may not expose the caller package for a VIEW launch. In that case the dApp's name/URI
+        // are self-asserted, so never reuse an old authorization without showing the user a fresh consent screen.
+        if (dapp.callingPackage.isNullOrBlank() || s.callingPackage.isNullOrBlank()) {
+            refreshSessions()
+            return false
+        }
         val ok = s.name == dapp.name.take(64) && s.uri == dapp.uri?.take(200) && s.callingPackage == dapp.callingPackage && clusterOf(chain) == s.cluster && s.cluster == c.chain.config.cluster &&
             connectWallets().any { it.id == s.walletId && it.address.toBase58() == s.address }
         if (ok) registry.touch(s.id)
