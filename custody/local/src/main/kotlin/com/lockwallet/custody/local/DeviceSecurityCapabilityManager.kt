@@ -135,8 +135,8 @@ class DeviceSecurityCapabilityManager(private val context: Context, private val 
                 null -> CheckStatus.INFO
             }, f.vaultKeyLevel?.name)
             out += SecurityCheck(CheckId.VAULT_AUTH_MODE, when (f.vaultAuthMode) {
-                AuthMode.PIN_AND_BIOMETRIC -> CheckStatus.OK
-                AuthMode.PIN_ONLY -> CheckStatus.WARN
+                AuthMode.PIN_AND_BIOMETRIC, AuthMode.PIN_AND_DEVICE_AUTH -> CheckStatus.OK
+                AuthMode.PIN_ONLY -> CheckStatus.RISK
                 null -> CheckStatus.INFO
             }, f.vaultAuthMode?.name)
             out += SecurityCheck(CheckId.PIN_ATTEMPTS, when {
