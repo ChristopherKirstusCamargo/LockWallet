@@ -96,7 +96,11 @@ class TxJournal(
             catch (_: Exception) { throw IllegalStateException("journal corrupted") }
         if (root.size > MAX) throw IllegalStateException("journal record limit")
         return root.map { decode(J.obj(it)) }.map { record ->
-            if (trusted) record else record.copy(statusVerified = false)
+            if (trusted) record else record.copy(
+                // Old JSON can claim FINALIZED/FAILED/EXPIRED without evidence. Force on-chain reconciliation.
+                state = if (record.state.terminal) TransactionState.UNKNOWN else record.state,
+                statusVerified = false,
+            )
         }
     }
 
