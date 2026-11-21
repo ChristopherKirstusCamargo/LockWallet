@@ -361,7 +361,6 @@ fun PinCreate(c: AppController) {
     var first by remember { mutableStateOf<CharArray?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
     var pinLength by remember { mutableIntStateOf(8) }
-    val lengths = listOf(6, 8, 10, 12)
     DisposableEffect(Unit) { onDispose { first?.fill('\u0000') } }
     Screen("", onBack = { c.home() }, actions = { HelpIcon(Help.PIN, 22.dp) }) {
         if (first == null) {
