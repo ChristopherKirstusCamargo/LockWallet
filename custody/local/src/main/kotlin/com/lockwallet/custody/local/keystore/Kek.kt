@@ -6,10 +6,8 @@ import javax.crypto.Cipher
 enum class AuthMode(val id: Int) {
     /** KEK usable while the app runs, no per-use user auth. Offline PIN guessing possible if the KEK is abused on-device. */
     PIN_ONLY(0x01),
-    /** Legacy: KEK requires BIOMETRIC_STRONG per use; retained for existing LWLE files. */
-    PIN_AND_BIOMETRIC(0x02),
-    /** New vaults: per-use BIOMETRIC_STRONG OR Android device credential, never an unauthenticated KEK operation. */
-    PIN_AND_DEVICE_AUTH(0x03);
+    /** KEK requires BIOMETRIC_STRONG per use, released only through BiometricPrompt.CryptoObject. */
+    PIN_AND_BIOMETRIC(0x02);
 
     companion object { fun ofId(id: Int) = entries.firstOrNull { it.id == id } }
 }
@@ -36,8 +34,6 @@ class KekException(val kind: Kind, cause: Throwable? = null) : Exception("KEK: $
 interface KekOperation {
     val cipher: Cipher?
     val requiresUserAuth: Boolean
-    /** True only when KeyInfo confirms AUTH_DEVICE_CREDENTIAL is an accepted authenticator. */
-    val allowsDeviceCredential: Boolean
     /** IV chosen by the Keystore (encrypt) or given (decrypt). */
     fun iv(): ByteArray
     fun finish(aad: ByteArray, input: ByteArray): ByteArray
