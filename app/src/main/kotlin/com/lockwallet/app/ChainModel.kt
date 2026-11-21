@@ -73,7 +73,10 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
 
     private val offline = RpcTransport { _, _, _ -> throw RpcException(RpcException.Kind.TRANSPORT, "offline") }
     val net = NetworkManager(prefs.network, transport ?: offline)
-    private val journal = TxJournal(File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-${System.nanoTime()}"), "tx-journal.json"))
+    private val journal = TxJournal(
+        File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-${System.nanoTime()}"), "tx-journal.json"),
+        mac = { payload -> c.provider.transactionJournalMac(payload) },
+    )
     val coordinator = TxCoordinator(net, journal)
     val reader = ChainReader(net)
 

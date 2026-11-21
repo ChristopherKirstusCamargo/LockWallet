@@ -204,6 +204,20 @@ class AppController(
     var bioReady by mutableStateOf(false)
         private set
 
+    /** Durable KDF status is derived from each authenticated local envelope, not a transient UI flag. */
+    var legacyKdfWalletCount by mutableStateOf(-1)
+        private set
+    var migrationWarning by mutableStateOf<String?>(null)
+        private set
+
+    fun refreshKdfMigrationStatus() {
+        scope.launch {
+            val count = runCatching { io { provider.legacyKdfWalletCount() } }.getOrDefault(-1)
+            legacyKdfWalletCount = count
+            if (count == 0) migrationWarning = null
+        }
+    }
+
     /** A BIOMETRIC_STRONG sensor with an enrolled biometric exists (the toggle is only offered then). */
     val bioCapable: Boolean get() = runCatching { capabilities.biometricAvailability() == com.lockwallet.custody.local.BiometricAvailability.AVAILABLE }.getOrDefault(false)
 
@@ -222,6 +236,7 @@ class AppController(
     fun refresh() {
         vaultPresent = hasVault()
         refreshBiometric()
+        refreshKdfMigrationStatus()
         val local = try { provider.wallets() } catch (e: CustodyException) { error = S.reason(e.reason); emptyList() }
         wallets = local + svWallets
         val sv = seedVault ?: return
@@ -449,18 +464,19 @@ class AppController(
                     lockMessage = null; lockoutMs = 0
                     val migration = r.migration
                     if (migration != null) {
-                        try {
+                        val migrated = try {
                             val authorized = !migration.needsUserAuth ||
                                 (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE))
-                            if (authorized) {
-                                // Migration is best-effort and atomic. If it fails or is cancelled, the old
-                                // envelope is still valid and this already-authenticated session continues.
-                                io { provider.completeKdfMigration(migration, r.session) }
-                            } else migration.close()
+                            if (authorized) io { provider.completeKdfMigration(migration, r.session) }
+                            else { migration.close(); false }
                         } catch (_: Exception) {
                             migration.close()
+                            false
                         }
+                        migrationWarning = if (migrated) null else
+                            "A migração de proteção não foi concluída. O envelope anterior foi preservado e a pendência será oferecida novamente no próximo desbloqueio por PIN."
                     }
+                    refreshKdfMigrationStatus()
                     onUnlocked(r.session, purpose)
                 }
             }

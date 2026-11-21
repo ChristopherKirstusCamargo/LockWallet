@@ -5,6 +5,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.Base64
 
 enum class TxKind { SEND_SOL, SEND_TOKEN, CLOSE_TOKEN, STAKE_CREATE, STAKE_DEACTIVATE, STAKE_WITHDRAW, STAKE_SPLIT, STAKE_MERGE, DAPP }
 
@@ -41,9 +43,21 @@ data class TxRecord(
             (state in setOf(TransactionState.FAILED, TransactionState.FINALIZED) && !statusVerified)
 }
 
-/** Atomic JSON file of the last [MAX] records (temp → fsync → rename). */
-class TxJournal(private val file: File) {
-    companion object { const val MAX = 300 }
+/**
+ * Keystore-authenticated transaction journal in production. Legacy raw JSON remains readable,
+ * but unauthenticated statusVerified claims are downgraded before they can affect transaction recovery.
+ * A null MAC provider is reserved for isolated JVM tests; the app always injects the vault Keystore MAC.
+ */
+class TxJournal(
+    private val file: File,
+    private val mac: ((ByteArray) -> ByteArray)? = null,
+) {
+    companion object {
+        const val MAX = 300
+        private const val MAGIC = "LWTXJ1\n"
+        private const val MAX_FILE_BYTES = 3_000_000
+        private const val MAC_LEN = 32
+    }
     private val lock = Any()
 
     fun all(): List<TxRecord> = synchronized(lock) { load() }
@@ -55,18 +69,54 @@ class TxJournal(private val file: File) {
 
     private fun load(): List<TxRecord> {
         if (!file.exists()) return emptyList()
-        val root = try { J.arr(MiniJson.parse(file.readText())) } catch (_: Exception) { throw IllegalStateException("journal corrupted") }
-        return root.map { decode(J.obj(it)) }
+        if (file.length() > MAX_FILE_BYTES) throw IllegalStateException("journal too large")
+        return decodeJournal(file.readBytes())
+    }
+
+    private fun decodeJournal(bytes: ByteArray): List<TxRecord> {
+        if (bytes.size > MAX_FILE_BYTES) throw IllegalStateException("journal too large")
+        val text = String(bytes, Charsets.UTF_8)
+        if (!text.startsWith(MAGIC)) {
+            return decodeRecords(bytes, trusted = mac == null)
+        }
+        val parts = text.removePrefix(MAGIC).split('\n')
+        if (parts.size != 2 || parts.any { it.isEmpty() }) throw IllegalStateException("journal envelope")
+        val payload = try { Base64.getDecoder().decode(parts[0]) } catch (_: Exception) { throw IllegalStateException("journal envelope") }
+        val supplied = try { Base64.getDecoder().decode(parts[1]) } catch (_: Exception) { throw IllegalStateException("journal envelope") }
+        val expected = try { mac?.invoke(payload) } catch (_: Exception) { null }
+            ?: throw IllegalStateException("journal authentication unavailable")
+        if (expected.size != MAC_LEN || supplied.size != MAC_LEN || !MessageDigest.isEqual(expected, supplied)) {
+            throw IllegalStateException("journal authentication failed")
+        }
+        return decodeRecords(payload, trusted = true)
+    }
+
+    private fun decodeRecords(bytes: ByteArray, trusted: Boolean): List<TxRecord> {
+        val root = try { J.arr(MiniJson.parse(String(bytes, Charsets.UTF_8))) }
+            catch (_: Exception) { throw IllegalStateException("journal corrupted") }
+        if (root.size > MAX) throw IllegalStateException("journal record limit")
+        return root.map { decode(J.obj(it)) }.map { record ->
+            if (trusted) record else record.copy(statusVerified = false)
+        }
     }
 
     private fun save(list: List<TxRecord>) {
+        require(list.size <= MAX) { "journal record limit" }
+        val payload = encode(list).toByteArray(Charsets.UTF_8)
+        val bytes = if (mac == null) payload else {
+            val tag = try { mac.invoke(payload) } catch (_: Exception) { null }
+                ?: throw IllegalStateException("journal authentication unavailable")
+            if (tag.size != MAC_LEN) throw IllegalStateException("journal MAC length")
+            (MAGIC + Base64.getEncoder().encodeToString(payload) + "\n" + Base64.getEncoder().encodeToString(tag))
+                .toByteArray(Charsets.UTF_8)
+        }
+        if (bytes.size > MAX_FILE_BYTES) throw IllegalStateException("journal too large")
         file.parentFile?.mkdirs()
         val tmp = File(file.parentFile, file.name + ".tmp")
-        FileOutputStream(tmp).use { out -> out.write(encode(list).toByteArray(Charsets.UTF_8)); out.fd.sync() }
-        if (J.arr(MiniJson.parse(tmp.readText())).size != list.size) throw IllegalStateException("journal read-back")
+        FileOutputStream(tmp).use { out -> out.write(bytes); out.fd.sync() }
+        if (decodeJournal(tmp.readBytes()) != list) throw IllegalStateException("journal read-back")
         Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
-
     private fun encode(list: List<TxRecord>): String = list.joinToString(",", "[", "]") { r ->
         fun s(v: String?) = v?.let { JsonOut.str(it) } ?: "null"
         fun n(v: Long?) = v?.toString() ?: "null"

@@ -147,12 +147,32 @@ fun SecurityCenter(c: AppController) {
             if (it.id == com.lockwallet.custody.local.CheckId.SCREEN_PROTECTION && !c.overlaysHidden) it.copy(status = CheckStatus.WARN, value = "overlay") else it
         }
     }
-    val risks = checks.count { it.status == CheckStatus.RISK }
+    val legacyKek = checks.any {
+        it.id == com.lockwallet.custody.local.CheckId.VAULT_AUTH_MODE && it.value == "PIN_ONLY"
+    }
+    val risks = checks.count { it.status == CheckStatus.RISK } +
+        if (c.vaultPresent && c.legacyKdfWalletCount != 0 && checks.none { it.status == CheckStatus.RISK }) 1 else 0
     val warns = checks.count { it.status == CheckStatus.WARN }
     Screen(S.SC_TITLE, onBack = { c.go(if (c.locked) Screen.Lock else Screen.Home) }, help = Help.SECURITY_CENTER) {
         Column(Modifier.fillMaxWidth().glass().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(if (risks > 0) Ic.WARN else Ic.SHIELD, size = 40.dp)
             Text(when { risks > 0 -> "$risks ponto(s) de risco"; warns > 0 -> "$warns ponto(s) de atenção"; else -> "Tudo certo" }, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
+        if (c.vaultPresent && c.legacyKdfWalletCount > 0) {
+            Notice(
+                "Há ${c.legacyKdfWalletCount} carteira(s) com o perfil antigo de Argon2id. A migração é tentada após o desbloqueio por PIN; o estado permanece indicado aqui até todas serem atualizadas. Se houver cancelamento ou falha, o envelope anterior é preservado.",
+                Ic.WARN, strong = true,
+            )
+        }
+        if (c.vaultPresent && c.legacyKdfWalletCount < 0) {
+            Notice("Não foi possível verificar o perfil KDF do cofre. Não considere a migração concluída até a verificação voltar a funcionar.", Ic.WARN, strong = true)
+        }
+        c.migrationWarning?.let { Notice(it, Ic.WARN, strong = true) }
+        if (legacyKek) {
+            Notice(
+                "Este cofre ainda usa uma KEK legada sem biometria forte por uso. A atualização do Argon2id não altera a política dessa chave. A correção exige reembrulhar todos os envelopes do cofre em uma migração transacional; não remova o cofre antes de confirmar sua frase ou um backup restaurável.",
+                Ic.WARN, strong = true,
+            )
         }
         Column(Modifier.fillMaxWidth().glass()) {
             checks.forEachIndexed { i, ch ->
