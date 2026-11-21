@@ -161,13 +161,13 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
             null
         }
         val needsAuth = info?.isUserAuthenticationRequired ?: true // introspection failure fails towards prompting
-        val allowsDeviceCredential = info?.let {
-            it.userAuthenticationType and KeyProperties.AUTH_DEVICE_CREDENTIAL != 0
+        val deviceCredentialAllowed = info?.let {
+            (it.userAuthenticationType and KeyProperties.AUTH_DEVICE_CREDENTIAL) != 0
         } ?: false
         return object : KekOperation {
             override val cipher: Cipher = c
             override val requiresUserAuth: Boolean = needsAuth
-            override val allowsDeviceCredential: Boolean = needsAuth && allowsDeviceCredential
+            override val allowsDeviceCredential: Boolean = needsAuth && deviceCredentialAllowed
             override fun iv(): ByteArray = c.iv.copyOf()
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray = try {
                 c.updateAAD(aad)
