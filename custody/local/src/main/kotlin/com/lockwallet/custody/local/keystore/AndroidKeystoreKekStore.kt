@@ -50,9 +50,6 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
             .setRandomizedEncryptionRequired(true)
         val keyguard = context.getSystemService(KeyguardManager::class.java)
         val deviceSecure = keyguard?.isDeviceSecure == true
-        if (mode == AuthMode.PIN_AND_DEVICE_AUTH && !deviceSecure) {
-            throw KekException(KekException.Kind.UNAVAILABLE)
-        }
         if (deviceSecure) b.setUnlockedDeviceRequired(true)
         when (mode) {
             AuthMode.PIN_ONLY -> Unit // legacy only; new app-created vaults never choose this mode
@@ -60,14 +57,6 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
                 b.setUserAuthenticationRequired(true)
                 b.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
                 b.setInvalidatedByBiometricEnrollment(true)
-            }
-            AuthMode.PIN_AND_DEVICE_AUTH -> {
-                b.setUserAuthenticationRequired(true)
-                b.setUserAuthenticationParameters(
-                    0, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
-                )
-                // AUTH_DEVICE_CREDENTIAL preserves validity when new biometrics are enrolled.
-                b.setInvalidatedByBiometricEnrollment(false)
             }
         }
         if (strongBox) b.setIsStrongBoxBacked(true)
@@ -161,13 +150,9 @@ class AndroidKeystoreKekStore(private val context: Context) : KekStore {
             null
         }
         val needsAuth = info?.isUserAuthenticationRequired ?: true // introspection failure fails towards prompting
-        val deviceCredentialAllowed = info?.let {
-            (it.userAuthenticationType and KeyProperties.AUTH_DEVICE_CREDENTIAL) != 0
-        } ?: false
         return object : KekOperation {
             override val cipher: Cipher = c
             override val requiresUserAuth: Boolean = needsAuth
-            override val allowsDeviceCredential: Boolean = needsAuth && deviceCredentialAllowed
             override fun iv(): ByteArray = c.iv.copyOf()
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray = try {
                 c.updateAAD(aad)
