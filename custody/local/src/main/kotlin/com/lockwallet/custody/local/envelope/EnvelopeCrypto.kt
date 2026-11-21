@@ -39,11 +39,15 @@ object EnvelopeCrypto {
     fun seal(
         vaultId: ByteArray, materialId: ByteArray, kind: Int, profile: Int, accountIndex: Int, expectedPubkey: ByteArray,
         pinSalt: ByteArray, aliasId: ByteArray, authMode: Int, material: SecretBytes, pinKey: SecretBytes,
-        rnd: SealRandomness, kek: KekOperation,
+        rnd: SealRandomness, kek: KekOperation, kdfProfileId: Int = LocalEnvelope.KDF_STRONG_V2,
     ): LocalEnvelope {
         val len = material.size
+        val kdfProfile = when (kdfProfileId) {
+            LocalEnvelope.KDF_OWASP_V1, LocalEnvelope.KDF_STRONG_V2 -> kdfProfileId
+            else -> throw IllegalArgumentException("unsupported KDF profile")
+        }
         val h = LocalEnvelope.headerOf(vaultId, materialId, kind, profile, accountIndex, expectedPubkey,
-            LocalEnvelope.KDF_STRONG_V2, pinSalt, aliasId, authMode, len)
+            kdfProfile, pinSalt, aliasId, authMode, len)
         SecretBytes.copyOf(rnd.dek).use { dek ->
             val seedCt = material.withBytes { AesGcm.encrypt(dek, rnd.seedNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_SEED, h), it) }
             val dekPin = dek.withBytes { AesGcm.encrypt(pinKey, rnd.dekPinNonce, LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, h), it) }
@@ -51,7 +55,7 @@ object EnvelopeCrypto {
             val iv = kek.iv()
             // dek_pin is only ever persisted inside the KEK wrap (ADR 0001, E-23): offline PIN guessing needs the KEK.
             dekPin.wipe()
-            return LocalEnvelope(vaultId, materialId, kind, profile, accountIndex, expectedPubkey, LocalEnvelope.KDF_STRONG_V2,
+            return LocalEnvelope(vaultId, materialId, kind, profile, accountIndex, expectedPubkey, kdfProfile,
                 pinSalt, aliasId, authMode, len, rnd.seedNonce, seedCt, rnd.dekPinNonce, iv, blob)
         }
     }
