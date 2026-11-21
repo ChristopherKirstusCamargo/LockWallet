@@ -62,7 +62,7 @@ class SeedVaultFlowTest {
 
     private fun controller(g: JdkSeedVault): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
-        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true },
+        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _, _ -> true },
             transport = rpc, dataDir = tmp.newFolder(), seedVault = SeedVaultProvider(tmp.newFolder(), g)).also { c ->
             c.start()
             c.activityRunner = { i -> (if (g.decline && i.action == "sign") 0 else -1) to i }
