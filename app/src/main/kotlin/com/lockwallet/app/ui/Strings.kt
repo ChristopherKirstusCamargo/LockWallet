@@ -203,8 +203,9 @@ object S {
             else -> "Nível não informado pelo aparelho."
         }
         CheckId.VAULT_AUTH_MODE -> when (v) {
-            "PIN_AND_BIOMETRIC" -> "PIN + biometria forte por uso (chave liberada pelo hardware)."
-            "PIN_ONLY" -> "Só PIN (conveniência). Considere recriar o cofre com biometria."
+            "PIN_AND_BIOMETRIC" -> "PIN + biometria forte por uso (modo legado)."
+            "PIN_AND_DEVICE_AUTH" -> "PIN da carteira + biometria forte ou credencial do Android em cada uso da chave."
+            "PIN_ONLY" -> "Só PIN; KEK sem autenticação por uso. Modo legado de menor proteção."
             else -> "Nenhum cofre criado ainda."
         }
         CheckId.PIN_ATTEMPTS -> when (st) {
