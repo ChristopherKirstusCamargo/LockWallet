@@ -390,6 +390,9 @@ class AppController(
 
     /** First vault: create KEK with [mode], biometric if required, seal. */
     fun sealNewVault(mode: AuthMode) = launchOp {
+        // PIN_ONLY is retained by custody solely for legacy-file compatibility and test fixtures.
+        // The application entry point may create new wallets only with auth-per-use strong biometrics.
+        require(mode == AuthMode.PIN_AND_BIOMETRIC) { "new local vaults require BIOMETRIC_STRONG per use" }
         val d = draft ?: return@launchOp
         val ticket = io { provider.beginNewVault(mode) }
         if (!passBiometric(ticket, S.PROMPT_SEAL)) { io { provider.cancel(ticket) }; return@launchOp }
