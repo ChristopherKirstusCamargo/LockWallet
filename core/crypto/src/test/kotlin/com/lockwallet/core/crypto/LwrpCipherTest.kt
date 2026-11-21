@@ -75,6 +75,24 @@ class LwrpCipherTest {
         assertEquals(16, LwrpCipher.encodePassword("ççççççç12".toCharArray()).use { it.size })
     }
 
+    @Test fun newExportsUseV2StrongProfileAndLegacyV1RemainsReadable() {
+        val o = cases[2]
+        payloadOf(o).use { p ->
+            val password = "a sufficiently strong backup password".toCharArray()
+            val file = LwrpCipher.seal(p, password)
+            assertEquals(LwrpHeader.VERSION_STRONG, file[4])
+            val header = LwrpHeader.parseFile(file)
+            assertEquals(LwrpKdfProfile.STRONG_V2, header.kdf)
+            LwrpCipher.open(file, password).use { opened ->
+                assertArrayEquals(o["material_hex"].asString.hex(), opened.material.withBytes { it.copyOf() })
+                assertArrayEquals(o["pubkey_hex"].asString.hex(), opened.expectedPubkey())
+            }
+            // The existing fixed fixtures in this suite are LWRP v1 and remain readable.
+            assertEquals(LwrpHeader.VERSION, cases[0]["file_hex"].asString.hex()[4])
+            LwrpCipher.open(cases[0]["file_hex"].asString.hex(), cases[0]["password"].asString.toCharArray()).close()
+        }
+    }
+
     @Test fun generatedPasswordHas8WordsAndRoundTrips() {
         val pw = LwrpCipher.generatePassword(SecureRandom())
         val words = String(pw).split(' ')
