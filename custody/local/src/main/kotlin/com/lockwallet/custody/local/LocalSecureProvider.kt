@@ -68,6 +68,23 @@ class BioTicket internal constructor(internal val op: com.lockwallet.custody.loc
     val cipher: Cipher get() = op.cipher
 }
 
+/** One-shot v1→v2 KDF migration. Secrets remain in custody and are wiped whether migration succeeds or is deferred. */
+class KdfMigrationTicket internal constructor(
+    internal val walletId: String,
+    internal val originalEnvelope: ByteArray,
+    internal val envelope: LocalEnvelope,
+    internal val dek: SecretBytes,
+    internal val material: SecretBytes,
+    internal val strongPinKey: SecretBytes,
+    internal val op: KekOperation,
+) : AutoCloseable {
+    val needsUserAuth: Boolean get() = op.requiresUserAuth
+    val cipher: Cipher? get() = op.cipher
+    override fun close() {
+        originalEnvelope.wipe(); dek.close(); material.close(); strongPinKey.close()
+    }
+}
+
 /** Single-use proof that the vault PIN was just verified: the derived pin_key for the vault salt. */
 class PinVerification internal constructor(internal val pinKey: SecretBytes, internal val pinSalt: ByteArray) : AutoCloseable {
     override fun close() = pinKey.close()
@@ -75,7 +92,7 @@ class PinVerification internal constructor(internal val pinKey: SecretBytes, int
 }
 
 sealed class UnlockResult {
-    class Success(val session: UnlockedWallet) : UnlockResult()
+    class Success(val session: UnlockedWallet, val migration: KdfMigrationTicket? = null) : UnlockResult()
     /** Wrong PIN *or* tampered envelope (indistinguishable). */
     data class Failed(val failures: Int, val attemptsBeforeLockout: Int, val lockoutMs: Long) : UnlockResult()
     data class LockedOut(val remainingMs: Long) : UnlockResult()
@@ -88,7 +105,8 @@ class UnlockedWallet internal constructor(
     /** Null when opened by biometrics: such a session cannot vouch for the PIN (no sealing / adding accounts). */
     private val pinKey: SecretBytes?,
     private val pinSalt: ByteArray,
-    internal val header: ByteArray = ByteArray(0),
+    internal var header: ByteArray = ByteArray(0)
+        private set,
 ) : AutoCloseable {
     /** True when opened with the PIN (not with biometrics). */
     val viaPin: Boolean get() = pinKey != null
@@ -110,6 +128,7 @@ class UnlockedWallet internal constructor(
         PinVerification((pinKey ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)).copy(), pinSalt.copyOf())
 
     internal fun materialCopy(): SecretBytes = material.copy()
+    internal fun replaceHeader(value: ByteArray) { header = value.copyOf() }
 
     /** Encrypted LWRP v1 for this wallet (password independent of the PIN). */
     fun exportLwrp(password: CharArray): ByteArray {
