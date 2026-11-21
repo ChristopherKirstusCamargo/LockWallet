@@ -404,8 +404,11 @@ class LocalSecureProvider(
         catch (e: Exception) { runCatching { b.disable() }; throw CustodyException(CustodyException.Reason.STORAGE) }
     }
 
-    /** "Bloquear agora" (coercion/panic): biometrics refused until the next correct PIN. Never deletes anything. */
-    fun biometricLockdown() { runCatching { bio?.lockdown() } }
+    /** "Bloquear agora": persist the PIN-only state; never report success if the authenticated write fails. */
+    fun biometricLockdown() {
+        try { bio?.lockdown() }
+        catch (_: Exception) { throw CustodyException(CustodyException.Reason.STORAGE) }
+    }
 
     fun biometricWindowHours(): Int? = runCatching { bio?.windowHours() }.getOrNull()
 
