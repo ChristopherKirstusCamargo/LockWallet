@@ -1,23 +1,44 @@
 # Lock Wallet
 
+> [!CAUTION]
+> ## ⚠️ AVISO IMPORTANTE — LEIA ANTES DE USAR
+>
+> **Não confie, verifique.**
+>
+> **Natureza do projeto:** a Lock Wallet é um projeto independente, pessoal e experimental, publicado para demonstração técnica e inspeção. O criador não comercializa o aplicativo, não oferece serviço de custódia de ativos e não promete suporte ou manutenção contínua.
+>
+> **Riscos e responsabilidade:** o software é disponibilizado “como está”, pode conter erros ou vulnerabilidades ainda não identificados e não possui garantia de segurança absoluta. Na máxima extensão permitida pela legislação aplicável, não são oferecidas garantias quanto ao funcionamento, à ausência de falhas ou à recuperação de ativos. Este aviso não afasta responsabilidades ou direitos que não possam ser excluídos por lei. Transações em blockchain podem ser irreversíveis; não utilize valores cuja perda você não possa suportar.
+>
+> **Proteções e limites:** o projeto busca proteger o usuário por meio de mecanismos como armazenamento local cifrado, integração com Android Keystore/StrongBox quando disponível, exigência de PIN para operações sensíveis, decodificação e simulação de transações antes da aprovação, restrições a instruções e ausência de backend e telemetria. A eficácia depende da versão, do dispositivo e do ambiente. Essas medidas reduzem riscos, mas não eliminam vulnerabilidades. Código público pode ser inspecionado; isso não significa que tenha sido integralmente auditado por terceiros. Até o momento, não há auditoria externa independente.
+>
+> **Comercialização, redistribuição e identidade:** o criador não vende a Lock Wallet nem reconhece cópias ou forks de terceiros como versões oficiais, tampouco oferece suporte a eles. O criador não endossa usos fraudulentos, invasivos ou maliciosos. **Atenção à licença:** este repositório contém uma licença Apache-2.0, que permite copiar, modificar e redistribuir o código, inclusive comercialmente, desde que suas condições sejam cumpridas. Por isso, este aviso não proíbe a revenda ou redistribuição do código já coberto por essa licença. A Apache-2.0 não concede, por si só, direito de uso da marca, do nome ou da identidade visual do projeto para sugerir vínculo ou endosso oficial.
+>
+> **Origem e proposta:** projeto inspirado em carteiras existentes no ecossistema, desenvolvido por afinidade do criador com a rede Solana e com a proposta de colocar a segurança em primeiro plano — sem afirmar que exista proteção absoluta ou que todas as necessidades do mercado estejam resolvidas.
+>
+> ---
+>
+> ## IMPORTANT NOTICE — READ BEFORE USING
+>
+> **Don't trust, verify.**
+>
+> **Project status:** Lock Wallet is an independent, personal and experimental project published for technical demonstration and inspection. The creator does not sell the application, provide asset-custody services, or promise ongoing support or maintenance.
+>
+> **Risks and responsibility:** the software is provided “as is”. It may contain errors or vulnerabilities that have not yet been identified, and no absolute security guarantee is made. To the maximum extent permitted by applicable law, no guarantee is given regarding operation, freedom from defects or asset recovery. This notice does not exclude responsibilities or rights that cannot legally be waived. Blockchain transactions may be irreversible; do not use funds you cannot afford to lose.
+>
+> **Security measures and limitations:** the project aims to protect users through mechanisms such as encrypted local storage, Android Keystore/StrongBox integration when available, PIN requirements for sensitive operations, transaction decoding and simulation before approval, instruction restrictions, and the absence of a backend or telemetry. Effectiveness depends on the version, device and operating environment. These measures reduce risk but cannot eliminate vulnerabilities. Public source code can be inspected; that does not mean it has been fully audited by third parties. There is currently no independent external audit.
+>
+> **Commercial use, redistribution and identity:** the creator does not sell Lock Wallet or recognize third-party copies or forks as official versions, and does not provide support for them. The creator does not endorse fraudulent, invasive or malicious uses. **License notice:** this repository includes the Apache-2.0 license, which permits copying, modification and redistribution of the code, including commercially, subject to its conditions. Therefore, this notice does not prohibit resale or redistribution of code already covered by that license. Apache-2.0 does not, by itself, grant permission to use the project’s brand, name or visual identity in a way that suggests an official connection or endorsement.
+>
+> **Origin and purpose:** a project inspired by existing wallets in the ecosystem, developed from the creator’s interest in the Solana network and the goal of putting security first — without claiming absolute protection or that every market need has been solved.
+
 **Carteira Solana de autocustódia para Android, projetada em torno da segurança.**
 *Self-custody Solana wallet for Android, designed around security.*
 
 [Português](#português) · [English](#english)
 
-| | |
-|---|---|
-| Plataforma | Android 12+ (API 31) |
-| Rede | Solana Mainnet |
-| Pacote | `com.lockwallet.app` |
-| Versão pública | Final (a Release é atualizada a cada publicação) |
-| SHA-256 do APK | Confira o hash informado na descrição da Release final |
-| SHA-256 do certificado | `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3` |
-| Licença | Apache-2.0 |
-
 ---
 
-## Português
+
 
 ### Visão geral
 
