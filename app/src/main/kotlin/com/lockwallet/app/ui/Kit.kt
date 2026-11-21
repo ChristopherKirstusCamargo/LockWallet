@@ -571,8 +571,9 @@ fun WipeOnDispose(vararg secrets: CharArray) {
 }
 
 /**
- * 6-digit PIN pad. Digits live in a CharArray (never a String); [onComplete] receives a copy which the
- * callee owns and must wipe. The internal buffer is wiped after each completion and on dispose.
+ * Adaptive 6-12 digit PIN pad. Digits live in a CharArray (never a String); [onComplete] receives a copy
+ * which the callee owns and must wipe. The internal buffer is wiped after each completion and on dispose.
+ * Progress dots adapt to the available width so every supported PIN length stays visible.
  * The dots shake (spring) whenever [message] changes to a new error.
  */
 @Composable
@@ -589,11 +590,25 @@ fun PinPad(title: String, message: String?, enabled: Boolean = true, subtitle: S
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(title, color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 26.sp)
         if (subtitle != null) Text(subtitle, color = C.dim, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
-        Row(Modifier.offset { IntOffset(shake.value.roundToInt(), 0) }.padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(if (digits >= 10) 6.dp else 14.dp)) {
-            repeat(digits) { i ->
-                val sz by animateDpAsState(if (i < n) 14.dp else 10.dp, Motion.bouncy(), label = "dot")
-                Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(sz).clip(CircleShape).background(if (i < n) C.text else C.faint)) }
+        // Fit all 6/8/10/12 indicators into the actual content width. Fixed 16 dp cells can
+        // overflow on narrow devices or when the parent applies additional horizontal insets.
+        BoxWithConstraints(Modifier.fillMaxWidth().testTag("pin-progress")) {
+            val dotGap = when {
+                digits >= 10 -> 4.dp
+                digits >= 8 -> 8.dp
+                else -> 14.dp
+            }
+            val dotCell = minOf(16.dp, ((maxWidth - dotGap * (digits - 1)) / digits).coerceAtLeast(4.dp))
+            Row(
+                Modifier.fillMaxWidth().offset { IntOffset(shake.value.roundToInt(), 0) }.padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(dotGap, Alignment.CenterHorizontally),
+            ) {
+                repeat(digits) { i ->
+                    val sz by animateDpAsState(if (i < n) minOf(14.dp, dotCell) else minOf(10.dp, dotCell), Motion.bouncy(), label = "dot")
+                    Box(Modifier.size(dotCell), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(sz).clip(CircleShape).background(if (i < n) C.text else C.faint))
+                    }
+                }
             }
         }
         AnimatedVisibility(message != null) { Text(message ?: "", color = C.text, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 300.dp)) }
