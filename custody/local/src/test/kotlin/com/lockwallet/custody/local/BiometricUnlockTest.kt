@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 
-/** ADR 0024: biometric unlock as an alternative to the PIN, with the PIN as mandatory fallback. Attack-oriented. */
+/** ADR 0024: biometric view unlock only; all signing and secret operations require the PIN. Attack-oriented. */
 class BiometricUnlockTest {
     @get:Rule val tmp = TemporaryFolder()
     private val kek = FakeKekStore()
@@ -118,8 +118,8 @@ class BiometricUnlockTest {
                 session.signDappMessage(byteArrayOf())
             })
         }
-        // The PIN path remains usable; signing is still available after actual PIN authentication.
-        assertTrue(pinUnlock(p, w.id) is UnlockResult.Success)
+        // The PIN path remains usable.
+        (pinUnlock(p, w.id) as UnlockResult.Success).session.close()
     }
 
     @Test fun pinErrorsDisableBiometricsUntilCorrectPin() {
