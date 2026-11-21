@@ -442,7 +442,24 @@ class AppController(
             when (val r = io { provider.completeUnlock(ticket, pin) }) {
                 is UnlockResult.Failed -> { lockMessage = S.wrongPin(r.attemptsBeforeLockout); refreshLockout() }
                 is UnlockResult.LockedOut -> { lockoutMs = r.remainingMs; lockMessage = null }
-                is UnlockResult.Success -> { lockMessage = null; lockoutMs = 0; onUnlocked(r.session, purpose) }
+                is UnlockResult.Success -> {
+                    lockMessage = null; lockoutMs = 0
+                    val migration = r.migration
+                    if (migration != null) {
+                        try {
+                            val authorized = !migration.needsUserAuth ||
+                                (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE))
+                            if (authorized) {
+                                // Migration is best-effort and atomic. If it fails or is cancelled, the old
+                                // envelope is still valid and this already-authenticated session continues.
+                                io { provider.completeKdfMigration(migration, r.session) }
+                            } else migration.close()
+                        } catch (_: Exception) {
+                            migration.close()
+                        }
+                    }
+                    onUnlocked(r.session, purpose)
+                }
             }
         } catch (e: CustodyException) {
             refresh(); throw e
