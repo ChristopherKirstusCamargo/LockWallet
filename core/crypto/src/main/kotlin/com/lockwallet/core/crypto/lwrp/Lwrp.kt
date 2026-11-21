@@ -43,12 +43,21 @@ enum class LwrpKdfProfile(val memoryKiB: Long, val iterations: Long, val paralle
     }
 }
 
-class LwrpHeader(salt: ByteArray, val kdf: LwrpKdfProfile, nonce: ByteArray, val version: Byte = VERSION_STRONG) {
+class LwrpHeader(
+    salt: ByteArray,
+    val kdf: LwrpKdfProfile,
+    nonce: ByteArray,
+    val version: Byte = if (kdf == LwrpKdfProfile.COMPAT_V1) VERSION else VERSION_STRONG,
+) {
     private val saltBytes = salt.copyOf()
     private val nonceBytes = nonce.copyOf()
 
     init {
         require(saltBytes.size == SALT_LEN && nonceBytes.size == NONCE_LEN)
+        require(
+            (version == VERSION && kdf == LwrpKdfProfile.COMPAT_V1) ||
+                (version == VERSION_STRONG && kdf == LwrpKdfProfile.STRONG_V2),
+        ) { "LWRP version and KDF profile do not match" }
     }
 
     fun salt(): ByteArray = saltBytes.copyOf()
