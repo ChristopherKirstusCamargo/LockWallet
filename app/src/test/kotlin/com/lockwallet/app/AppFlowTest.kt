@@ -60,6 +60,7 @@ internal class SoftKek : KekStore {
         return object : KekOperation {
             override val cipher: Cipher = c
             override val requiresUserAuth = true
+            override val allowsDeviceCredential = true
             override fun iv(): ByteArray = c.iv
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray =
                 try { c.updateAAD(aad); c.doFinal(input) } catch (e: AEADBadTagException) { throw KekException(KekException.Kind.BAD_TAG, e) }
