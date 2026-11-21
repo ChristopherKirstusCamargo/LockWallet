@@ -39,8 +39,12 @@ object LwrpCipher {
     }
 
     init {
-        check(KDF.memoryKiB.toLong() == LwrpKdfProfile.COMPAT_V1.memoryKiB && KDF.iterations.toLong() == LwrpKdfProfile.COMPAT_V1.iterations &&
-            KDF.parallelism.toLong() == LwrpKdfProfile.COMPAT_V1.parallelism)
+        check(LEGACY_KDF.memoryKiB.toLong() == LwrpKdfProfile.COMPAT_V1.memoryKiB &&
+            LEGACY_KDF.iterations.toLong() == LwrpKdfProfile.COMPAT_V1.iterations &&
+            LEGACY_KDF.parallelism.toLong() == LwrpKdfProfile.COMPAT_V1.parallelism)
+        check(WRITE_KDF.memoryKiB.toLong() == LwrpKdfProfile.STRONG_V2.memoryKiB &&
+            WRITE_KDF.iterations.toLong() == LwrpKdfProfile.STRONG_V2.iterations &&
+            WRITE_KDF.parallelism.toLong() == LwrpKdfProfile.STRONG_V2.parallelism)
     }
 
     /**
