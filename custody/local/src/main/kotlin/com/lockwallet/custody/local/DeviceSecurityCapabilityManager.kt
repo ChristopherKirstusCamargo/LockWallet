@@ -144,12 +144,12 @@ class DeviceSecurityCapabilityManager(private val context: Context, private val 
                 f.pinFailures > 0 -> CheckStatus.WARN
                 else -> CheckStatus.OK
             }, f.pinFailures.toString())
-            val patchAgeDays = runCatching { ChronoUnit.DAYS.between(LocalDate.parse(f.securityPatch), f.today) }.getOrNull()
-            // Android Security Bulletin 2026-04: CVE-2025-48651 is High severity for StrongBox
-            // components before the 2026-04-05 patch level. Do not let the generic 120-day warning
-            // downgrade this specific hardware-backed key risk to WARN.
+            val patchDate = runCatching { LocalDate.parse(f.securityPatch) }.getOrNull()
+            val patchAgeDays = patchDate?.let { ChronoUnit.DAYS.between(it, f.today) }
+            // Android Security Bulletin 2026-04 lists CVE-2025-48651 as High severity in StrongBox.
+            // Treat only a valid ISO security-patch date before 2026-04-05 as the specific warning case.
             val unpatchedStrongBox = f.vaultKeyLevel == KeySecurityLevel.STRONGBOX &&
-                f.securityPatch.isNotBlank() && f.securityPatch < "2026-04-05"
+                patchDate?.isBefore(LocalDate.of(2026, 4, 5)) == true
             out += SecurityCheck(CheckId.SECURITY_PATCH, when {
                 unpatchedStrongBox -> CheckStatus.RISK
                 patchAgeDays == null -> CheckStatus.WARN
