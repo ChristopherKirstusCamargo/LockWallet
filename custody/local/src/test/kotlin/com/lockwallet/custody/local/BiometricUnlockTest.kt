@@ -24,11 +24,15 @@ class BiometricUnlockTest {
     private val spec = Fixtures.json("lockwallet-spec-23-1.json")["mnemonic"].asString
     private fun reason(block: () -> Unit) = (runCatching(block).exceptionOrNull() as CustodyException).reason
 
-    private fun create(p: LocalSecureProvider, mode: AuthMode = AuthMode.PIN_AND_BIOMETRIC, bio: Boolean = false) =
-        PendingMaterial.fromPhrase(spec.toCharArray()).use { m ->
-            val t = p.beginNewVault(mode); kek.biometricsPresented = 1
-            p.seal(t, m, m.discover(1)[0], "Principal", WalletRole.VAULT, newPin = pin.toCharArray(), enableBiometric = bio)
-        }
+    private fun create(
+        p: LocalSecureProvider,
+        mode: AuthMode = AuthMode.PIN_AND_BIOMETRIC,
+        bio: Boolean = false,
+        role: WalletRole = WalletRole.VAULT,
+    ) = PendingMaterial.fromPhrase(spec.toCharArray()).use { m ->
+        val t = p.beginNewVault(mode); kek.biometricsPresented = 1
+        p.seal(t, m, m.discover(1)[0], "Principal", role, newPin = pin.toCharArray(), enableBiometric = bio)
+    }
 
     private fun pinUnlock(p: LocalSecureProvider, id: String, pinText: String = pin): UnlockResult {
         val t = p.beginUnlock(id); kek.biometricsPresented = 1
@@ -96,6 +100,26 @@ class BiometricUnlockTest {
             assertEquals(CustodyException.Reason.AUTH_REQUIRED, reason { s.pinVerification() })
         }
         (pinUnlock(p, w.id) as UnlockResult.Success).session.use { s -> s.words().forEach { it.fill('\u0000') } }
+    }
+
+    /** A biometric session must not sign even when callers bypass the current UI authorization gate. */
+    @Test fun biometricSessionCannotSignThroughCustodyApi() {
+        val p = provider()
+        val w = create(p, bio = true, role = WalletRole.CONNECT)
+        bioUnlock(p, w.id).use { session ->
+            assertFalse(session.viaPin)
+            assertEquals(CustodyException.Reason.AUTH_REQUIRED, reason {
+                session.signApproved(byteArrayOf(), byteArrayOf())
+            })
+            assertEquals(CustodyException.Reason.AUTH_REQUIRED, reason {
+                session.signDappTransaction(byteArrayOf(), byteArrayOf(), rawAcknowledged = false)
+            })
+            assertEquals(CustodyException.Reason.AUTH_REQUIRED, reason {
+                session.signDappMessage(byteArrayOf())
+            })
+        }
+        // The PIN path remains usable; signing is still available after actual PIN authentication.
+        assertTrue(pinUnlock(p, w.id) is UnlockResult.Success)
     }
 
     @Test fun pinErrorsDisableBiometricsUntilCorrectPin() {
