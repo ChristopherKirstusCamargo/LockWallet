@@ -346,6 +346,7 @@ private fun HomeTab(c: AppController, p: Platform, openDrawer: () -> Unit) {
     }
     val w = c.chain.wallet()
     TopRow(c, p, w, openDrawer)
+    HomeSecurityAttention(c)
     if (w == null) {
         Card {
             Body(S.HOME_EMPTY, C.text)
@@ -376,6 +377,32 @@ private fun HomeTab(c: AppController, p: Platform, openDrawer: () -> Unit) {
     }
     QuarantinedList(c)
     ErrorText(c.error)
+}
+
+@Composable
+private fun HomeSecurityAttention(c: AppController) {
+    if (!c.vaultPresent) return
+    val warnings = buildList {
+        if (c.legacyKekPinOnly) {
+            add("A chave principal deste cofre ainda usa o modo legado, sem biometria forte exigida a cada uso. A migração dessa proteção ainda não foi realizada.")
+        }
+        if (c.legacyKdfWalletCount > 0) {
+            add("Há ${c.legacyKdfWalletCount} carteira(s) com o perfil antigo de Argon2id. A atualização é tentada após o desbloqueio por PIN.")
+        }
+        c.migrationWarning?.let { add(it) }
+    }
+    if (warnings.isEmpty()) return
+
+    Card(padding = 14.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Ic.WARN, size = 20.dp)
+            Text("Atenção de segurança", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+        Body(warnings.joinToString("\n\n"), C.text)
+        TextAction("Ver detalhes na Central de Segurança", Modifier.fillMaxWidth()) {
+            c.go(Screen.SecurityCenter)
+        }
+    }
 }
 
 @Composable
