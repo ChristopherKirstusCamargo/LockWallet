@@ -134,7 +134,7 @@ object S {
         Reason.VAULT_EXISTS -> "Já existe um cofre ativo."
         Reason.UNKNOWN_WALLET -> "Carteira não encontrada."
         Reason.BAD_ACCOUNT -> "Conta inválida."
-        Reason.STORAGE -> "Falha ao gravar com segurança. Nada foi alterado."
+        Reason.STORAGE -> "Falha ao gravar com segurança. A operação não foi confirmada; confira o estado antes de continuar."
         Reason.KEYSTORE -> "O Keystore do aparelho falhou. Nada foi alterado; tente de novo."
         Reason.SEED_VAULT_UNAVAILABLE -> "Seed Vault indisponível neste aparelho."
         Reason.SEED_VAULT_DECLINED -> "O Seed Vault não assinou (cancelado ou recusado). Nada foi enviado."
