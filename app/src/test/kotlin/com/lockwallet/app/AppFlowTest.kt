@@ -96,6 +96,15 @@ class AppFlowTest {
 
     private fun pin(s: String) = s.toCharArray()
 
+    @Test fun controllerRejectsLegacyPinOnlyForNewWallets() {
+        val c = controller()
+        c.startFlow(FlowMode.CREATE)
+        c.sealNewVault(AuthMode.PIN_ONLY)
+        c.await()
+        assertTrue("legacy PIN-only mode must never create a new app wallet", !c.provider.hasVault())
+        assertTrue(c.wallets.isEmpty())
+    }
+
     /** Full creation ceremony through the controller: 24 words, quiz, name, PIN + biometrics. */
     private fun createWallet(c: AppController, words: Int = 24, role: WalletRole = WalletRole.VAULT): String {
         c.startFlow(FlowMode.CREATE)
