@@ -37,12 +37,12 @@ class FinalReleaseUiTest {
         val rpc = AppFakeRpc()
         val p = com.lockwallet.custody.local.LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(p, com.lockwallet.custody.local.DeviceSecurityCapabilityManager(ctx, p), kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
-            Prefs(ctx).also { it.hideBalance = false }, com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _, _ -> true },
+            Prefs(ctx).also { it.hideBalance = false }, com.lockwallet.data.price.PriceService(emptyList(), { 0L }), { _, _ -> true },
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); Thread.sleep(30); while (c.busy) Thread.sleep(10)
         c.chooseAccount(c.draft!!.material!!.discover(1).first()); c.submitName("Conta 1"); c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
-        c.sealNewVault(com.lockwallet.custody.local.keystore.AuthMode.PIN_AND_DEVICE_AUTH); Thread.sleep(30); while (c.busy) Thread.sleep(10)
+        c.sealNewVault(com.lockwallet.custody.local.keystore.AuthMode.PIN_AND_BIOMETRIC); Thread.sleep(30); while (c.busy) Thread.sleep(10)
         val me = c.chain.wallet()!!.address
         val vote = com.lockwallet.core.solana.SolanaPublicKey.fromBase58(Curated.LIST.first().vote).toByteArray()
         rpc.accounts[com.lockwallet.data.rpc.ChainReader.stakeAddress(me, 0).toBase58()] =
