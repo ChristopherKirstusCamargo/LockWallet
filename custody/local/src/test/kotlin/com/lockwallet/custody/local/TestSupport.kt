@@ -69,11 +69,12 @@ internal class FakeKekStore : KekStore {
             val fixed = fixedIv
             if (fixed != null) c.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, fixed)) else c.init(Cipher.ENCRYPT_MODE, key)
         } else c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
-        val needs = e.mode == AuthMode.PIN_AND_BIOMETRIC
+        val needs = e.mode != AuthMode.PIN_ONLY
         return object : KekOperation {
             var authorised = !needs
             override val cipher: Cipher? = if (needs) c else null
             override val requiresUserAuth = needs
+            override val allowsDeviceCredential = e.mode == AuthMode.PIN_AND_DEVICE_AUTH
             override fun iv(): ByteArray = c.iv
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray {
                 if (needs && biometricsPresented <= 0) throw KekException(KekException.Kind.AUTH_REQUIRED)
