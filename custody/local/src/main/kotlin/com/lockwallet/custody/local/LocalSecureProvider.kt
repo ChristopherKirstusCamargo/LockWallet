@@ -462,7 +462,8 @@ class LocalSecureProvider(
             // if that optional write fails, the wallet remains usable by PIN.
             bio?.let { b ->
                 runCatching {
-                    b.remove(ticket.walletId)
+                    // AtomicFiles replaces the stale header-bound record in place. Do not delete the old
+                    // record first: a failed rewrite must leave the prior on-disk state untouched.
                     if (b.enabled()) b.write(hex(ticket.walletId), migrated.header(), ticket.material)
                 }
             }
