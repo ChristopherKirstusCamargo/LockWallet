@@ -74,7 +74,6 @@ internal class FakeKekStore : KekStore {
             var authorised = !needs
             override val cipher: Cipher? = if (needs) c else null
             override val requiresUserAuth = needs
-            override val allowsDeviceCredential = e.mode == AuthMode.PIN_AND_DEVICE_AUTH
             override fun iv(): ByteArray = c.iv
             override fun finish(aad: ByteArray, input: ByteArray): ByteArray {
                 if (needs && biometricsPresented <= 0) throw KekException(KekException.Kind.AUTH_REQUIRED)
