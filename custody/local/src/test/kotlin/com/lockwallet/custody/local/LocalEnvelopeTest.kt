@@ -29,7 +29,7 @@ class LocalEnvelopeTest {
         val env = LocalEnvelope.parse(bytes)
         val kek = kekFor(o)
         val dekPin = EnvelopeCrypto.unwrapHardware(env, kek.decryptor(env.aliasId(), env.hwIv()))
-        val pinKey = Pin.encode(pin.toCharArray()).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt()) }
+        val pinKey = Pin.encode(pin.toCharArray()).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), env.kdfProfile) }
         return pinKey.use { EnvelopeCrypto.openWithPinKey(env, dekPin, it) }
     }
 
@@ -47,13 +47,13 @@ class LocalEnvelopeTest {
     @Test fun sealIsByteIdenticalToIndependentImplementation() {
         for (o in pos) {
             val kek = kekFor(o).apply { fixedIv = o["hw_iv"].asString.hex() }
-            val pinKey = Pin.encode(o["pin"].asString.toCharArray()).use { EnvelopeCrypto.derivePinKey(it, o["pin_salt"].asString.hex()) }
+            val pinKey = Pin.encode(o["pin"].asString.toCharArray()).use { EnvelopeCrypto.derivePinKey(it, o["pin_salt"].asString.hex(), LocalEnvelope.KDF_OWASP_V1) }
             assertEquals(o["pin_key"].asString, pinKey.withBytes { it.hex() })
             val env = EnvelopeCrypto.seal(o["vault_id"].asString.hex(), o["material_id"].asString.hex(), o["kind"].asInt, o["profile"].asInt,
                 o["account"].asInt, o["pub"].asString.hex(), o["pin_salt"].asString.hex(), o["alias_id"].asString.hex(), o["auth"].asInt,
                 SecretBytes.copyOf(o["material"].asString.hex()), pinKey,
                 SealRandomness(o["dek"].asString.hex(), o["seed_nonce"].asString.hex(), o["dekpin_nonce"].asString.hex()),
-                kek.encryptor(o["alias_id"].asString.hex()))
+                kek.encryptor(o["alias_id"].asString.hex()), LocalEnvelope.KDF_OWASP_V1)
             assertEquals(o["id"].asString, o["envelope_hex"].asString, env.encode().hex())
         }
     }
@@ -65,6 +65,31 @@ class LocalEnvelopeTest {
             val err = (runCatching { LocalEnvelope.parse(n["envelope_hex"].asString.hex()) }.exceptionOrNull() as? EnvelopeFormatException)?.error
             assertEquals(n["id"].asString, EnvelopeError.valueOf(n["expected_error"].asString), err)
         }
+    }
+
+    @Test fun newEnvelopeUsesStrongKdfAndLegacyFilesStillParse() {
+        val o = pos[0]
+        val kek = kekFor(o)
+        val salt = o["pin_salt"].asString.hex()
+        val pinKey = Pin.encode(o["pin"].asString.toCharArray()).use {
+            EnvelopeCrypto.derivePinKey(it, salt, LocalEnvelope.KDF_STRONG_V2)
+        }
+        val env = EnvelopeCrypto.seal(
+            o["vault_id"].asString.hex(), "ab".repeat(16).hex(), o["kind"].asInt, o["profile"].asInt,
+            o["account"].asInt, o["pub"].asString.hex(), salt, o["alias_id"].asString.hex(),
+            o["auth"].asInt, SecretBytes.copyOf(o["material"].asString.hex()), pinKey,
+            SealRandomness(ByteArray(32) { 7 }, ByteArray(12) { 8 }, ByteArray(12) { 9 }),
+            kek.encryptor(o["alias_id"].asString.hex()),
+        )
+        assertEquals(LocalEnvelope.KDF_STRONG_V2, env.kdfProfile)
+        val encoded = env.encode()
+        assertEquals(LocalEnvelope.KDF_STRONG_V2, LocalEnvelope.parse(encoded).kdfProfile)
+        val parsed = LocalEnvelope.parse(encoded)
+        val dekPin = EnvelopeCrypto.unwrapHardware(parsed, kek.decryptor(parsed.aliasId(), parsed.hwIv()))
+        EnvelopeCrypto.openWithPinKey(parsed, dekPin, pinKey).use { opened ->
+            assertArrayEquals(o["material"].asString.hex(), opened.withBytes { it.copyOf() })
+        }
+        for (legacy in pos) assertEquals(LocalEnvelope.KDF_OWASP_V1, LocalEnvelope.parse(legacy["envelope_hex"].asString.hex()).kdfProfile)
     }
 
     @Test fun wrongPinFails() {
