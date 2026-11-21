@@ -106,7 +106,7 @@ object EnvelopeCrypto {
                 old.expectedPubkey(), LocalEnvelope.KDF_STRONG_V2, old.pinSalt(), old.aliasId(), old.authMode,
                 old.materialLength, seedNonce, seedCt, dekPinNonce, kek.iv(), hwCt,
             )
-            verifyStrongEnvelope(env, dek, material, strongPinKey)
+            verifyStrongEnvelope(env, dek, material, strongPinKey, dekPin)
             return env
         } finally {
             dekPin.wipe()
@@ -114,12 +114,11 @@ object EnvelopeCrypto {
     }
 
     /** Full inner-layer read-back verification, independent of the file parser. */
-    fun verifyStrongEnvelope(env: LocalEnvelope, dek: SecretBytes, expectedMaterial: SecretBytes, pinKey: SecretBytes) {
+    fun verifyStrongEnvelope(env: LocalEnvelope, dek: SecretBytes, expectedMaterial: SecretBytes, pinKey: SecretBytes, dekPin: ByteArray) {
         require(env.kdfProfile == LocalEnvelope.KDF_STRONG_V2)
-        AesGcm.decrypt(pinKey, env.dekPinNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, env.header()), dek.withBytes { it.copyOf() }).use { recoveredDek ->
-            if (recoveredDek.size != 32 || !recoveredDek.withBytes { it.contentEquals(dek.withBytes { b -> b }) }) {
-                throw EnvelopeAuthException()
-            }
+        AesGcm.decrypt(pinKey, env.dekPinNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_PIN, env.header()), dekPin).use { recoveredDek ->
+            val sameDek = recoveredDek.withBytes { got -> dek.withBytes { expected -> MessageDigest.isEqual(got, expected) } }
+            if (recoveredDek.size != 32 || !sameDek) throw EnvelopeAuthException()
         }
         val material = AesGcm.decrypt(dek, env.seedNonce(), LocalEnvelope.aad(LocalEnvelope.DOMAIN_SEED, env.header()), env.seedCt())
         material.use { recovered ->
