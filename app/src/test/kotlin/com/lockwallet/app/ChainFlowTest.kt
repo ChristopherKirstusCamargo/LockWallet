@@ -85,7 +85,7 @@ class ChainFlowTest {
 
     private fun controller(): AppController {
         val p = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
-        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _ -> true },
+        return AppController(p, DeviceSecurityCapabilityManager(ctx, p), CoroutineScope(Dispatchers.Default), Prefs(ctx), null, { _, _, _ -> true },
             transport = rpc, dataDir = tmp.newFolder()).also { it.start() }
     }
 
@@ -102,7 +102,7 @@ class ChainFlowTest {
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
         c.submitName("Teste")
         c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray())
-        c.sealNewVault(AuthMode.PIN_ONLY); c.await()
+        c.sealNewVault(AuthMode.PIN_AND_DEVICE_AUTH); c.await()
     }
 
     @Test fun sendSolReviewSignPersistAndConfirm() {
