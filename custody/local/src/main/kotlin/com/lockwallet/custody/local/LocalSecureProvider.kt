@@ -402,25 +402,28 @@ class LocalSecureProvider(
             // the current envelope only after any required second Keystore authorization succeeds.
             val migrationDek = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) null else
                 runCatching { EnvelopeCrypto.unwrapDek(env, dekPin, unlockPinKey) }.getOrNull()
-            val sessionPinKey = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) {
-                unlockPinKey
-            } else {
-                try {
-                    Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), LocalEnvelope.KDF_STRONG_V2) }
-                } finally {
-                    unlockPinKey.close()
-                }
+            val sessionPinKey = try {
+                if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) unlockPinKey
+                else Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), LocalEnvelope.KDF_STRONG_V2) }
+            } catch (e: Exception) {
+                material.close()
+                migrationDek?.close()
+                throw e
+            } finally {
+                if (env.kdfProfile != LocalEnvelope.KDF_STRONG_V2) unlockPinKey.close()
             }
             bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
             val session = UnlockedWallet(e.toInfo(), material, sessionPinKey, env.pinSalt(), env.header())
             val migration = migrationDek?.let { dek ->
+                var copiedPinKey: SecretBytes? = null
                 try {
-                    KdfMigrationTicket(
-                        walletId, env.encode(), env, dek, material.copy(), sessionPinKey.copy(),
-                        kek.encryptor(env.aliasId()),
-                    )
+                    copiedPinKey = sessionPinKey.copy()
+                    val migrationOp = kek.encryptor(env.aliasId())
+                    KdfMigrationTicket(walletId, env.encode(), env, dek, material.copy(), copiedPinKey, migrationOp)
+                        .also { copiedPinKey = null }
                 } catch (_: Exception) {
                     dek.close()
+                    copiedPinKey?.close()
                     null // The PIN unlock remains valid; a failed optional migration is retried next time.
                 }
             }
