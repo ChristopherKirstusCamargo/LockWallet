@@ -70,7 +70,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 **Criar ou restaurar**
 1. Toque em **Criar uma carteira** ou em **Adicionar uma carteira existente**.
 2. Escolha onde a chave fica: **neste aparelho** ou no **Seed Vault**, quando disponível.
-3. Ao criar, anote as palavras no papel, confirme o teste de palavras e defina um PIN de 6 dígitos.
+3. Ao criar, anote as palavras no papel, confirme o teste de palavras e escolha um PIN de 6, 8, 10 ou 12 dígitos (8 recomendado).
 4. Ao restaurar, digite a frase (teclado de senha; a área de transferência é limpa ao colar), escolha a conta e
    defina o PIN.
 
@@ -219,7 +219,7 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 ### Usage
 
 - **Create / restore:** *Criar uma carteira* or *Adicionar uma carteira existente* → choose this device or Seed Vault →
-  write the words on paper → set a 6-digit PIN.
+  write the words on paper → choose a 6, 8, 10 or 12-digit PIN (8 recommended).
 - **Receive:** Home → *Receber* → show the QR code or share the full address.
 - **Send:** Home → *Enviar* → address and amount (comma as decimal separator) → review destination, amount, fee and
   warnings → confirm. *Max* uses only the available balance.

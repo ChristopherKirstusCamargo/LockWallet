@@ -573,7 +573,7 @@ fun WipeOnDispose(vararg secrets: CharArray) {
 /**
  * Adaptive 6-12 digit PIN pad. Digits live in a CharArray (never a String); [onComplete] receives a copy
  * which the callee owns and must wipe. The internal buffer is wiped after each completion and on dispose.
- * Progress dots adapt to the available width so every supported PIN length stays visible.
+ * A live numeric counter and responsive progress dots show the selected length without clipping.
  * The dots shake (spring) whenever [message] changes to a new error.
  */
 @Composable
@@ -590,6 +590,8 @@ fun PinPad(title: String, message: String?, enabled: Boolean = true, subtitle: S
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(title, color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 26.sp)
         if (subtitle != null) Text(subtitle, color = C.dim, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+        Text("Dígitos: $n/$digits", color = C.dim, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         // Fit all 6/8/10/12 indicators into the actual content width. Fixed 16 dp cells can
         // overflow on narrow devices or when the parent applies additional horizontal insets.
         BoxWithConstraints(Modifier.fillMaxWidth().testTag("pin-progress")) {

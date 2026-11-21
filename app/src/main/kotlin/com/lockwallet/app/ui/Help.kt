@@ -241,9 +241,9 @@ object Help {
         "Confirmar que você anotou certo — antes de colocar dinheiro numa carteira que talvez não consiga restaurar.",
         "“Qual é a palavra nº 7?” Confira no seu papel e escolha a certa.")
     val PIN = t("PIN",
-        "Uma senha de 6 dígitos que abre o cofre neste aparelho. Ela não sai do celular.",
-        "Impedir que alguém com seu celular nas mãos abra a carteira. Depois de erros, há espera crescente; a carteira nunca é apagada.",
-        "Evite datas e sequências como 123456. Algo que só você saiba, como 4 9 1 7 3 8.")
+        "Uma senha de 6, 8, 10 ou 12 dígitos que abre o cofre neste aparelho. O comprimento é escolhido na criação e a senha não sai do celular.",
+        "Impedir que alguém com seu celular nas mãos abra a carteira. Depois de erros, há espera crescente; a carteira nunca é apagada. O padrão recomendado para novos cofres é 8 dígitos.",
+        "Use uma sequência que não seja previsível, por exemplo, um PIN de 8 dígitos que não contenha datas ou repetições.")
     val BIOMETRIC = t("Biometria",
         "A biometria forte é exigida em cada uso da chave principal do cofre local. Há também uma chave auxiliar opcional para abrir somente a visualização.",
         "A chave auxiliar nunca assina. Para operações sensíveis, a Lock Wallet exige o PIN próprio e a confirmação biométrica por uso da KEK.",

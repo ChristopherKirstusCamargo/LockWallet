@@ -17,6 +17,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -328,21 +329,57 @@ fun NameWallet(c: AppController) {
 }
 
 @Composable
+private fun PinLengthOption(length: Int, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier.fillMaxWidth().height(76.dp).clip(shape)
+            .background(if (selected) C.text.copy(alpha = 0.10f) else C.glass)
+            .border(1.dp, if (selected) C.text else C.glassBorder, shape)
+            .pressable { onClick() }
+            .testTag("pin-length-$length")
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("$length dígitos", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                when (length) {
+                    6 -> "Compatibilidade"
+                    8 -> "Recomendado"
+                    10 -> "Mais longo"
+                    else -> "Mais longo"
+                },
+                color = C.dim, fontSize = 12.sp, maxLines = 1,
+            )
+        }
+        if (selected) Icon(Ic.CHECK, size = 18.dp)
+    }
+}
+
+@Composable
 fun PinCreate(c: AppController) {
     var first by remember { mutableStateOf<CharArray?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
-    var pinLength by remember { mutableIntStateOf(6) }
+    var pinLength by remember { mutableIntStateOf(8) }
     val lengths = listOf(6, 8, 10, 12)
     DisposableEffect(Unit) { onDispose { first?.fill('\u0000') } }
     Screen("", onBack = { c.home() }, actions = { HelpIcon(Help.PIN, 22.dp) }) {
         if (first == null) {
             Body("Escolha o comprimento do PIN. Mais dígitos aumentam a resistência contra tentativas de adivinhação.", align = TextAlign.Center)
-            Segmented(listOf("6 dígitos", "8 dígitos", "10 dígitos", "12 dígitos"), lengths.indexOf(pinLength)) {
-                pinLength = lengths[it]
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PinLengthOption(6, pinLength == 6, Modifier.weight(1f)) { pinLength = 6 }
+                    PinLengthOption(8, pinLength == 8, Modifier.weight(1f)) { pinLength = 8 }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PinLengthOption(10, pinLength == 10, Modifier.weight(1f)) { pinLength = 10 }
+                    PinLengthOption(12, pinLength == 12, Modifier.weight(1f)) { pinLength = 12 }
+                }
             }
+            Body("O mesmo comprimento será usado na confirmação e nos próximos desbloqueios.", align = TextAlign.Center)
         }
         AnimatedContent(first == null, transitionSpec = { (slideInHorizontally(Motion.slide) { it / 3 } + fadeIn()) togetherWith fadeOut() }, label = "pin") { isFirst ->
-            PinPad(if (isFirst) S.pinCreate(pinLength) else S.PIN_CONFIRM, msg, subtitle = null, digits = pinLength) { pin ->
+            PinPad(if (isFirst) S.pinCreate(pinLength) else S.pinConfirm(pinLength), msg, subtitle = null, digits = pinLength) { pin ->
                 val f = first
                 when {
                     f == null && com.lockwallet.custody.local.pin.Pin.isTrivial(pin) -> { pin.fill('\u0000'); msg = S.PIN_TRIVIAL }
