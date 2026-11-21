@@ -140,6 +140,16 @@ class ConnectFlowTest {
         submitPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray(), (screen as Screen.Authorize).purpose); await()
     }
 
+    @Test fun missingCallerPackageNeverSilentlyReauthorizes() {
+        val c = controller(WalletRole.CONNECT)
+        val unverified = DappIdentity("Exemplo dApp", "https://exemplo.app", null)
+        val answer = RecAuth()
+        c.connect.enqueue(AuthorizeRequestModel(unverified, "solana:mainnet", Cluster.MAINNET, null, answer))
+        c.connect.approveAuthorize()
+        assertEquals(listOf("approve"), answer.calls)
+        assertFalse(c.connect.reauthorize(answer.scope, unverified, "solana:mainnet"))
+    }
+
     @Test fun authorizeThenSignTransactionThroughFirewallAndPin() {
         val c = controller(WalletRole.CONNECT)
         val me = c.wallets.single().address
