@@ -130,6 +130,7 @@ fun SendToken(c: AppController, p: Platform, account: String) {
         AddressField(to, { to = it }, "token-to", c, p, "Carteira de destino") { scanning = true }
         if (scanning) QrScanner(onAddress = { to = it; scanning = false }, onMessage = { c.error = it; scanning = false }, onClose = { scanning = false })
         AmountEntry(amount, { amount = it }, h.symbol?.take(8) ?: "", "token-amount") { amount = amountOf(h) }
+        PrivacyDisclosureCard()
         Row(verticalAlignment = Alignment.CenterVertically) { Body("Conta de token", modifier = Modifier.weight(1f)); HelpIcon(Help.ATA, 16.dp) }
     }
 }
