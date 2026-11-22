@@ -76,7 +76,36 @@ fun SendSol(c: AppController, p: Platform) {
             fiatHint = com.lockwallet.app.UserAmount.solOrNull(amount)?.let { lam -> v.price?.let { pr -> formatFiat(Amounts.toDecimal(lam, 9).multiply(pr), v.fiat!!) } }) {
             if (to.isNotBlank()) c.chain.reviewSol(to, "", max = true) else c.error = S.MAX_NEEDS_DEST
         }
+        PrivacyDisclosureCard()
         Row(verticalAlignment = Alignment.CenterVertically) { Body("Taxa de rede"); HelpIcon(Help.NETWORK_FEE, 16.dp) }
+    }
+}
+
+/**
+ * Explicitly labels the current public route. This is informational only:
+ * it must never imply that a private transfer is available before the
+ * shielded-key, proof, analyzer and custody paths are fully integrated.
+ */
+@Composable
+fun PrivacyDisclosureCard(review: Boolean = false) {
+    Card(padding = 14.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Ic.GLOBE, size = 18.dp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Visibilidade na rede", color = C.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("Esta operação é pública", color = C.dim, fontSize = 13.sp)
+            }
+            Chip("PÚBLICO")
+            HelpIcon(Help.PRIVACY_RING, 16.dp)
+        }
+        Body(
+            if (review) "Nesta transação, os endereços, o ativo e a quantidade ficam visíveis na rede Solana."
+            else "No modo atual, os endereços, o ativo e a quantidade serão visíveis na rede Solana."
+        )
+        Body("Saldos confidenciais ainda estão em integração e não podem ser usados nesta versão.")
     }
 }
 
@@ -183,6 +212,9 @@ fun Review(c: AppController) {
                 (pt.feeLamports?.let { f -> v.price?.let { pr -> " · " + formatFiat(Amounts.toDecimal(f, 9).multiply(pr), v.fiat!!) } } ?: ""), Help.NETWORK_FEE)
             DetailLine("Rede", "Solana", Help.GENESIS)
             DetailLine("Carteira", groupedAddress(me.toBase58()))
+        }
+        if (pt.intent.kind == TxKind.SEND_SOL || pt.intent.kind == TxKind.SEND_TOKEN) {
+            PrivacyDisclosureCard(review = true)
         }
         Row(verticalAlignment = Alignment.CenterVertically) { Label("O que será assinado"); HelpIcon(Help.ANALYZER, 14.dp) }
         Card {
