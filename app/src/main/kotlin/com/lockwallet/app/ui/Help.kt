@@ -279,13 +279,17 @@ object Help {
 
     // ------------------------------------------------------------ settings / network
     val RPC = t("Servidor da rede",
-        "O servidor (RPC) pelo qual a carteira conversa com a rede Solana. Por padrão usamos dois públicos, um de reserva do outro.",
-        "Ler saldos e enviar transações. Você pode usar um servidor próprio; ele é conferido para garantir que é mesmo a rede Solana principal.",
-        "Tem uma conta num provedor de RPC? Cole a URL aqui e a carteira passa a usá-la, com o padrão como reserva.")
+        "O RPC é o servidor que recebe as consultas e transações da carteira. Você pode manter o padrão ou configurar um servidor principal próprio; o servidor de reserva continua sendo controlado pelo aplicativo.",
+        "Um RPC pode ver seu IP e os endereços públicos consultados. Se a URL incluir uma chave de API, essa credencial fica salva junto com a URL nas preferências locais. Ela não assina nem movimenta seus fundos, mas pode ser usada por terceiros para consumir sua cota se for exposta.",
+        "Uma URL Helius de Mainnet pode ter o formato https://mainnet.helius-rpc.com/?api-key=SUA_CHAVE. A carteira confere o Genesis Hash antes de salvar. Isso configura o RPC comum, mas não ativa sozinho as operações de saldo confidencial.")
     val GENESIS = t("Conferência da rede",
         "Cada rede Solana tem uma “impressão digital” única. A carteira confere essa marca em todo servidor.",
         "Impedir que um servidor de rede de teste ou falso se passe pela rede real.",
         "Você cola por engano um servidor de testes: a carteira recusa e nada é salvo.")
+    val PRIVACY_RING = t("Saldo confidencial",
+        "O Solana Privacy Ring cria um saldo protegido dentro da própria Solana. No anel padrão, os endereços do remetente e do destinatário continuam públicos, mas o ativo e a quantidade transferida ficam criptografados.",
+        "Separar o saldo público de um saldo cujos valores só a carteira autorizada consegue consultar. Isso reduz a exposição do histórico financeiro, mas não oferece anonimato completo.",
+        "Ao depositar 1 SOL, o depósito e a quantidade ficam públicos. Depois, uma transferência entre saldos privados pode ocultar o ativo e o valor, embora os endereços continuem visíveis. Ao retirar para o saldo público, os dados do saque voltam a aparecer na rede.")
     val PRICE = t("Cotação ao vivo",
         "O preço do SOL é buscado em Coinbase e Kraken a cada poucos segundos, comparando as duas fontes.",
         "Mostrar o saldo em reais ou dólares. Essas consultas revelam seu IP a essas empresas, mas nunca seu endereço.",
@@ -346,6 +350,7 @@ object Help {
         "Tokens" to listOf(TOKENS, UNVERIFIED_NAME, TOKEN_POLICY, FREEZE, ATA, CLOSE_TOKEN),
         "Stake" to listOf(STAKE, TOTAL_BALANCE, CURATED, CURATED_ORDER, CONCENTRATION, ADVANCED_STAKE, VALIDATOR, COMMISSION, EPOCH, STAKE_STATES, MIN_STAKE, SPLIT, MERGE),
         "dApps" to listOf(DAPPS, SESSION, RAW_PROGRAM, SIWS, MESSAGE),
+        "Privacidade" to listOf(PRIVACY_RING),
         "Segurança e backup" to listOf(LWRP, BIO_WINDOW, LOCKDOWN, BACKUP_REQUIRED, QUARANTINE, LOCKOUT, AUTO_LOCK, SECURITY_CENTER, RPC, GENESIS, PRICE, CURRENCY, RESTORE_PRIVACY, NO_NOTIFICATIONS, ABOUT),
     )
 }
