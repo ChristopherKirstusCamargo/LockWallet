@@ -3,6 +3,15 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
 
+## [5.0.5] — 2026-11-22 — publicação (versionCode 13)
+
+- `versionName` permanece `Final`. `versionCode` 13, para o Android aceitar a atualização quando o certificado for o mesmo.
+- **Saldo confidencial (Default Ring, Solana Privacy Rings):** depósito do saldo público, transferência confidencial de SOL e retirada de volta ao saldo público. O ativo e a quantidade da transferência privada ficam ocultos. Os endereços de origem e destino continuam públicos — confidencialidade de valor, não anonimato de endereços. Depósitos e retiradas também são públicos. Somente SOL, Mainnet, carteira Local Secure e um endpoint Helius HTTPS com API key. Seed Vault, SPL e Token-2022 não entram.
+- **Segurança:** a derivação das chaves de visualização e de nullifier fica na custódia local e exige PIN; a seed e a chave privada não cruzam a ponte nativa. A assinatura final continua na custódia, com um segundo PIN, e o envio passa pelo coordenador (simulação, taxa e blockhash). O journal não grava valor, casas decimais nem mint dessa operação. Falha de RPC, indexador, prova com TEE ou simulação bloqueia a assinatura; não há fallback para um envio público.
+- **Compilação:** a ponte nativa passa a ser construída a partir do diretório do crate; as crates Solana ficam fixadas nas versões do SDK `42de575` (o resolvedor mais novo quebrava o grafo) e a revisão preparada aceita o contexto mutável exigido pela sessão.
+- Certificado de assinatura novo. Não instala por cima da v5.0.4 nem das versões anteriores. Faça backup verificado antes de desinstalar.
+- A chave privada e a senha não entram no repositório nem na Release.
+
 ## [5.0.4] — 2026-11-21 — publicação (versionCode 12)
 
 - `versionName` permanece `Final`. `versionCode` 12, para o Android aceitar a atualização quando o certificado for o mesmo.

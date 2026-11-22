@@ -42,6 +42,7 @@ val buildPrivacyRingNative by tasks.registering(Exec::class) {
     inputs.dir(sourceDir)
     inputs.file(rootProject.file("rust-toolchain.toml"))
     outputs.dir(privacyJniLibs)
+    workingDir = rootProject.file("native/privacy-ring")
     doFirst { privacyJniLibs.get().asFile.mkdirs() }
     commandLine(
         "bash", "-lc",

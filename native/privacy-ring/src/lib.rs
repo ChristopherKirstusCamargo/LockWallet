@@ -327,7 +327,7 @@ fn prepare_private_sol(
     )
 }
 
-fn prepared_review(wallet: &WalletContext) -> Result<String, String> {
+fn prepared_review(wallet: &mut WalletContext) -> Result<String, String> {
     let prepared = wallet.prepared.as_ref().ok_or_else(|| "Nenhuma operação preparada".to_owned())?;
     let visibility = match prepared.operation {
         Operation::DepositSol => "Público: endereço, ativo e valor visíveis",

@@ -74,6 +74,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 - **Stake nativo** com 6 validadores recomendados, conferidos on-chain e ordenados por segurança e depois por retorno
   estimado; modo Avançado com a lista completa. Desativar, sacar, dividir e juntar contas de stake.
 - **dApps** via Mobile Wallet Adapter 2.x (Lock Connect), com cada pedido analisado antes da aprovação.
+- **Saldo confidencial (Default Ring):** transferência de SOL em que o ativo e a quantidade ficam ocultos. Os endereços continuam públicos. Só Mainnet, só SOL e só a carteira neste aparelho, com endpoint Helius.
 - **Backup** pela frase de recuperação e pelo Recovery Package (`.lwrp`) cifrado com senha de 8 palavras.
 - **Digital opcional para desbloqueio de visualização** com prazo máximo sem PIN configurável (1/4/24/72 h, padrão 24 h) e ação **Bloquear agora**. Toda assinatura exige PIN.
 - **Central de Segurança** com as proteções que o aparelho realmente oferece (StrongBox/TEE, biometria, sinais de
@@ -84,7 +85,7 @@ ameaças em [`docs/threat-model.md`](docs/threat-model.md) e relatório de segur
 
 1. Baixe o único arquivo `lockwallet.apk` na [Release oficial](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) ou pelo [link direto](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
 2. Confira o SHA-256 do arquivo com o hash informado na descrição da Release.
-3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado da Release mais recente (v5.0.4) é `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. O certificado da v5.0.3 era `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. O certificado aposentado da v5.0.1/v5.0.2 era `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+3. Confira o certificado com `apksigner verify --print-certs lockwallet.apk`. O SHA-256 esperado do certificado da Release mais recente (v5.0.5) é `c98f56ccc38e13998833346921dd2cf4df61b3a41d9f83c16c11e16df30c3102`. O certificado da v5.0.4 era `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. O certificado da v5.0.3 era `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. O certificado aposentado da v5.0.1/v5.0.2 era `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
 **Migração de instalações antigas:** se o Android informar incompatibilidade de assinatura ao atualizar, a instalação anterior foi assinada por outro certificado. Antes de desinstalar a versão antiga, faça backup da frase de recuperação ou do Recovery Package e confirme que consegue restaurá-lo. Não desinstale antes de verificar o backup; nunca compartilhe as palavras ou o pacote de recuperação.
 
@@ -224,6 +225,7 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 - **Native staking** with 6 recommended validators, verified on-chain and ordered by safety, then estimated return;
   Advanced mode with the full list. Deactivate, withdraw, split and merge stake accounts.
 - **dApps** via Mobile Wallet Adapter 2.x (Lock Connect), with every request analyzed before approval.
+- **Confidential SOL balance (Default Ring):** a SOL transfer whose asset and amount stay hidden. Addresses stay public. Mainnet, SOL and on-device wallets only, with a Helius endpoint.
 - **Backup** through the recovery phrase and an encrypted Recovery Package (`.lwrp`) with an 8-word password.
 - **Optional view-only biometrics** with a configurable maximum PIN-free window (1/4/24/72 h, default 24 h) and a
   **Lock now** action. Every signature still requires the wallet PIN.
@@ -235,7 +237,7 @@ Development follows a master specification, with decisions recorded in [`docs/ad
 
 1. Download the only file, `lockwallet.apk`, from the [official Release](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest) or the [direct download link](https://github.com/ChristopherKirstusCamargo/LockWallet/releases/latest/download/lockwallet.apk).
 2. Compare the APK's SHA-256 with the hash shown in the Release description.
-3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint of the latest Release (v5.0.4) is `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. The v5.0.3 certificate was `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. The retired v5.0.1/v5.0.2 certificate was `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
+3. Verify the certificate with `apksigner verify --print-certs lockwallet.apk`. The expected SHA-256 certificate fingerprint of the latest Release (v5.0.5) is `c98f56ccc38e13998833346921dd2cf4df61b3a41d9f83c16c11e16df30c3102`. The v5.0.4 certificate was `75ac67c304d00f512c60d7fd1d275dacfc743964d2ab6275ff6a4eb8688086e3`. The v5.0.3 certificate was `dcc94672cea0c306557bfee7e9b832cc935709c5f6dc104e75f5d316edcb1507`. The retired v5.0.1/v5.0.2 certificate was `ed4c0025c0b4d551fa95945c89d3d24e504349a2fab289ff90de66409fff8c13`.
 
 **Migrating older installations:** if Android reports a signature mismatch during an update, the previous installation was signed with a different certificate. Before uninstalling it, back up the recovery phrase or Recovery Package and confirm that it can be restored. Never uninstall before verifying the backup, and never share recovery words or the package.
 

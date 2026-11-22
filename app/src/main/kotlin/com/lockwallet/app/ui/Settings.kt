@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -151,7 +152,7 @@ private fun PrivacyRingSheet() {
         Body("O Default Ring protege o ativo e a quantidade das transferências privadas, mas não oculta os endereços do remetente e do destinatário. Depósitos e retiradas também são públicos e revelam ativo, valor e endereço envolvido.")
         Body("O protocolo não oculta IP nem metadados de conexão. Para funcionar na LockWallet, ainda são necessários SDK, custódia das chaves, indexador, provador com atestação verificada, sincronização do saldo e análise específica das transações.")
     }
-    Notice("Nesta versão, as operações continuam públicas. Nenhum saldo confidencial é criado e nenhum envio privado está habilitado.", Ic.INFO, Help.PRIVACY_RING)
+    Notice("O Default Ring oculta o ativo e a quantidade da transferência. Os endereços continuam públicos. Depósito e retirada também são públicos. Nesta versão: somente SOL, carteira Local Secure e Mainnet com endpoint Helius.", Ic.INFO, Help.PRIVACY_RING)
     PillButton("Entendi", Modifier.fillMaxWidth()) { sheets.dismiss() }
 }
 

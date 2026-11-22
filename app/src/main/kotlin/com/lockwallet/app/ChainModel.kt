@@ -183,7 +183,8 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
         try {
             if (config.cluster != Cluster.MAINNET) throw UserError("Default Ring está habilitado somente na Mainnet Solana.")
             // Verify the configured endpoint's genesis before the SDK's direct RPC/indexer calls.
-            net { net.withFallback { it.getSlot() } }
+            val genesis = net { net.withFallback { it.getGenesisHash() } }
+            if (genesis != Cluster.MAINNET.genesisHash) throw UserError("O servidor configurado não é a Mainnet Solana.")
             val address = net { session.privacyShieldedAddress() }
             val scanned = JSONObject(net { session.privacyScanSol(config.primaryUrl) })
             val amount = scanned.getLong("amountLamports")
