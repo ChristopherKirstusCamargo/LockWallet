@@ -144,3 +144,26 @@ NDK ainda não foram compilados ou testados neste repositório. Nenhum fluxo
 privado deve ser habilitado antes de haver build Android reproduzível, testes
 herméticos do parser/FFI, vetores oficiais de derivação, testes de recuperação
 de carteira, teste de integração com prover TEE Mainnet e testes em aparelho.
+
+
+### Persistência local e histórico confidencial
+
+O `TxJournal` atual autentica integridade por MAC, mas seu payload é JSON
+legível; MAC não é criptografia. Valores, ativos, saldos e histórico de uma
+transferência confidencial não podem ser gravados nesse journal como campos
+legíveis, nem aparecer em logs, relatórios de crash, analytics ou exportações.
+O histórico do Default Ring deve usar armazenamento local cifrado sob chave
+derivada/protegida pela custódia, com política de backup e restauração
+explícita. O journal público existente pode guardar assinatura, estado,
+blockhash e dados efetivamente públicos da transação, mas campos locais de
+quantia/ativo confidenciais devem ser omitidos ou substituídos por referências
+opacas. Quando a camada cifrada estiver indisponível ou não autenticada, o app
+não deve mostrar saldo/histórico como zero nem tentar reconstruí-los a partir
+de dados públicos: deve apresentar indisponibilidade e preservar os fundos.
+
+A integração deve também validar os limites e a finalidade de cada serviço:
+RPC Solana para estado público e envio de transações; indexador Privacy Ring
+para eventos/UTXOs cifrados; provador TEE para provas. Erro, resposta inválida,
+atraso de sincronização, policy/attestation inválida ou divergência de estado
+devem produzir falha explícita e bloquear a assinatura, nunca fallback
+silencioso para um serviço público ou resultado vazio.
