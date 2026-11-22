@@ -25,7 +25,7 @@ class WalletDeleteTest {
     private val clock = FakeClock()
     private var crash = false
     private fun provider() = LocalSecureProvider(tmp.root, kek, clock, atomic = AtomicFiles { if (crash && it == WriteStep.TEMP_SYNCED) throw java.io.IOException("killed") })
-    private val pin = "listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")"
+    private val pin = listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")
 
     private fun reason(block: () -> Unit) = (runCatching(block).exceptionOrNull() as CustodyException).reason
     private fun unlock(p: LocalSecureProvider, id: String): UnlockedWallet {

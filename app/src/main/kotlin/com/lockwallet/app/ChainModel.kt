@@ -63,7 +63,7 @@ fun <T> Loadable<T>.valueOrNull(): T? = when (this) { is Loadable.Ready -> value
 /** Extra review context computed by the app (address poisoning, new account, residual balance…). */
 data class ReviewInfo(val title: String, val lines: List<Pair<String, String>>, val warnings: List<String>, val ackText: String?)
 
-data class PrivacyReviewInfo(val operation: String, val amountLamports: Long, val counterparty: String, val visibility: String, val lastValidBlockHeight: Long)
+data class PrivacyReviewInfo(val operation: String, val amountLamports: Long, val counterparty: String, val visibility: String, val lastValidBlockHeight: Long, val typedCounterparty: String? = null)
 
 data class Activity(val signature: String, val title: String, val amount: String?, val status: String, val timeMs: Long?, val url: String?, val failed: Boolean, val local: TxRecord?)
 
@@ -262,6 +262,8 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
             val operation = parsed.getString("operation")
             val amount = parsed.getLong("amountLamports")
             val counterparty = parsed.optString("counterparty").takeIf { it.isNotBlank() }
+            // The destination exactly as the user typed it (shielded address), so the review can show it verbatim.
+            val typedCounterparty = parsed.optString("counterpartyTyped").takeIf { it.isNotBlank() }
             val visibility = parsed.getString("visibility")
             val lastValid = parsed.getLong("lastValidBlockHeight")
             if (amount != amountLamports || amount <= 0L) throw UserError("O valor preparado não corresponde ao pedido.")
@@ -279,7 +281,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
                 )
             }
             privacyPrepared = prepared
-            privacyReview = PrivacyReviewInfo(operation, amount, counterparty ?: "", visibility, lastValid)
+            privacyReview = PrivacyReviewInfo(operation, amount, counterparty ?: "", visibility, lastValid, typedCounterparty)
             privacyNotice = null
         } catch (e: Exception) {
             // The native side retains the exact reviewed message until it is

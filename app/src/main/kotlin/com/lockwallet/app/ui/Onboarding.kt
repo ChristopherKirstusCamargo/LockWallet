@@ -1,5 +1,6 @@
 package com.lockwallet.app.ui
 
+import android.provider.Settings
 import kotlinx.coroutines.launch
 import com.lockwallet.app.biometricAllowed
 import androidx.compose.animation.AnimatedContent
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -259,6 +261,39 @@ fun RestoreMethod(c: AppController) = Screen(S.RESTORE_TITLE, onBack = { c.go(Sc
 private fun phraseLooksComplete(t: String): Boolean = t.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.size in setOf(12, 15, 18, 21, 24)
 
 /**
+ * Keyboards that ship with the device (or AOSP). Anything else is a third-party IME: it receives every
+ * keystroke typed into the restore fields — phrase, private key and LWRP password — regardless of
+ * KeyboardType.Password, which is only a hint well-behaved IMEs honour.
+ */
+private val OEM_IME_PREFIXES = listOf(
+    "com.google.android.inputmethod", // Gboard
+    "com.android.inputmethod", // AOSP LatinIME
+    "com.samsung.android.honeyboard", "com.sec.android.inputmethod",
+    "com.huawei.android.inputmethod", "com.hihonor",
+    "com.xiaomi", "com.oneplus", "com.oppo", "com.coloros", "com.oplus", "com.vivo", "com.iqoo",
+    "com.motorola", "com.lenovo", "com.zte", "com.nubia",
+    "com.sonyericsson.textinput", "com.sony.device", "com.sharp", "com.amazon",
+    "com.lge", "com.lg", "com.htc", "com.asus",
+)
+
+/** Warns (never blocks) when the active keyboard is not from the device maker: it can record the secret. */
+@Composable
+private fun ThirdPartyImeNotice() {
+    val ctx = LocalContext.current
+    val ime = remember(ctx) {
+        runCatching {
+            (Settings.Secure.getString(ctx.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD) ?: "").substringBefore('/')
+        }.getOrNull() ?: ""
+    }
+    if (ime.isNotEmpty() && OEM_IME_PREFIXES.none { ime.startsWith(it) }) {
+        Notice(
+            "O teclado ativo ($ime) não é do fabricante do aparelho. Um teclado de terceiros pode gravar tudo o que você digitar aqui, inclusive a frase de recuperação e a senha. Para digitar segredos, prefira o teclado original do sistema (Configurações, Idioma e entrada) ou use o botão Colar.",
+            Ic.WARN, strong = true,
+        )
+    }
+}
+
+/**
  * Text input for restore. Compose TextField state is a String (platform limitation, ADR 0013): it is cleared
  * as soon as the value is handed to custody as a CharArray. Password keyboard ⇒ no suggestions/learning.
  * "Colar" reads the clipboard once and then wipes it (other apps/keyboards cannot read the phrase again).
@@ -291,6 +326,8 @@ fun RestoreInput(c: AppController, p: Platform, kind: RestoreKind) {
             }
         }
     }) {
+        // Typed secrets (phrase, private key, LWRP password) pass through the active IME; warn about third-party keyboards.
+        if (kind != RestoreKind.KEYPAIR_JSON) ThirdPartyImeNotice()
         val pasteChip = @Composable {
             Chip("Colar", Modifier.padding(end = 8.dp).testTag("paste"), icon = Ic.PASTE) { p.pasteSecret()?.let { text = it.trim().lowercase().replace(Regex("\\s+"), " ").take(400) } }
         }

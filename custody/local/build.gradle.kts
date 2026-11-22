@@ -48,7 +48,7 @@ val buildPrivacyRingNative by tasks.registering(Exec::class) {
         "bash", "-lc",
         "if ! cargo ndk --version >/dev/null 2>&1; then cargo install cargo-ndk --locked; fi && " +
             "cargo ndk -t arm64-v8a -t x86_64 -o '${privacyJniLibs.get().asFile.absolutePath}' " +
-            "build --release --manifest-path '${manifest.absolutePath}'"
+            "build --release --locked --manifest-path '${manifest.absolutePath}'"
     )
     environment("CARGO_TARGET_DIR", layout.buildDirectory.dir("privacy-cargo-target").get().asFile.absolutePath)
 }

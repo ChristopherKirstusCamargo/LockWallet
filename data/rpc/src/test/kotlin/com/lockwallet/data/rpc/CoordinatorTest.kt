@@ -131,6 +131,8 @@ class CoordinatorTest {
 
     @Test fun unresolvedTransactionBlocksANewOneUntilExpiredWithEvidence() {
         f.on(FakeRpc.A, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "timeout") }
+        // The broadcast goes to every endpoint: the secondary must refuse too, or one acceptance is a SUBMITTED.
+        f.on(FakeRpc.B, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "timeout") }
         val r = co.submit(co.prepare(intent()), sig)
         assertEquals(TransactionState.UNKNOWN, r.state)
         assertEquals(listOf(PrepBlocker.BUSY), co.prepare(intent()).blockers)
@@ -156,6 +158,8 @@ class CoordinatorTest {
         f.on(FakeRpc.B, "getSignatureStatuses") { """{"context":{"slot":1},"value":[{"slot":9,"confirmations":1,"err":null,"confirmationStatus":"processed"}]}""" }
         co = TxCoordinator(NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f), journal) { clock }
         f.on(FakeRpc.A, "sendTransaction") { throw RpcException(RpcException.Kind.RPC_ERROR, "Transaction simulation failed") }
+        // The broadcast goes to every endpoint: the secondary must refuse too, or one acceptance is a SUBMITTED.
+        f.on(FakeRpc.B, "sendTransaction") { throw RpcException(RpcException.Kind.TRANSPORT, "down") }
         val r = co.submit(co.prepare(intent()), sig)
         assertEquals(TransactionState.UNKNOWN, r.state); assertTrue(r.detail!!.contains("simulation"))
         height = 300

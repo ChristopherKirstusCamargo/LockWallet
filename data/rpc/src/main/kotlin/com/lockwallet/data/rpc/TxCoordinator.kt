@@ -10,6 +10,7 @@ import com.lockwallet.core.solana.tx.Instruction
 import com.lockwallet.core.solana.tx.LegacyMessage
 import com.lockwallet.core.solana.tx.TransactionState
 import com.lockwallet.core.solana.tx.TransactionState.AWAITING_AUTHORIZATION
+import com.lockwallet.core.solana.tx.V1MessageFee
 import com.lockwallet.core.solana.tx.TransactionState.CANCELLED
 import com.lockwallet.core.solana.tx.TransactionState.CONFIRMED
 import com.lockwallet.core.solana.tx.TransactionState.DRAFT
@@ -311,9 +312,14 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         if (message.size + 64 > 4_096) throw RpcException(RpcException.Kind.MALFORMED, "mensagem privada excede o limite v1")
         val blockHeight = net.withFallback { it.getBlockHeight() }
         if (blockHeight > lastValidBlockHeight) throw RpcException(RpcException.Kind.RPC_ERROR, "blockhash expirado")
-        val fee = net.withFallback { it.getFeeForMessage(message) }
+        // Fee bound computed from the exact bytes (V1 header), never from the RPC alone: a lying endpoint
+        // cannot under-report what the message can cost. Unpriceable layout ⇒ refuse to prepare.
+        val localFee = V1MessageFee.maxFeeLamports(message)
+            ?: throw RpcException(RpcException.Kind.RPC_ERROR, "orçamento da operação confidencial não pôde ser calculado localmente")
+        val rpcFee = net.withFallback { it.getFeeForMessage(message) }
             ?: throw RpcException(RpcException.Kind.RPC_ERROR, "taxa de rede indisponível")
-        if (fee < 0L || fee > MAX_OWN_PRIORITY + 5_000L) {
+        val fee = maxOf(rpcFee.coerceAtLeast(0L), localFee)
+        if (fee > MAX_OWN_PRIORITY + 5_000L) {
             throw RpcException(RpcException.Kind.RPC_ERROR, "taxa da operação confidencial excede o limite")
         }
         val simulation = net.withFallback { it.simulate(WireTransaction.unsignedV1(message), listOf(wallet)) }

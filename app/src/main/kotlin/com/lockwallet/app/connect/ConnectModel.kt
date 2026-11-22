@@ -14,6 +14,7 @@ import com.lockwallet.core.solana.dapp.DappFirewall
 import com.lockwallet.core.solana.dapp.DappVerdict
 import com.lockwallet.core.solana.dapp.MessagePolicy
 import com.lockwallet.core.solana.state.StakeState
+import com.lockwallet.core.solana.state.TokenPolicy
 import com.lockwallet.core.solana.state.TokenState
 import com.lockwallet.core.solana.tx.WireTransaction
 import com.lockwallet.custody.local.CustodyException
@@ -64,7 +65,9 @@ class AuthorizeRequestModel(override val dapp: DappIdentity, val chain: String?,
 
 class SignRequestModel(override val dapp: DappIdentity, val session: DappSession, val kind: SignKind, val payloads: List<ByteArray>, val answer: SignAnswer) : ConnectRequest
 
-data class TokenDelta(val account: String, val mint: String, val pre: Long, val post: Long?, val decimals: Int?)
+data class TokenDelta(val account: String, val mint: String, val pre: Long, val post: Long?, val decimals: Int?,
+    /** Extensions of the token account (pre-tx state when it existed), for the default-deny Token-2022 policy. */
+    val accountExtensions: List<Int> = emptyList())
 
 /** Everything shown for one dApp transaction before signing. */
 class DappTxReview(
@@ -86,7 +89,11 @@ class DappTxReview(
  * instructions need an explicit acknowledgement; every signature needs PIN (local) or Seed Vault authentication.
  */
 class ConnectModel(private val c: AppController, dataDir: File?) {
-    val registry = ConnectRegistry(File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-c-${System.nanoTime()}"), "connect/sessions.json"))
+    /** Session records are MAC-authenticated with the same non-exportable Keystore key as the tx journal. */
+    val registry = ConnectRegistry(
+        File(dataDir ?: File(System.getProperty("java.io.tmpdir"), "lw-c-${System.nanoTime()}"), "connect/sessions.json"),
+        mac = { payload -> c.provider.transactionJournalMac(payload) },
+    )
     var sessions by mutableStateOf<List<DappSession>>(emptyList())
     val queue = mutableStateListOf<ConnectRequest>()
     val current: ConnectRequest? get() = queue.firstOrNull()
@@ -297,7 +304,9 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
                         val old = beforeOwnedToken?.amount ?: 0L
                         val decimals: Int? = null // Filled from the separately fetched mint account below.
                         // Mint data is fetched separately below; a token-account byte layout is not a mint layout.
-                        deltas += TokenDelta(key.toBase58(), mint.toBase58(), old, delta, decimals)
+                        // Account extensions (pre-tx when the account existed) feed the Token-2022 policy below.
+                        val accountExts = (beforeOwnedToken ?: afterOwnedToken)?.extensions ?: emptyList()
+                        deltas += TokenDelta(key.toBase58(), mint.toBase58(), old, delta, decimals, accountExts)
                     }
 
                     val beforeStake = if (before != null && before.owner == ProgramIds.STAKE) {
@@ -336,13 +345,19 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
                     val mintInfo = runCatching { c.chain.net.withFallback { it.getMultipleAccounts(mints.toList()) } }.getOrNull()
                     deltas.indices.forEach { i ->
                         val mint = SolanaPublicKey.fromBase58(deltas[i].mint)
-                        val dec = mintInfo?.getOrNull(mints.indexOf(mint))?.let { account ->
-                            runCatching { TokenState.parseMint(account.owner, account.data).decimals }.getOrNull()
+                        val mintAccount = mintInfo?.getOrNull(mints.indexOf(mint))
+                        val mintState = mintAccount?.let { account ->
+                            runCatching { TokenState.parseMint(account.owner, account.data) }.getOrNull()
                         }
+                        val dec = mintState?.decimals
                         if (dec != deltas[i].decimals) {
                             val d = deltas[i]
                             deltas[i] = d.copy(decimals = dec)
                         }
+                        // Token-2022 default-deny, same allowlist as the native send flow: without the mint's
+                        // on-chain data, or with any extension outside the allowlist, nothing is signed.
+                        val policy = TokenPolicy.judge(mintState?.extensions ?: emptyList(), deltas[i].accountExtensions)
+                        if (mintState == null || !policy.allowed) problems += S_TOKEN_POLICY_BLOCKED(mint)
                     }
                 }
             }
@@ -492,6 +507,7 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
         fun S_TOKEN_DELEGATE(k: SolanaPublicKey) = "A conta de token ${k.toBase58()} teria a delegação alterada. Bloqueado."
         fun S_TOKEN_CLOSE_AUTH(k: SolanaPublicKey) = "A autoridade de fechamento da conta ${k.toBase58()} mudaria. Bloqueado."
         fun S_TOKEN_AUTHORITY_CHANGED(k: SolanaPublicKey) = "As permissões da conta de token ${k.toBase58()} mudariam. Bloqueado."
+        fun S_TOKEN_POLICY_BLOCKED(k: SolanaPublicKey) = "A mint ${k.toBase58().take(4)}…${k.toBase58().takeLast(4)} usa extensões de token não permitidas (política Token-2022). Assinatura bloqueada."
         fun S_STAKE_CHANGED(k: SolanaPublicKey) = "A conta de stake ${k.toBase58()} mudaria de saldo, delegação ou autoridade. Bloqueado."
         fun S_STAKE_STATE_UNKNOWN(k: SolanaPublicKey) = "Não foi possível validar o estado da conta de stake ${k.toBase58()}. Bloqueado."
         const val S_WALLET_STATE_UNKNOWN = "Não foi possível validar o estado pós-simulação da sua carteira. Bloqueado."

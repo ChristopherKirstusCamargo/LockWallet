@@ -61,6 +61,8 @@ struct Prepared {
     operation: Operation,
     amount: u64,
     counterparty: String,
+    /// The destination exactly as the user typed it (shielded address for private transfers).
+    typed_counterparty: Option<String>,
     message: Vec<u8>,
     last_valid_block_height: u64,
 }
@@ -71,6 +73,7 @@ impl Drop for Prepared {
         // freed heap pages after approval, replacement, or session close.
         self.message.zeroize();
         self.counterparty.zeroize();
+        self.typed_counterparty.zeroize();
         self.amount = 0;
     }
 }
@@ -176,6 +179,7 @@ fn save_prepared(
     operation: Operation,
     amount: u64,
     counterparty: String,
+    typed_counterparty: Option<String>,
     message: solana_message::VersionedMessage,
     last_valid_block_height: u64,
 ) -> Result<Vec<u8>, String> {
@@ -199,6 +203,7 @@ fn save_prepared(
         operation,
         amount,
         counterparty,
+        typed_counterparty,
         message: bytes.clone(),
         last_valid_block_height,
     });
@@ -255,6 +260,7 @@ fn prepare_deposit_sol(
     save_prepared(
         wallet, Operation::DepositSol, amount,
         bs58::encode(wallet.public_key).into_string(),
+        None,
         message, last_valid_block_height,
     )
 }
@@ -289,6 +295,7 @@ fn prepare_private_sol(
         .map_err(|_| "Não foi possível preparar os UTXOs para gasto".to_owned())?;
     let settlement_transfers: Vec<TransactInterfaceTransferAccounts>;
     let review_counterparty: String;
+    let review_typed: Option<String>;
     match operation {
         Operation::TransferSol => {
             let shielded = ShieldedAddress::from_str(recipient)
@@ -299,6 +306,8 @@ fn prepare_private_sol(
                 .map_err(|_| "Não foi possível construir a transferência confidencial".to_owned())?;
             settlement_transfers = Vec::new();
             review_counterparty = public_address.to_string();
+            // What the user typed (shielded), so the review can show it verbatim.
+            review_typed = Some(shielded.to_string());
         }
         Operation::WithdrawSol => {
             let destination = Address::from_str(recipient)
@@ -307,6 +316,7 @@ fn prepare_private_sol(
                 .map_err(|_| "Não foi possível construir a retirada pública".to_owned())?;
             settlement_transfers = vec![settlement];
             review_counterparty = destination.to_string();
+            review_typed = Some(destination.to_string());
         }
         Operation::DepositSol => return Err("Operação inválida".to_owned()),
     }
@@ -322,7 +332,7 @@ fn prepare_private_sol(
         .map_err(|_| "O provador TEE ou o indexador Helius não concluiu a prova; nada foi assinado".to_owned())?;
 
     save_prepared(
-        wallet, operation, amount, review_counterparty,
+        wallet, operation, amount, review_counterparty, review_typed,
         unsigned.message, unsigned.last_valid_block_height,
     )
 }
@@ -338,6 +348,7 @@ fn prepared_review(wallet: &mut WalletContext) -> Result<String, String> {
         "operation": prepared.operation.as_str(),
         "amountLamports": prepared.amount,
         "counterparty": prepared.counterparty,
+        "counterpartyTyped": prepared.typed_counterparty,
         "visibility": visibility,
         "lastValidBlockHeight": prepared.last_valid_block_height,
         "messageBytes": prepared.message.len(),
@@ -659,6 +670,7 @@ mod tests {
             operation: Operation::TransferSol,
             amount: 250_000_000,
             counterparty: "shielded-destination".to_owned(),
+            typed_counterparty: Some("shielded-destination".to_owned()),
             message: message.clone(),
             last_valid_block_height: 99,
         });
@@ -681,6 +693,7 @@ mod tests {
             operation: Operation::DepositSol,
             amount: 500_000_000,
             counterparty: "wallet".to_owned(),
+            typed_counterparty: None,
             message: vec![0x81, 1],
             last_valid_block_height: 100,
         });

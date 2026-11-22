@@ -111,7 +111,7 @@ class PinAttemptLimiterTest {
     }
 
     @Test fun pinEncodingRejectsNonAsciiDigits() {
-        assertTrue(Pin.isValid("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray()))
+        assertTrue(Pin.isValid(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("").toCharArray()))
         assertFalse(Pin.isValid("48091".toCharArray()))
         assertFalse(Pin.isValid("٤٨٠٩١٧".toCharArray())) // Arabic-Indic
         assertFalse(Pin.isValid("４８０９１７".toCharArray())) // full-width
@@ -123,6 +123,6 @@ class PinAttemptLimiterTest {
         assertTrue(Pin.isTrivial("112233".toCharArray()))
         assertTrue(Pin.isTrivial("010203".toCharArray()))
         assertTrue(Pin.isTrivial("987654".toCharArray()))
-        assertFalse(Pin.isTrivial("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray()))
+        assertFalse(Pin.isTrivial(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("").toCharArray()))
     }
 }

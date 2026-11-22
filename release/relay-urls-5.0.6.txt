@@ -1,2 +1,0 @@
-APK=https://tmpfiles.org/wnAJjrUsr5So/app-release.apk
-PATCH=https://tmpfiles.org/wWAbjsUwBTlH/rel506.patch

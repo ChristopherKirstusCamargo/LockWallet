@@ -195,7 +195,8 @@ for size in (0, 45, 46, 61, 62, 125, 127, 143, 173, 175, 1024, 65536):
     F("LWRP-NEG-SIZE-%d" % size, "BAD_SIZE", (hdr + bytes(max(0, size - 46)))[:size])
 body = bytes(48 + 16 + 16)
 F("LWRP-NEG-MAGIC", "BAD_MAGIC", b"LWRX" + hdr[4:] + body)
-F("LWRP-NEG-VERSION", "BAD_VERSION", hdr[:4] + b"\x02" + hdr[5:] + body)
+F("LWRP-NEG-VERSION-3", "BAD_VERSION", hdr[:4] + b"\x03" + hdr[5:] + body)
+F("LWRP-NEG-V2-PROFILE-COMPAT", "KDF_PROFILE_NOT_ALLOWED", hdr[:4] + b"\x02" + hdr[5:] + body)
 F("LWRP-NEG-KDF-ID", "BAD_KDF_ID", hdr[:5] + b"\x02" + hdr[6:] + body)
 for (m, t, p) in ((19455, 2, 1), (19456, 1, 1), (19456, 2, 2), (0, 2, 1), (19456, 0, 1), (19456, 2, 0),
                   (0xFFFFFFFF, 2, 1), (4194304, 2, 1), (19456, 2, 255)):
@@ -314,7 +315,7 @@ LN("LWLE-NEG-KIND", "BAD_MATERIAL_KIND", lwle(c0, H(kind=3)))
 LN("LWLE-NEG-PROFILE-0", "BAD_DERIVATION_PROFILE", lwle(c0, H(profile=0)))
 LN("LWLE-NEG-PROFILE-3", "BAD_DERIVATION_PROFILE", lwle(c0, H(profile=3)))
 LN("LWLE-NEG-ACCOUNT-2^31", "BAD_ACCOUNT_INDEX", lwle(c0, H(account=0x80000000)))
-LN("LWLE-NEG-KDF-2", "BAD_KDF_PROFILE", lwle(c0, H(kdf=2)))
+LN("LWLE-NEG-KDF-3", "BAD_KDF_PROFILE", lwle(c0, H(kdf=3)))
 LN("LWLE-NEG-AUTH-0", "BAD_AUTH_MODE", lwle(c0, H(auth=0)))
 LN("LWLE-NEG-AUTH-3", "BAD_AUTH_MODE", lwle(c0, H(auth=3)))
 LN("LWLE-NEG-FLAGS", "UNKNOWN_FLAGS", lwle(c0, H(flags=1)))

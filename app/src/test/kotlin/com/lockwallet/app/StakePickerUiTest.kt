@@ -59,7 +59,7 @@ class StakePickerUiTest {
         c.startFlow(FlowMode.RESTORE)
         c.submitRestore(RestoreKind.PHRASE, "neither lonely flavor argue grass remind eye tag avocado spot unusual intact".toCharArray()); await(c)
         c.chooseAccount(c.draft!!.material!!.discover(1).first())
-        c.submitName("Conta 1"); c.setNewPin("listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")".toCharArray()); c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); await(c)
+        c.submitName("Conta 1"); c.setNewPin(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("").toCharArray()); c.sealNewVault(AuthMode.PIN_AND_BIOMETRIC); await(c)
         c.go(Screen.StakeNew)
         rule.runOnUiThread { rule.activity.setContent { App(c, Platform({}, {}, {})) } }
         rule.waitUntil(10_000) { rule.onAllNodesWithTag("curated").fetchSemanticsNodes().isNotEmpty() }

@@ -3,6 +3,20 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
 
+## [5.0.6] — 2026-11-23 — correções de segurança da auditoria dupla (versionCode 14)
+
+- `versionName` permanece `Final`. `versionCode` 14, para o Android aceitar a atualização quando o certificado for o mesmo.
+- **Restauração (IME):** a tela de digitação da frase de recuperação, da chave privada e da senha do Recovery Package agora avisa quando o teclado ativo não é do fabricante do aparelho — um teclado de terceiros recebe cada tecla digitada, inclusive segredos. O aviso orienta trocar para o teclado original ou usar o botão Colar; não bloqueia o fluxo.
+- **Default Ring (taxa local):** a taxa exibida e limitada na operação confidencial passa a considerar o teto calculado a partir dos bytes da própria mensagem V1 (custo base + prioridade declarada no cabeçalho), nunca apenas a resposta do RPC. Orçamento ilegível ou acima do limite bloqueia a preparação (`V1MessageFee`, fail-closed). Um RPC desonesto não consegue subnotificar o custo.
+- **Default Ring (revisão):** a revisão da transferência confidencial exibe o endereço Shielded do destinatário exatamente como foi digitado, além do endereço público derivado — a única forma de o usuário conferir o destino contra o que colou.
+- **Lock Connect (Token-2022):** a política default-deny de extensões Token-2022, já aplicada no envio nativo, passa a valer também nas transações de dApps: mint fora da allowlist, extensão perigosa ou dados de mint indisponíveis bloqueiam a assinatura (paridade entre os dois fluxos; tokens permitidos continuam idênticos).
+- **Lock Connect (integridade do registro):** o registro de sessões dApps (`connect/sessions.json`) passa a ser gravado em envelope autenticado com HMAC-SHA256 de chave não exportável do Keystore (o mesmo padrão do diário de transações e do estado de PIN). Arquivo ausente, corrompido, adulterado ou no formato antigo sem autenticação ⇒ lista vazia e regravação autenticada (fail-closed; dApps reautorizam, sessões duram 15 min).
+- **Cadeia de suprimentos Rust:** builds nativos (Gradle e CI) passam a exigir `--locked`, complementando o `Cargo.lock` versionado e os pins exatos do Cargo.toml; o build nunca re-resolve dependências.
+- **CI:** corrigido o gatilho de push do workflow de integração Privacy Rings (`branches: [main]` estava corrompido como `ain]`, o que impedia o teste da integração nativa em commits diretos na main).
+- **Avaliados e deliberadamente não alterados nesta versão:** pinning TLS de RPC (protege contra o cenário raríssimo de CA de sistema comprometida, mas uma rotação de certificado mal pinada deixaria o app sem rede para todos — o gate atual permanece: genesis verificada, análise local dos bytes e dupla simulação) e a migração automática de cofres legados `PIN_ONLY` (o risco de uma re-selagem com bug perdendo acesso a fundos reais supera o ganho contra um atacante já com root; o aviso persistente no início e na Central de Segurança permanece).
+- Certificado de assinatura novo. Não instala por cima da v5.0.5 nem das versões anteriores. Faça backup verificado antes de desinstalar.
+- A chave privada e a senha não entram no repositório nem na Release.
+
 ## [5.0.5] — 2026-11-22 — publicação (versionCode 13)
 
 - `versionName` permanece `Final`. `versionCode` 13, para o Android aceitar a atualização quando o certificado for o mesmo.

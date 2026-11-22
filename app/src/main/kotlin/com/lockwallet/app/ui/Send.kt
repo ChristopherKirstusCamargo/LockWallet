@@ -435,6 +435,14 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                         review.counterparty,
                     )
                 }
+                // The destination exactly as typed (shielded address for private transfers): the only form the
+                // user can compare against what they pasted; the derived public address is not comparable by eye.
+                review.typedCounterparty?.let { typed ->
+                    DetailLine(
+                        if (review.operation == "transfer_sol") "Destino digitado (confira)" else "Destino digitado",
+                        typed,
+                    )
+                }
                 DetailLine("Taxa estimada", Fmt.sol(prepared.feeLamports) + " SOL")
                 DetailLine("Válida até o bloco", review.lastValidBlockHeight.toString())
                 Notice(

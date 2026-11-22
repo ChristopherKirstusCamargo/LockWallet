@@ -75,16 +75,19 @@ jobs:
         run: cargo install cargo-ndk --locked
 
       - name: Run native bridge tests
-        run: cargo test --manifest-path native/privacy-ring/Cargo.toml --lib
+        run: cargo test --locked --manifest-path native/privacy-ring/Cargo.toml --lib
 
       - name: Build Android app and run module tests
         shell: bash
         run: |
           chmod +x ./gradlew
           ./gradlew --no-daemon \
-            :core:solana:testDebugUnitTest \
-            :custody:local:testDebugUnitTest \
+            :core:crypto:test \
+            :core:solana:test \
             :data:rpc:test \
+            :data:price:test \
+            :custody:local:testDebugUnitTest \
+            :custody:seedvault:testDebugUnitTest \
             :app:testDebugUnitTest \
             :app:assembleDebug
 
