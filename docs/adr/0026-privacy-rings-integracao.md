@@ -65,3 +65,82 @@ A documentação oficial da Helius consultada em 2026-11-22 publica SDKs Rust e 
 A integração é uma alteração de segurança e de custódia, não apenas uma chamada RPC ou uma nova tela. A etapa visual torna explícita a situação atual e prepara o fluxo sem sugerir proteção inexistente. A funcionalidade de movimentação privada permanece bloqueada até que todos os gates sejam satisfeitos.
 
 Nenhum teste ou build foi executado durante esta alteração, conforme solicitado pelo proprietário do projeto.
+
+## Verificação técnica do SDK upstream — escopo A (2026-11-22)
+
+A revisão do código-fonte upstream foi repetida contra o commit imutável
+`helius-labs/privacy-rings@42de575202f07adf6cfe9194ae9227445797bd8e`.
+Esse snapshot declara Rust `1.98.1` em `rust-toolchain.toml`. Apesar de a
+documentação global mais recente usar o nome comercial `zolana-client`, o
+workspace Rust consultado ainda declara os crates `spr-client`,
+`spr-keypair` e `spr-transaction`, todos na versão `0.10.0`. A integração
+deve fixar o commit e conferir os nomes efetivamente publicados; não depender
+de nomes de pacote deduzidos de documentação que pode estar em transição.
+
+### Fluxo Default Ring confirmado no SDK
+
+- O primeiro depósito é uma instrução pública `Deposit`; não há UTXOs privados
+  prévios a gastar. O SDK de exemplo monta essa instrução separadamente. A
+  revisão deve exibir o ativo, o valor e o endereço público que financia o
+  depósito.
+- Depois do depósito, `UtxoScan` lê as transações indexadas pelas tags da
+  carteira e descriptografa os UTXOs no cliente com `ShieldedKeys`. O código
+  do scanner consultado declara explicitamente que os payloads de transferências
+  anônimas e ring-deposit não são suportados; isso não impede o escopo A.
+- Transferências e retiradas usam `ConfidentialTransaction`, geram
+  `SppProofInputs` e passam por `Submission::finish_unsigned_sync`. A
+  LockWallet deve receber a mensagem não assinada, analisá-la, mostrá-la,
+  simular e só então obter a assinatura da custódia. Não usar
+  `Submission::send_sync` nem qualquer caminho que assine ou envie diretamente
+  pelo SDK.
+- `UtxoScan` e `LocalShieldedKeys` permitem manter a descriptografia e o
+  cálculo de nullifiers no cliente. Não enviar viewing keys ou nullifier keys ao
+  indexador/provador, não delegar a visualização por padrão e não gravar as
+  chaves em preferências, logs ou arquivos sem a proteção do cofre.
+
+### Derivação de chaves
+
+O código upstream `spr-keypair` deriva os papéis a partir da assinatura
+Ed25519 da mensagem binária de domínio `TSPP/derive/v1`, codificada no formato
+off-chain Solana v0. Essa assinatura é material secreto equivalente à raiz de
+derivação das chaves de visualização e nullifier; não é uma mensagem pública
+comum. A LockWallet precisa de uma operação dedicada dentro de
+`:custody:local`, que confira internamente domínio, endereço e assinatura,
+e entregue o resultado somente à fronteira nativa que mantém as chaves em
+memória. Não ampliar globalmente `MessagePolicy`, não expor a assinatura à UI
+e não exportar seed ou chave privada.
+
+### Provas e serviços remotos
+
+Para Mainnet, o SDK atual oferece `SignedTeePolicy::for_network(Mainnet)`
+e `ProverClient::with_signed_tee`. A integração não pode usar um provador
+remoto sem política assinada e atestação verificada. O fluxo deve falhar
+fechado em caso de policy ausente, expirada, inválida ou de divergência na
+atestation; sem fallback para HTTP ou serviço sem TEE. O uso de
+`ProofDataSource::Client` faz a carteira buscar os witnesses no cliente,
+mas não transforma a geração da prova em local: o pedido de prova ainda segue
+para o provador remoto, protegido pela sessão TEE.
+
+O endpoint Helius usado para RPC, indexador e provador deve ser configurado
+explicitamente para Privacy Rings. Não encaminhar chamadas `/v1/spr` ao RPC
+público secundário nem tratar a falha de indexador/provador como saldo zero.
+A chave de API não deve ser embutida no código, em repositório ou em logs.
+
+### Compatibilidade com a LockWallet
+
+O SDK retorna `UnsignedMessage` com `VersionedMessage` e seu
+`last_valid_block_height`. O analisador Kotlin atual usa `LegacyMessage` e
+não decodifica esse formato. Antes de habilitar o recurso, será necessário um
+caminho tipado de análise do formato versionado e das instruções SPP, com
+validação de programa, discriminador, contas, permissões, owner signers,
+settlement transfers, valores públicos de depósitos/retiradas, compute budget,
+fee payer e efeitos esperados. A assinatura deve continuar vinculada ao hash
+exato que foi revisado. A máquina `TxCoordinator` continua responsável por
+simulação, validade do blockhash, persistência da assinatura antes do envio,
+broadcast e reconciliação.
+
+A versão do SDK exige Rust `1.98.1`; a ponte Android/JNI e os targets Android
+NDK ainda não foram compilados ou testados neste repositório. Nenhum fluxo
+privado deve ser habilitado antes de haver build Android reproduzível, testes
+herméticos do parser/FFI, vetores oficiais de derivação, testes de recuperação
+de carteira, teste de integração com prover TEE Mainnet e testes em aparelho.
