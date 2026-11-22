@@ -144,9 +144,9 @@ private fun PrivacyRingSheet() {
         Body("A chave de visualização permite à carteira descriptografar seu saldo e histórico privados. A chave de gasto autoriza o uso desses fundos. Elas precisam ser derivadas e protegidas dentro da custódia local. Nunca devem aparecer em logs, arquivos comuns, capturas de tela ou serem enviadas a terceiros.")
         Body("A carteira precisa de um procedimento compatível de backup e restauração dessas chaves. Se as chaves necessárias forem perdidas, ninguém consegue recuperar o saldo por você.")
     }
-    Group("Limites do anonimato") {
-        Body("O anel permissionless disponível na Mainnet é confidencial, mas não anônimo: os endereços continuam públicos. Os Custom Rings podem oferecer anonimato dos participantes, mas a Helius ainda os informa como em auditoria e não disponíveis na Mainnet.")
-        Body("Configurar um RPC da Helius não ativa a privacidade sozinho. A carteira também precisa integrar o SDK, a custódia das chaves, o indexador, o provador, a sincronização do saldo e a análise específica das transações.")
+    Group("Limites do Default Ring") {
+        Body("O Default Ring protege o ativo e a quantidade das transferências privadas, mas não oculta os endereços do remetente e do destinatário. Depósitos e retiradas também são públicos e revelam ativo, valor e endereço envolvido.")
+        Body("O protocolo não oculta IP nem metadados de conexão. Para funcionar na LockWallet, ainda são necessários SDK, custódia das chaves, indexador, provador com atestação verificada, sincronização do saldo e análise específica das transações.")
     }
     Notice("Nesta versão, as operações continuam públicas. Nenhum saldo confidencial é criado e nenhum envio privado está habilitado.", Ic.INFO, Help.PRIVACY_RING)
     PillButton("Entendi", Modifier.fillMaxWidth()) { sheets.dismiss() }
