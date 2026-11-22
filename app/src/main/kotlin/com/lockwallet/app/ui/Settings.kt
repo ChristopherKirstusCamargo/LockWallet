@@ -116,21 +116,37 @@ private fun PrivacyRingSheet() {
             }
             Column(Modifier.weight(1f)) {
                 Text("Privacidade por escolha", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Solana Privacy Rings · Helius", color = C.dim, fontSize = 13.sp)
+                Text("Solana Privacy Rings · Helius · Mainnet", color = C.dim, fontSize = 13.sp)
             }
         }
-        Body("A ideia é manter parte dos ativos em um saldo confidencial dentro da Solana. A carteira autorizada consegue consultar esse saldo; o explorador público não mostra diretamente o ativo nem o valor das transferências privadas.")
+        Body("O anel cria um saldo confidencial diretamente na Solana. A carteira usa chaves de assinatura, visualização e gasto para reconhecer e abrir os valores que pertencem a você. Provas de conhecimento zero permitem à rede validar a operação sem publicar o ativo e a quantidade transferidos.")
     }
-    Group("O que o anel padrão protege", Help.PRIVACY_RING) {
-        ListRow("Ativo e quantidade", Ic.LOCK, "Criptografados", chevron = false)
+    Group("Como o fluxo funciona", Help.PRIVACY_RING) {
+        ListRow("1. Depositar", Ic.ARROW_DOWN, "Público → privado", chevron = false)
+        Body("Você move SOL ou um token do saldo normal para o saldo confidencial. Esse depósito continua público: qualquer pessoa pode ver o endereço de origem, o ativo e a quantidade que entrou.")
         Divider()
-        ListRow("Endereço de origem", Ic.GLOBE, "Público", chevron = false)
+        ListRow("2. Transferir", Ic.LOCK, "Privado → privado", chevron = false)
+        Body("Você envia a partir do saldo confidencial para uma carteira que tenha as chaves necessárias para receber e consultar o valor. No anel padrão, o ativo e a quantidade ficam protegidos, mas os endereços de origem e destino continuam visíveis.")
         Divider()
-        ListRow("Endereço de destino", Ic.GLOBE, "Público", chevron = false)
+        ListRow("3. Retirar", Ic.ARROW_UP, "Privado → público", chevron = false)
+        Body("Você devolve parte do saldo para um endereço Solana normal. A retirada é pública e revela o ativo, a quantidade e o destino.")
     }
-    Group("Limites importantes") {
-        Body("O depósito de um saldo público para o privado revela a origem, o ativo e a quantidade. A retirada também revela o ativo, o valor e o destino.")
-        Body("Configurar um RPC da Helius não ativa a privacidade sozinho. A carteira ainda precisa integrar o SDK, a custódia das chaves adicionais, a sincronização do saldo e a análise específica das transações.")
+    Group("O que fica protegido", Help.PRIVACY_RING) {
+        ListRow("Ativo e quantidade da transferência privada", Ic.LOCK, "Protegidos", chevron = false)
+        Divider()
+        ListRow("Endereço de origem e destino", Ic.GLOBE, "Públicos", chevron = false)
+        Divider()
+        ListRow("Depósitos e retiradas", Ic.GLOBE, "Públicos", chevron = false)
+        Divider()
+        ListRow("IP e metadados de conexão", Ic.GLOBE, "Não são ocultados pelo protocolo", chevron = false)
+    }
+    Group("Chaves e recuperação") {
+        Body("A chave de visualização permite à carteira descriptografar seu saldo e histórico privados. A chave de gasto autoriza o uso desses fundos. Elas precisam ser derivadas e protegidas dentro da custódia local. Nunca devem aparecer em logs, arquivos comuns, capturas de tela ou serem enviadas a terceiros.")
+        Body("A carteira precisa de um procedimento compatível de backup e restauração dessas chaves. Se as chaves necessárias forem perdidas, ninguém consegue recuperar o saldo por você.")
+    }
+    Group("Limites do anonimato") {
+        Body("O anel permissionless disponível na Mainnet é confidencial, mas não anônimo: os endereços continuam públicos. Os Custom Rings podem oferecer anonimato dos participantes, mas a Helius ainda os informa como em auditoria e não disponíveis na Mainnet.")
+        Body("Configurar um RPC da Helius não ativa a privacidade sozinho. A carteira também precisa integrar o SDK, a custódia das chaves, o indexador, o provador, a sincronização do saldo e a análise específica das transações.")
     }
     Notice("Nesta versão, as operações continuam públicas. Nenhum saldo confidencial é criado e nenhum envio privado está habilitado.", Ic.INFO, Help.PRIVACY_RING)
     PillButton("Entendi", Modifier.fillMaxWidth()) { sheets.dismiss() }
