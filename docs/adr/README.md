@@ -25,3 +25,4 @@
 - [0023](0023-mainnet-dinheiro-real.md) — 2.0.0: Mainnet (dinheiro real), revisão de segurança e novo design
 - [0024](0024-desbloqueio-biometrico.md) — Desbloqueio por biometria (alternativa ao PIN)
 - [0025](0025-validadores-curados.md) — Validadores recomendados (bloco curado) e modo avançado no stake
+- [0026](0026-privacy-rings-integracao.md) — Solana Privacy Rings: integração, custódia, RPC e gates de segurança
