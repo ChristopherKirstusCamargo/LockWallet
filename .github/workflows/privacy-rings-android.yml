@@ -45,21 +45,26 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Set up Android command-line tools
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: false
-          packages: "platform-tools"
-
-      - name: Accept Android SDK licenses and install required packages
+      # GitHub's Ubuntu 24.04 runner image already contains the Android SDK.
+      # Do not use android-actions/setup-android here: it still requests the
+      # removed legacy "tools" package on this runner image.
+      - name: Accept licenses and install Android SDK packages
         shell: bash
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
-
-      - name: Export Android NDK path for cargo-ndk
-        shell: bash
-        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          set -euo pipefail
+          SDK_ROOT="/usr/local/lib/android/sdk"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
 
       - name: Set up pinned Rust toolchain
         uses: dtolnay/rust-toolchain@1.98.1
