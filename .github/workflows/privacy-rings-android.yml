@@ -58,7 +58,15 @@ jobs:
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-          yes | "$SDKMANAGER" --licenses
+          # `yes` dies of SIGPIPE once sdkmanager stops reading; pipefail
+          # would report that (141) as a failure even though every license
+          # was accepted. Tolerate 0 and 141; fail on anything else.
+          lic_status=0
+          yes | "$SDKMANAGER" --licenses || lic_status=$?
+          case "$lic_status" in
+            0|141) : ;;
+            *) echo "sdkmanager --licenses failed with status $lic_status" >&2; exit 1 ;;
+          esac
           "$SDKMANAGER" --install \
             "platform-tools" \
             "platforms;android-36" \
