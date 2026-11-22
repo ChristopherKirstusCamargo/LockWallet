@@ -20,6 +20,16 @@ A documentação oficial da Helius consultada em 2026-11-22 publica SDKs Rust e 
 - O módulo de custódia local não entrega a seed ou a chave privada à interface. O Seed Vault assina por meio do provedor do sistema e não exporta a semente ao processo da carteira.
 - O Transaction Security Analyzer trabalha com uma allowlist fechada. O programa de privacidade e suas instruções ainda não foram integrados ao parser e à revisão humana da transação.
 
+## Descobertas técnicas da revisão de integração (2026-11-22)
+
+- O SDK publicado é composto por crates Rust (por exemplo, `spr-client`, `spr-keypair`, `spr-transaction` e interfaces do protocolo); a Helius também publica SDK TypeScript. Não foi encontrado um binding Android/Kotlin oficial no repositório do SDK.
+- O tipo `ShieldedKeypair` deriva a viewing key e a nullifier key a partir da chave Ed25519, usando uma assinatura determinística de domínio `TSPP/derive/v1`. Para a carteira local, essa operação teria de acontecer dentro da fronteira de custódia; a seed ou o segredo Ed25519 não podem ser enviados à UI nem persistidos em claro.
+- O `SeedVaultProvider` atual só permite a política de mensagens legíveis (`MessagePolicy`) em operações de mensagem dApp. A mensagem binária/de domínio usada pela derivação do Privacy Ring não está autorizada por esse caminho. Não se deve ampliar essa política globalmente; eventual suporte Seed Vault exige uma API de custódia específica, com payload exato, domínio conferido e validação de assinatura.
+- O SDK possui `Submission::finish_unsigned_sync`, que permite obter a mensagem sem assiná-la. Esse caminho é preferível ao envio interno do SDK porque pode preservar a assinatura da LockWallet e o `TxCoordinator`; ainda assim, o conteúdo precisa ser convertido para o formato suportado pela carteira e analisado por um parser tipado antes de qualquer assinatura.
+- A rota de prova remota usa política TEE assinada e verificável; a integração precisa fixar e validar essa política para Mainnet. `ProofDataSource::Client` determina de onde vêm os dados de prova e, por si só, **não** significa que a geração da prova ZK seja local. Uma implementação de provador no dispositivo é uma tarefa separada.
+- O cliente de referência usa `spr-client 0.10.0`, `spr-keypair 0.10.0` e crates Solana recentes. A compatibilidade binária com os módulos Kotlin/JVM atuais e os targets Android NDK ainda não foi demonstrada. Não adicionar os crates à aplicação sem fechar essa compatibilidade, o lockfile, a verificação de dependências e um build Android reproduzível.
+- O anel permissionless da Mainnet é confidencial, não anônimo: ativo e quantidade são criptografados, mas as carteiras permanecem visíveis. Custom Rings com anonimato dos participantes continuam em auditoria segundo o anúncio oficial consultado nesta data.
+
 ## Decisões de segurança
 
 1. **A UI não pode simular privacidade.** Enquanto os fluxos criptográficos não estiverem completos, o envio normal deve continuar identificado como público. A tela de Ajustes pode explicar o protocolo, mas não pode criar saldos fictícios nem permitir uma assinatura privada.
