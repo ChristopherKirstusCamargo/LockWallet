@@ -111,7 +111,7 @@ private fun PrivacyRingSheet() {
     }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(42.dp).glass(), contentAlignment = Alignment.Center) {
                 Icon(Ic.LOCK, size = 21.dp)
             }
             Column(Modifier.weight(1f)) {
