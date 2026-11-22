@@ -65,6 +65,8 @@ fun SettingsTab(c: AppController, p: Platform) {
     Group("Privacidade e segurança") {
         ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
         Divider()
+        ListRow("Saldo confidencial", Ic.LOCK, value = "Em integração", help = Help.PRIVACY_RING, tag = "privacy-ring") { sheets.show { PrivacyRingSheet() } }
+        Divider()
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
         if (c.vaultPresent && c.bioCapable) {
             Divider()
@@ -93,6 +95,45 @@ fun SettingsTab(c: AppController, p: Platform) {
         Divider()
         ListRow("Sobre", Ic.SPARK, help = Help.ABOUT, chevron = false)
     }
+}
+
+/**
+ * Privacy Rings information sheet. The current build only explains the route;
+ * it does not create shielded balances or submit private transactions.
+ */
+@Composable
+private fun PrivacyRingSheet() {
+    val sheets = LocalSheets.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Title("Saldo confidencial", Modifier.weight(1f))
+        Chip("EM INTEGRAÇÃO", icon = Ic.INFO)
+        HelpIcon(Help.PRIVACY_RING, 18.dp)
+    }
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Ic.LOCK, size = 21.dp)
+            }
+            Column(Modifier.weight(1f)) {
+                Text("Privacidade por escolha", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Solana Privacy Rings · Helius", color = C.dim, fontSize = 13.sp)
+            }
+        }
+        Body("A ideia é manter parte dos ativos em um saldo confidencial dentro da Solana. A carteira autorizada consegue consultar esse saldo; o explorador público não mostra diretamente o ativo nem o valor das transferências privadas.")
+    }
+    Group("O que o anel padrão protege", Help.PRIVACY_RING) {
+        ListRow("Ativo e quantidade", Ic.LOCK, "Criptografados", chevron = false)
+        Divider()
+        ListRow("Endereço de origem", Ic.GLOBE, "Público", chevron = false)
+        Divider()
+        ListRow("Endereço de destino", Ic.GLOBE, "Público", chevron = false)
+    }
+    Group("Limites importantes") {
+        Body("O depósito de um saldo público para o privado revela a origem, o ativo e a quantidade. A retirada também revela o ativo, o valor e o destino.")
+        Body("Configurar um RPC da Helius não ativa a privacidade sozinho. A carteira ainda precisa integrar o SDK, a custódia das chaves adicionais, a sincronização do saldo e a análise específica das transações.")
+    }
+    Notice("Nesta versão, as operações continuam públicas. Nenhum saldo confidencial é criado e nenhum envio privado está habilitado.", Ic.INFO, Help.PRIVACY_RING)
+    PillButton("Entendi", Modifier.fillMaxWidth()) { sheets.dismiss() }
 }
 
 const val APP_VERSION = "Final"
