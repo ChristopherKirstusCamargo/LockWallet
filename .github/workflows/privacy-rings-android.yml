@@ -45,10 +45,16 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Set up Android SDK and NDK
+      - name: Set up Android command-line tools
         uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools, platforms;android-36, build-tools;36.0.0, ndk;27.2.12479018"
+          accept-android-sdk-licenses: false
+
+      - name: Accept Android SDK licenses and install required packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
 
       - name: Export Android NDK path for cargo-ndk
         shell: bash
