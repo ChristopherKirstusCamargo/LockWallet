@@ -457,6 +457,8 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
         is com.lockwallet.app.AuthPurpose.ExportLwrp -> "Confirme para exportar"
         is com.lockwallet.app.AuthPurpose.AddAccount -> "Confirme para adicionar a conta"
         is com.lockwallet.app.AuthPurpose.Sign -> "Confirme para assinar"
+        is com.lockwallet.app.AuthPurpose.PrivacyOpen -> "Autorize o saldo confidencial"
+        is com.lockwallet.app.AuthPurpose.PrivacySign -> "Confirme a operação confidencial"
         is com.lockwallet.app.AuthPurpose.DappSign -> "Confirme o pedido do app"
         com.lockwallet.app.AuthPurpose.EnableBiometric -> "Confirme o PIN para ativar a digital"
         is com.lockwallet.app.AuthPurpose.SetBioWindow -> "Confirme o PIN para aumentar o prazo"
@@ -469,6 +471,8 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
             else -> S.PIN_ENTER
         }
         is com.lockwallet.app.AuthPurpose.Sign -> c.chain.prepared?.intent?.summary
+        is com.lockwallet.app.AuthPurpose.PrivacyOpen -> "O saldo confidencial será sincronizado no Default Ring."
+        is com.lockwallet.app.AuthPurpose.PrivacySign -> c.chain.privacyReview?.let { Fmt.sol(it.amountLamports) + " SOL · " + it.visibility }
         is com.lockwallet.app.AuthPurpose.DappSign -> c.connect.current?.dapp?.name?.take(32)
         else -> S.PIN_ENTER
     }

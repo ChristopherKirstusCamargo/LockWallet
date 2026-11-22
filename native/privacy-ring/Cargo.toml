@@ -1,0 +1,33 @@
+[package]
+name = "lockwallet-privacy"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "lockwallet_privacy"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni = "=0.21.1"
+ed25519-dalek = "=2.2.0"
+sha2 = "0.10"
+zeroize = "1"
+serde_json = "1"
+url = "2.5"
+bs58 = "0.5"
+solana-address = { version = "2.7", features = ["atomic", "borsh", "bytemuck", "copy", "decode", "wincode"] }
+solana-hash = "4.6"
+solana-message = "4.2"
+solana-pubkey = { version = "4.2", features = ["curve25519"] }
+spr-client = { git = "https://github.com/helius-labs/privacy-rings", rev = "42de575202f07adf6cfe9194ae9227445797bd8e", features = ["client"] }
+spr-instruction = { git = "https://github.com/helius-labs/privacy-rings", rev = "42de575202f07adf6cfe9194ae9227445797bd8e" }
+spr-interface = { git = "https://github.com/helius-labs/privacy-rings", rev = "42de575202f07adf6cfe9194ae9227445797bd8e" }
+spr-keypair = { git = "https://github.com/helius-labs/privacy-rings", rev = "42de575202f07adf6cfe9194ae9227445797bd8e" }
+spr-transaction = { git = "https://github.com/helius-labs/privacy-rings", rev = "42de575202f07adf6cfe9194ae9227445797bd8e" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "unwind"
+strip = "symbols"

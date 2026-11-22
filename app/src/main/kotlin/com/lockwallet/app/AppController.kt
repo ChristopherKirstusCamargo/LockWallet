@@ -43,6 +43,10 @@ sealed interface AuthPurpose {
     data class AddAccount(val walletId: String) : AuthPurpose
     /** Sign the prepared transaction shown on the Review screen (exact bytes, bound by hash). */
     data class Sign(val walletId: String) : AuthPurpose
+    /** Open the PIN-authorized Default Ring session. */
+    data class PrivacyOpen(val walletId: String) : AuthPurpose
+    /** Re-authorize the exact prepared Default Ring message for signing. */
+    data class PrivacySign(val walletId: String) : AuthPurpose
     /** Lock Connect: sign a dApp request (transaction(s), message(s) or SIWS) with a CONNECT wallet. */
     data class DappSign(val walletId: String) : AuthPurpose
     /** Turn on biometric unlock: needs the PIN right now (ADR 0024). */
@@ -81,6 +85,7 @@ sealed interface Screen {
     /** Send SOL ([tokenAccount] null) or the token held in [tokenAccount]. */
     data class Send(val tokenAccount: String? = null) : Screen
     data object Review : Screen
+    data object Privacy : Screen
     data class TxStatus(val signature: String) : Screen
     data object Network : Screen
     data class Token(val account: String) : Screen
@@ -297,7 +302,7 @@ class AppController(
 
     fun go(s: Screen) { error = null; if (s is Screen.Authorize || s is Screen.Lock) bioAutoPrompted = false; screen = s }
 
-    fun home() { discardDraft(); closeOpened(); actionsOpen = false; go(Screen.Home); refresh() }
+    fun home() { discardDraft(); closeOpened(); chain.leavePrivacy(); actionsOpen = false; go(Screen.Home); refresh() }
 
     fun lockNow() {
         discardDraft(); closeOpened(); clearExport(); chain.onLock(); connect.onLock()
@@ -463,6 +468,8 @@ class AppController(
                 is AuthPurpose.DeleteWallet -> purpose.walletId
                 is AuthPurpose.AddAccount -> purpose.walletId
                 is AuthPurpose.Sign -> purpose.walletId
+                is AuthPurpose.PrivacyOpen -> purpose.walletId
+                is AuthPurpose.PrivacySign -> purpose.walletId
                 is AuthPurpose.DappSign -> purpose.walletId
                 else -> null
             }
@@ -574,6 +581,8 @@ class AppController(
                 closeOpened(); refresh(); chain.wallet()?.let { chain.select(it.id) }; go(Screen.Home)
             }
             is AuthPurpose.Sign -> chain.signAndSubmit(s)
+            is AuthPurpose.PrivacyOpen -> chain.openPrivacy(s)
+            is AuthPurpose.PrivacySign -> chain.signPrivacyAndSubmit(s)
             is AuthPurpose.DappSign -> connect.onUnlocked(s)
             is AuthPurpose.AddAccount -> {
                 val src = s.info

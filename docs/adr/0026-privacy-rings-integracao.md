@@ -167,3 +167,75 @@ para eventos/UTXOs cifrados; provador TEE para provas. Erro, resposta inválida,
 atraso de sincronização, policy/attestation inválida ou divergência de estado
 devem produzir falha explícita e bloquear a assinatura, nunca fallback
 silencioso para um serviço público ou resultado vazio.
+
+
+## Implementação inicial Default Ring — 2026-11-22
+
+Esta seção atualiza o estado de implementação e prevalece sobre os gates
+marcados como pendentes nas seções anteriores.
+
+A integração inicial foi incorporada ao código com escopo deliberadamente
+restrito:
+
+- Mainnet Solana, endpoint Helius HTTPS com `api-key`, RPC/indexador/provador
+  Helius e política TEE assinada oficial para Mainnet.
+- Apenas `LOCAL_SECURE`; SeedVault e carteiras Connect não são elegíveis.
+- Apenas SOL. SPL e Token-2022 permanecem desabilitados até existir revisão de
+  settlement/ATA e cobertura de testes correspondente.
+- Operações expostas: depósito público para o Default Ring, transferência
+  confidencial entre Shielded Addresses e retirada pública.
+- Não é anonimato: os endereços continuam públicos. Depósitos e retiradas
+  revelam publicamente endereço, ativo e valor.
+
+### Ponte e custódia
+
+O novo crate `native/privacy-ring` fixa o SDK Rust no commit
+`42de575202f07adf6cfe9194ae9227445797bd8e` e é empacotado como biblioteca
+JNI para `arm64-v8a` e `x86_64`. O toolchain Rust é fixado em 1.98.1.
+
+A custódia local assina a mensagem binária de derivação TSPP somente depois de
+validar a carteira e exigir PIN. Apenas essa assinatura determinística, não a
+seed nem a chave privada, cruza a fronteira JNI. O lado Rust valida a assinatura
+contra a chave pública, expande os papéis viewing/nullifier e mantém essas
+chaves somente em memória enquanto a sessão está aberta. Sair da tela, bloquear
+o app ou cancelar a sessão fecha o handle nativo; operações preparadas são
+descartadas e os buffers de transação são zerados.
+
+A ponte usa `UtxoScan`, `LocalShieldedKeys`,
+`ConfidentialTransaction` e `Submission::finish_unsigned_sync`. O SDK não
+assina nem transmite. A assinatura final volta a ocorrer dentro de
+`:custody:local`, após PIN separado e validação nativa de bytes, hash,
+operação e uso único. O envio fica no `TxCoordinator`.
+
+### V1, revisão e journal
+
+A mensagem Solana V1 usa um caminho distinto do analisador Legacy. O serializador
+V1 da carteira coloca a mensagem seguida da única assinatura de 64 bytes, sem
+prefixo de quantidade Legacy, respeitando o limite de 4.096 bytes. Mensagens
+V1 não são convertidas em Legacy nem passam pelo parser antigo.
+
+O coordenador valida Mainnet, hash de rede, blockhash, taxa e simulação antes
+da autorização; após a segunda confirmação de PIN, confere novamente a validade
+do blockhash, grava o registro assinado antes do broadcast e transmite os mesmos
+bytes nos endpoints configurados. A reconciliação continua usando a máquina de
+estados existente.
+
+O journal registra assinatura, estado, fee, blockhash e somente informações
+públicas/operacionais. Campos `amountUnits`, `decimals` e `mint` ficam nulos
+para operações Privacy Ring. O saldo confidencial é consultado novamente no
+indexador e descriptografado localmente; não é salvo como saldo JSON em texto
+legível.
+
+### Validação
+
+Foi adicionado workflow GitHub Actions para compilar a biblioteca nativa,
+executar testes Rust, testes dos módulos Kotlin e gerar APK debug. O workflow
+ainda precisa executar na branch após o commit. Até o resultado verde, e antes
+de teste integrado em Mainnet com quantias mínimas controladas e revisão de
+segurança independente, a implementação deve ser tratada como candidata de
+integração, não como auditada ou garantida contra todos os riscos.
+
+A primeira versão não afirma suporte a SPL, SeedVault, anonimato dos endereços,
+visualização sem Helius ou funcionamento offline. Erros de RPC, indexador,
+prova/TEE, simulação, blockhash ou custódia bloqueiam a assinatura; não há
+fallback para envio público comum nem saldo presumido como zero.

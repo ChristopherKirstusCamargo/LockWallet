@@ -11,6 +11,7 @@ import com.lockwallet.core.crypto.DerivationProfile
 import com.lockwallet.core.crypto.wipe
 import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.analyzer.TransactionAnalyzer
+import com.lockwallet.custody.local.privacy.PrivacyRingNative
 import com.lockwallet.custody.local.api.CustodyProviderId
 import com.lockwallet.custody.local.api.KeyCustodyProvider
 import com.lockwallet.custody.local.api.ProviderCapabilities
@@ -109,6 +110,84 @@ class UnlockedWallet internal constructor(
 ) : AutoCloseable {
     internal var header: ByteArray = header
         private set
+    @Volatile private var privacyHandle: Long = 0L
+
+    /** Opens the Default Ring's in-memory key session using only the TSPP derivation signature. */
+    @Synchronized
+    fun privacyShieldedAddress(): String = PrivacyRingNative.shieldedAddress(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacyScanSol(rpcUrl: String): String = PrivacyRingNative.scanSol(requirePrivacyHandle(), rpcUrl)
+
+    @Synchronized
+    fun privacyPrepareDepositSol(rpcUrl: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0)
+        return PrivacyRingNative.prepareDepositSol(requirePrivacyHandle(), rpcUrl, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPrepareTransferSol(rpcUrl: String, shieldedRecipient: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0 && shieldedRecipient.isNotBlank())
+        return PrivacyRingNative.prepareTransferSol(requirePrivacyHandle(), rpcUrl, shieldedRecipient, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPrepareWithdrawSol(rpcUrl: String, publicRecipient: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0 && publicRecipient.isNotBlank())
+        return PrivacyRingNative.prepareWithdrawSol(requirePrivacyHandle(), rpcUrl, publicRecipient, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPreparedReview(): String = PrivacyRingNative.preparedReview(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacyCancelPrepared() = PrivacyRingNative.cancelPrepared(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacySessionHandle(): Long = requirePrivacyHandle()
+
+    /**
+     * Only the message held in the native session may cross this boundary.
+     * The native side matches the exact bytes, hash and operation before this
+     * custody session signs; no arbitrary V1 message signing is exposed.
+     */
+    @Synchronized
+    fun signPrivacyPrepared(handle: Long, message: ByteArray, approvedHash: ByteArray, operation: String): ByteArray {
+        requirePin()
+        if (message.isEmpty() || (message[0].toInt() and 0xff) != 0x81 || approvedHash.size != 32) {
+            throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        }
+        if (!PrivacyRingNative.verifyAndConsume(handle, message, approvedHash, operation)) {
+            throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        }
+        val pending = PendingMaterial.fromEnvelope(
+            if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR,
+            material.copy(),
+        )
+        return pending.use { it.signWith(info.profile, info.accountIndex, info.address, message) }
+    }
+
+    private fun requirePrivacyHandle(): Long {
+        requirePin()
+        privacyHandle.takeIf { it > 0L }?.let { return it }
+        val publicKey = info.address.toByteArray()
+        val derivationMessage = PrivacyRingNative.derivationMessage(publicKey)
+        val derivationSignature = try {
+            val pending = PendingMaterial.fromEnvelope(
+                if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR,
+                material.copy(),
+            )
+            pending.use { it.signWith(info.profile, info.accountIndex, info.address, derivationMessage) }
+        } finally {
+            derivationMessage.fill(0)
+        }
+        return try {
+            PrivacyRingNative.openWallet(publicKey, derivationSignature).also { privacyHandle = it }
+        } finally {
+            derivationSignature.fill(0)
+        }
+    }
+
     /** True when opened with the PIN (not with biometrics). */
     val viaPin: Boolean get() = pinKey != null
     val isMnemonic: Boolean get() = info.isMnemonic
@@ -178,7 +257,7 @@ class UnlockedWallet internal constructor(
         return pending.use { it.signWith(info.profile, info.accountIndex, info.address, text) }
     }
 
-    override fun close() { material.close(); pinKey?.close() }
+    override fun close() { synchronized(this) { PrivacyRingNative.closeWallet(privacyHandle); privacyHandle = 0L }; material.close(); pinKey?.close() }
     override fun toString() = "UnlockedWallet(${info.id}, REDACTED)"
 }
 

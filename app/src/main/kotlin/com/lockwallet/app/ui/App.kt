@@ -150,6 +150,7 @@ private fun ScreenContent(c: AppController, p: Platform, screen: Screen) {
         is Screen.Export -> Export(c, p)
         is Screen.Send -> if (s.tokenAccount == null) SendSol(c, p) else SendToken(c, p, s.tokenAccount)
         Screen.Review -> Review(c)
+        Screen.Privacy -> PrivacyScreen(c, p)
         is Screen.TxStatus -> TxStatus(c, p, s.signature)
         Screen.Network -> NetworkScreen(c)
         is Screen.Token -> TokenScreen(c, p, s.account)

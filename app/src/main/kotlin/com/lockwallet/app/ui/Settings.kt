@@ -65,7 +65,10 @@ fun SettingsTab(c: AppController, p: Platform) {
     Group("Privacidade e segurança") {
         ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
         Divider()
-        ListRow("Saldo confidencial", Ic.LOCK, value = "Em integração", help = Help.PRIVACY_RING, tag = "privacy-ring") { sheets.show { PrivacyRingSheet() } }
+        ListRow("Saldo confidencial · SOL", Ic.LOCK, value = "Default Ring", help = Help.PRIVACY_RING, tag = "privacy-ring") {
+            c.error = null
+            c.chain.enterPrivacy()
+        }
         Divider()
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
         if (c.vaultPresent && c.bioCapable) {

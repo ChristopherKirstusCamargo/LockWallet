@@ -8,7 +8,7 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Base64
 
-enum class TxKind { SEND_SOL, SEND_TOKEN, CLOSE_TOKEN, STAKE_CREATE, STAKE_DEACTIVATE, STAKE_WITHDRAW, STAKE_SPLIT, STAKE_MERGE, DAPP }
+enum class TxKind { SEND_SOL, SEND_TOKEN, CLOSE_TOKEN, STAKE_CREATE, STAKE_DEACTIVATE, STAKE_WITHDRAW, STAKE_SPLIT, STAKE_MERGE, DAPP, PRIVACY_RING }
 
 /**
  * Persisted record of a signed transaction (spec §13.2): written atomically BEFORE the first submit, with the

@@ -1,0 +1,85 @@
+name: Privacy Rings Android Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native/privacy-ring/**"
+      - "rust-toolchain.toml"
+      - "custody/local/**"
+      - "core/solana/**"
+      - "data/rpc/**"
+      - "app/**"
+      - ".github/workflows/privacy-rings-android.yml"
+  pull_request:
+    paths:
+      - "native/privacy-ring/**"
+      - "rust-toolchain.toml"
+      - "custody/local/**"
+      - "core/solana/**"
+      - "data/rpc/**"
+      - "app/**"
+      - ".github/workflows/privacy-rings-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: privacy-rings-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Rust JNI + Android debug build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools, platforms;android-36, build-tools;36.0.0, ndk;27.2.12479018"
+
+      - name: Export Android NDK path for cargo-ndk
+        shell: bash
+        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Set up pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Run native bridge tests
+        run: cargo test --manifest-path native/privacy-ring/Cargo.toml --lib
+
+      - name: Build Android app and run module tests
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon \
+            :core:solana:testDebugUnitTest \
+            :custody:local:testDebugUnitTest \
+            :data:rpc:test \
+            :app:testDebugUnitTest \
+            :app:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lockwallet-privacy-rings-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

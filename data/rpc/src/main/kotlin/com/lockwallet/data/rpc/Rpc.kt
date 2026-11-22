@@ -152,7 +152,7 @@ class RpcClient(val url: String, private val transport: RpcTransport) {
         }
 
     fun getTransaction(sig: String): TransactionDetail? {
-        val r = call("getTransaction", """[${JsonOut.str(sig)},{"encoding":"json","commitment":"confirmed","maxSupportedTransactionVersion":0}]""", 1024 * 1024) ?: return null
+        val r = call("getTransaction", """[${JsonOut.str(sig)},{"encoding":"json","commitment":"confirmed","maxSupportedTransactionVersion":1}]""", 1024 * 1024) ?: return null
         val o = J.obj(r); val meta = J.obj(o["meta"]); val msg = J.obj(J.obj(o["transaction"])["message"])
         val staticKeys = J.arr(msg["accountKeys"]).map { J.str(it) }
         val loaded = meta["loadedAddresses"]?.let { J.obj(it) }

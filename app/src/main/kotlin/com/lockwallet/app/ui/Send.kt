@@ -348,3 +348,156 @@ private fun StatusOrb(ok: Boolean, bad: Boolean) {
         }
     }
 }
+
+
+// ======================================================================= Solana Privacy Rings — Default Ring (SOL)
+
+@Composable
+fun PrivacyScreen(c: AppController, p: Platform) {
+    var action by remember { mutableIntStateOf(0) }
+    var recipient by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    val address = c.chain.privacyAddress
+    val balance = c.chain.privacyBalanceLamports
+    val review = c.chain.privacyReview
+    val prepared = c.chain.privacyPrepared
+
+    Screen("Saldo confidencial", onBack = { c.home() }, help = Help.PRIVACY_RING, bottom = {
+        ErrorText(c.error)
+        if (prepared != null && review != null) {
+            if (c.busy) Busy("Verificando a operação…") else {
+                Primary("Autorizar com PIN", icon = Ic.LOCK, tag = "privacy-authorize") {
+                    c.chain.authorizePrivacy()
+                }
+                Secondary("Cancelar revisão", tag = "privacy-cancel-review") {
+                    c.chain.cancelPrivacyReview()
+                }
+            }
+        } else {
+            if (c.busy) Busy("Consultando o Default Ring…") else {
+                Primary(
+                    "Preparar e revisar",
+                    enabled = amount.isNotBlank() && (action == 0 || recipient.isNotBlank()),
+                    icon = Ic.LOCK,
+                    tag = "privacy-prepare",
+                ) {
+                    c.error = null
+                    when (action) {
+                        0 -> c.chain.preparePrivacyDeposit(amount)
+                        1 -> c.chain.preparePrivacyTransfer(recipient, amount)
+                        else -> c.chain.preparePrivacyWithdraw(recipient, amount)
+                    }
+                }
+                Secondary("Atualizar saldo", icon = Ic.BOLT, tag = "privacy-refresh") {
+                    c.chain.refreshPrivacySol()
+                }
+            }
+        }
+    }) {
+        Group("Saldo no Default Ring", Help.PRIVACY_RING) {
+            Column(Modifier.fillMaxWidth().glass().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("SOL confidencial", color = C.dim, fontSize = 13.sp)
+                Text(
+                    balance?.let { Fmt.sol(it) + " SOL" } ?: "Saldo indisponível",
+                    color = C.text,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    c.chain.privacyUtxoCount?.let { "$it notas confidenciais sincronizadas" } ?: "Sincronização pendente",
+                    color = C.dim,
+                    fontSize = 12.sp,
+                )
+            }
+            if (address != null) {
+                Label("Endereço Shielded para receber")
+                Mono(address, C.text, 12, Modifier.fillMaxWidth())
+                Secondary("Copiar endereço confidencial", icon = Ic.COPY, tag = "privacy-copy-address") {
+                    p.copyAddress(address)
+                }
+            }
+        }
+
+        if (prepared != null && review != null) {
+            Group("Revisão da operação") {
+                val title = when (review.operation) {
+                    "deposit_sol" -> "Depósito público"
+                    "transfer_sol" -> "Transferência confidencial"
+                    else -> "Retirada pública"
+                }
+                Text(title, color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                DetailLine("Valor", Fmt.sol(review.amountLamports) + " SOL")
+                DetailLine("Visibilidade", review.visibility)
+                if (review.counterparty.isNotBlank()) {
+                    DetailLine(
+                        if (review.operation == "deposit_sol") "Carteira de origem" else "Endereço público",
+                        review.counterparty,
+                    )
+                }
+                DetailLine("Taxa estimada", Fmt.sol(prepared.feeLamports) + " SOL")
+                DetailLine("Válida até o bloco", review.lastValidBlockHeight.toString())
+                Notice(
+                    when (review.operation) {
+                        "deposit_sol" -> "O depósito revela publicamente a carteira de origem, o ativo e o valor."
+                        "transfer_sol" -> "O anel padrão oculta ativo e valor da transferência, mas não os endereços do remetente e destinatário."
+                        else -> "A retirada é pública e revela o ativo, o valor e o endereço de destino."
+                    },
+                    Ic.INFO,
+                    Help.PRIVACY_RING,
+                )
+            }
+        } else {
+            Group("Operação") {
+                Segmented(listOf("Depositar", "Transferir", "Retirar"), action) {
+                    action = it
+                    recipient = ""
+                }
+                when (action) {
+                    0 -> Notice(
+                        "Move SOL da carteira pública para o saldo confidencial. O depósito continua público.",
+                        Ic.ARROW_DOWN,
+                        Help.PRIVACY_RING,
+                    )
+                    1 -> {
+                        Notice(
+                            "Use um endereço Shielded de destino. O valor e o ativo ficam confidenciais; os endereços continuam públicos.",
+                            Ic.LOCK,
+                            Help.PRIVACY_RING,
+                        )
+                        Field(
+                            recipient,
+                            { recipient = it.filterNot(Char::isWhitespace).take(180) },
+                            "Endereço Shielded do destinatário",
+                            tag = "privacy-recipient",
+                            mono = true,
+                            keyboard = KeyboardType.Ascii,
+                        )
+                    }
+                    else -> {
+                        Notice(
+                            "Retorna SOL para um endereço Solana normal. A retirada é pública.",
+                            Ic.ARROW_UP,
+                            Help.PRIVACY_RING,
+                        )
+                        Field(
+                            recipient,
+                            { recipient = it.filterNot(Char::isWhitespace).take(64) },
+                            "Endereço Solana de destino",
+                            tag = "privacy-withdraw-recipient",
+                            mono = true,
+                            keyboard = KeyboardType.Ascii,
+                        )
+                    }
+                }
+                AmountEntry(amount, { amount = it }, "SOL", "privacy-amount", onMax = null)
+            }
+        }
+
+        Group("Limites do Default Ring") {
+            DetailLine("Ativo e valor da transferência privada", "Ocultos")
+            DetailLine("Endereços de origem e destino", "Públicos")
+            DetailLine("Depósitos e retiradas", "Públicos")
+            DetailLine("Tokens SPL", "Ainda não habilitados nesta integração")
+        }
+    }
+}

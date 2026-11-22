@@ -13,6 +13,8 @@ import com.lockwallet.core.solana.ProgramIds
 import com.lockwallet.core.solana.SolanaPublicKey
 import com.lockwallet.core.solana.ix.SystemIx
 import com.lockwallet.custody.local.UnlockedWallet
+import com.lockwallet.custody.local.api.CustodyProviderId
+import com.lockwallet.custody.local.storage.WalletRole
 import com.lockwallet.custody.local.api.WalletInfo
 import com.lockwallet.custody.local.storage.WalletState
 import com.lockwallet.data.rpc.ChainReader
@@ -21,6 +23,7 @@ import com.lockwallet.data.rpc.EndpointCheck
 import com.lockwallet.data.rpc.NetworkConfig
 import com.lockwallet.data.rpc.NetworkManager
 import com.lockwallet.data.rpc.PreparedTx
+import com.lockwallet.data.rpc.PreparedPrivacyTx
 import com.lockwallet.data.rpc.RpcClient
 import com.lockwallet.data.rpc.RpcException
 import com.lockwallet.data.rpc.RpcTransport
@@ -46,6 +49,7 @@ import com.lockwallet.core.solana.MalformedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import org.json.JSONObject
 
 /** Something loaded from the chain: never a placeholder value (spec: nothing invented). */
 sealed interface Loadable<out T> {
@@ -58,6 +62,8 @@ fun <T> Loadable<T>.valueOrNull(): T? = when (this) { is Loadable.Ready -> value
 
 /** Extra review context computed by the app (address poisoning, new account, residual balance…). */
 data class ReviewInfo(val title: String, val lines: List<Pair<String, String>>, val warnings: List<String>, val ackText: String?)
+
+data class PrivacyReviewInfo(val operation: String, val amountLamports: Long, val counterparty: String, val visibility: String, val lastValidBlockHeight: Long)
 
 data class Activity(val signature: String, val title: String, val amount: String?, val status: String, val timeMs: Long?, val url: String?, val failed: Boolean, val local: TxRecord?)
 
@@ -85,6 +91,19 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     var activity by mutableStateOf<List<Activity>>(emptyList())
     var prepared by mutableStateOf<PreparedTx?>(null)
     var review by mutableStateOf<ReviewInfo?>(null)
+    var privacyAddress by mutableStateOf<String?>(null)
+        private set
+    var privacyBalanceLamports by mutableStateOf<Long?>(null)
+        private set
+    var privacyUtxoCount by mutableStateOf<Int?>(null)
+        private set
+    var privacyPrepared by mutableStateOf<PreparedPrivacyTx?>(null)
+        private set
+    var privacyReview by mutableStateOf<PrivacyReviewInfo?>(null)
+        private set
+    var privacyNotice by mutableStateOf<String?>(null)
+        private set
+    private var privacySession: UnlockedWallet? = null
     var notice by mutableStateOf<String?>(null)
     var tokens by mutableStateOf<Loadable<List<TokenHolding>>>(Loadable.Idle)
     var hidden by mutableStateOf(prefs.hiddenTokens)
@@ -110,13 +129,238 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     @Volatile var generation = 0
         private set
 
-    fun select(id: String) { generation++; prefs.selectedWallet = id; balance = Loadable.Idle; activity = emptyList(); tokens = Loadable.Idle; stakes = Loadable.Idle; validators = Loadable.Idle; details.clear(); onSelect() }
+    fun select(id: String) { leavePrivacy(); generation++; prefs.selectedWallet = id; balance = Loadable.Idle; activity = emptyList(); tokens = Loadable.Idle; stakes = Loadable.Idle; validators = Loadable.Idle; details.clear(); onSelect() }
     /** Hook for token/stake state reset (Phase E/F). */
     internal var onSelect: () -> Unit = {}
 
     fun onLock() {
         prepared?.let { coordinator.cancel(it) }
+        leavePrivacy()
         prepared = null; review = null; retry = null
+    }
+
+    private fun closePrivacySession() {
+        privacySession?.close()
+        privacySession = null
+    }
+
+    /** Clears all private state from Compose and closes the Rust key session. */
+    fun leavePrivacy() {
+        privacyPrepared?.let { coordinator.cancelPrivacy(it) }
+        closePrivacySession()
+        privacyAddress = null
+        privacyBalanceLamports = null
+        privacyUtxoCount = null
+        privacyPrepared = null
+        privacyReview = null
+        privacyNotice = null
+    }
+
+    fun enterPrivacy() {
+        val w = wallet()
+        if (w == null) { c.error = S.NO_WALLET; return }
+        if (config.cluster != Cluster.MAINNET) {
+            c.error = "Default Ring está habilitado somente na Mainnet Solana."
+            return
+        }
+        if (w.provider != CustodyProviderId.LOCAL_SECURE || w.role == WalletRole.CONNECT) {
+            c.error = "Saldo confidencial está disponível apenas para carteiras Local Secure."
+            return
+        }
+        c.go(Screen.Authorize(AuthPurpose.PrivacyOpen(w.id)))
+    }
+
+    /** PIN-unlocked Local Secure session used only while the privacy screen is active. */
+    internal suspend fun openPrivacy(session: UnlockedWallet) {
+        val w = wallet()
+        if (w == null || w.id != session.info.id || w.provider != CustodyProviderId.LOCAL_SECURE ||
+            session.info.role == WalletRole.CONNECT
+        ) {
+            session.close()
+            throw UserError("Selecione uma carteira Local Secure para usar o Default Ring.")
+        }
+        leavePrivacy()
+        try {
+            if (config.cluster != Cluster.MAINNET) throw UserError("Default Ring está habilitado somente na Mainnet Solana.")
+            // Verify the configured endpoint's genesis before the SDK's direct RPC/indexer calls.
+            net { net.withFallback { it.getSlot() } }
+            val address = net { session.privacyShieldedAddress() }
+            val scanned = JSONObject(net { session.privacyScanSol(config.primaryUrl) })
+            val amount = scanned.getLong("amountLamports")
+            val count = scanned.getInt("utxoCount")
+            if (amount < 0L || count < 0) throw UserError("Resposta inválida do saldo confidencial.")
+            privacySession = session
+            privacyAddress = address
+            privacyBalanceLamports = amount
+            privacyUtxoCount = count
+            privacyNotice = null
+            c.go(Screen.Privacy)
+        } catch (e: Exception) {
+            session.close()
+            val safe = e.message?.takeIf { it.isNotBlank() } ?: "Não foi possível sincronizar o Default Ring."
+            throw UserError(safe)
+        }
+    }
+
+    fun refreshPrivacySol() = c.launchOp {
+        val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
+        val scanned = JSONObject(net { session.privacyScanSol(config.primaryUrl) })
+        val amount = scanned.getLong("amountLamports")
+        val count = scanned.getInt("utxoCount")
+        if (amount < 0L || count < 0) throw UserError("Resposta inválida do saldo confidencial.")
+        privacyBalanceLamports = amount
+        privacyUtxoCount = count
+        privacyNotice = null
+    }
+
+    private fun discardPendingPrivacy(session: UnlockedWallet) {
+        privacyPrepared?.let { coordinator.cancelPrivacy(it) }
+        privacyPrepared = null
+        privacyReview = null
+        session.privacyCancelPrepared()
+    }
+
+    fun preparePrivacyDeposit(amountText: String) = c.launchOp {
+        val amount = UserAmount.sol(amountText)
+        val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
+        discardPendingPrivacy(session)
+        preparePrivacyOperation(
+            session.privacyPrepareDepositSol(config.primaryUrl, amount),
+            amount,
+        )
+    }
+
+    fun preparePrivacyTransfer(recipient: String, amountText: String) = c.launchOp {
+        val amount = UserAmount.sol(amountText)
+        val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
+        val to = recipient.trim()
+        if (to.isEmpty()) throw UserError(S.BAD_ADDRESS)
+        discardPendingPrivacy(session)
+        preparePrivacyOperation(
+            session.privacyPrepareTransferSol(config.primaryUrl, to, amount),
+            amount,
+        )
+    }
+
+    fun preparePrivacyWithdraw(recipient: String, amountText: String) = c.launchOp {
+        val amount = UserAmount.sol(amountText)
+        val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
+        val to = SolanaPublicKey.fromBase58OrNull(recipient.trim()) ?: throw UserError(S.BAD_ADDRESS)
+        if (to == wallet()?.address) throw UserError(S.SELF_SEND)
+        discardPendingPrivacy(session)
+        preparePrivacyOperation(
+            session.privacyPrepareWithdrawSol(config.primaryUrl, to.toBase58(), amount),
+            amount,
+        )
+    }
+
+    private suspend fun preparePrivacyOperation(message: ByteArray, amountLamports: Long) {
+        val session = privacySession ?: run { message.fill(0); throw UserError("A sessão confidencial foi encerrada.") }
+        try {
+            val parsed = JSONObject(net { session.privacyPreparedReview() })
+            val operation = parsed.getString("operation")
+            val amount = parsed.getLong("amountLamports")
+            val counterparty = parsed.optString("counterparty").takeIf { it.isNotBlank() }
+            val visibility = parsed.getString("visibility")
+            val lastValid = parsed.getLong("lastValidBlockHeight")
+            if (amount != amountLamports || amount <= 0L) throw UserError("O valor preparado não corresponde ao pedido.")
+            val w = wallet() ?: throw UserError(S.NO_WALLET)
+            if (w.id != session.info.id) throw UserError("A carteira ativa mudou durante a preparação.")
+            val title = when (operation) {
+                "deposit_sol" -> "Depósito público de SOL"
+                "transfer_sol" -> "Transferência confidencial de SOL"
+                "withdraw_sol" -> "Retirada pública de SOL"
+                else -> throw UserError("Operação Default Ring não reconhecida.")
+            }
+            val prepared = net {
+                coordinator.preparePrivacyV1(
+                    w.address, message, operation, title, counterparty, amount, lastValid,
+                )
+            }
+            privacyPrepared = prepared
+            privacyReview = PrivacyReviewInfo(operation, amount, counterparty ?: "", visibility, lastValid)
+            privacyNotice = null
+        } catch (e: Exception) {
+            // The native side retains the exact reviewed message until it is
+            // signed or explicitly cancelled. Any failed review path discards it.
+            runCatching { session.privacyCancelPrepared() }
+            throw e
+        } finally {
+            // The coordinator owns its defensive copy; wipe the JNI-returned buffer.
+            message.fill(0)
+        }
+    }
+
+    fun cancelPrivacyReview() {
+        privacyPrepared?.let { coordinator.cancelPrivacy(it) }
+        privacyPrepared = null
+        privacyReview = null
+        privacySession?.let { session -> runCatching { session.privacyCancelPrepared() } }
+    }
+
+    fun authorizePrivacy() = c.launchOp {
+        val p = privacyPrepared ?: throw UserError("Nenhuma operação confidencial está pronta para assinar.")
+        val w = wallet() ?: throw UserError(S.NO_WALLET)
+        if (!p.signable || p.wallet != w.address) throw UserError("A operação confidencial não está autorizável.")
+        if (!net { coordinator.stillValidPrivacy(p) }) {
+            coordinator.cancelPrivacy(p)
+            privacyPrepared = null
+            privacyReview = null
+            throw UserError(S.BLOCKHASH_EXPIRED)
+        }
+        c.go(Screen.Authorize(AuthPurpose.PrivacySign(w.id)))
+    }
+
+    internal suspend fun signPrivacyAndSubmit(session: UnlockedWallet) {
+        val prepared = privacyPrepared
+        val opened = privacySession
+        val w = wallet()
+        if (prepared == null || opened == null || w == null ||
+            session.info.id != w.id ||
+            session.info.address != prepared.wallet || opened.info.id != session.info.id
+        ) {
+            session.close()
+            throw UserError("A autorização não corresponde à carteira e operação revisadas.")
+        }
+        if (!net { coordinator.stillValidPrivacy(prepared) }) {
+            session.close()
+            coordinator.cancelPrivacy(prepared)
+            privacyPrepared = null
+            privacyReview = null
+            throw UserError(S.BLOCKHASH_EXPIRED)
+        }
+        val signature = try {
+            val handle = net { opened.privacySessionHandle() }
+            val messageBytes = prepared.messageBytes
+            val approvedHash = prepared.messageHash
+            try {
+                c.io { session.signPrivacyPrepared(handle, messageBytes, approvedHash, prepared.operation) }
+            } finally {
+                messageBytes.fill(0)
+                approvedHash.fill(0)
+            }
+        } catch (e: Exception) {
+            leavePrivacy()
+            throw e
+        } finally {
+            closePrivacySession()
+            session.close()
+        }
+        val record = try {
+            net { coordinator.submitPrivacyV1(prepared, signature) }
+        } catch (e: Exception) {
+            leavePrivacy()
+            throw e
+        } finally {
+            signature.fill(0)
+        }
+        records[record.signature] = record
+        privacyPrepared = null
+        privacyReview = null
+        privacyAddress = null
+        privacyBalanceLamports = null
+        privacyUtxoCount = null
+        c.go(Screen.TxStatus(record.signature))
     }
 
     // ------------------------------------------------------------------ refresh
@@ -338,6 +582,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     fun resetEndpoints() { applyConfig(NetworkConfig.MAINNET_DEFAULT); notice = S.URL_RESET }
 
     private fun applyConfig(cfg: NetworkConfig) {
+        leavePrivacy()
         generation++
         prefs.network = cfg; net.select(cfg); config = cfg
         balance = Loadable.Idle; tokens = Loadable.Idle; stakes = Loadable.Idle; validators = Loadable.Idle; details.clear(); onSelect()

@@ -29,6 +29,31 @@ kotlin {
     jvmToolchain(17)
 }
 
+// The Default Ring SDK is Rust-only. Build the pinned JNI bridge for Android.
+val privacyJniLibs = layout.buildDirectory.dir("generated/privacyJniLibs")
+android.sourceSets.getByName("main").jniLibs.srcDir(privacyJniLibs)
+
+val buildPrivacyRingNative by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Build the pinned Solana Default Ring Rust SDK bridge for Android."
+    val manifest = rootProject.file("native/privacy-ring/Cargo.toml")
+    val sourceDir = rootProject.file("native/privacy-ring/src")
+    inputs.file(manifest)
+    inputs.dir(sourceDir)
+    inputs.file(rootProject.file("rust-toolchain.toml"))
+    outputs.dir(privacyJniLibs)
+    doFirst { privacyJniLibs.get().asFile.mkdirs() }
+    commandLine(
+        "bash", "-lc",
+        "if ! cargo ndk --version >/dev/null 2>&1; then cargo install cargo-ndk --locked; fi && " +
+            "cargo ndk -t arm64-v8a -t x86_64 -o '${privacyJniLibs.get().asFile.absolutePath}' " +
+            "build --release --manifest-path '${manifest.absolutePath}'"
+    )
+    environment("CARGO_TARGET_DIR", layout.buildDirectory.dir("privacy-cargo-target").get().asFile.absolutePath)
+}
+
+tasks.named("preBuild").configure { dependsOn(buildPrivacyRingNative) }
+
 dependencies {
     implementation(project(":core:crypto"))
     api(project(":core:solana"))

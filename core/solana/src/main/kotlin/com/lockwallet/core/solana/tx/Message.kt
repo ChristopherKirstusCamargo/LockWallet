@@ -114,6 +114,24 @@ class UnsupportedFormatException : IllegalArgumentException("formato não suport
 
 /** Wire transaction: shortvec(signature count) ‖ signatures ‖ message. */
 object WireTransaction {
+    /**
+     * Solana V1 wire format: V1 message followed by the required 64-byte
+     * signatures. Unlike Legacy/v0, V1 has no signature-count prefix.
+     */
+    fun assembleV1(message: ByteArray, signatures: List<ByteArray>): ByteArray {
+        require(message.isNotEmpty() && (message[0].toInt() and 0xff) == 0x81) { "not a Solana V1 message" }
+        require(signatures.size == 1 && signatures.all { it.size == 64 }) { "V1 signer count" }
+        val size = message.size + signatures.sumOf { it.size }
+        require(size <= 4_096) { "V1 transaction too large" }
+        val w = ByteWriter().bytes(message)
+        signatures.forEach { w.bytes(it) }
+        return w.toByteArray()
+    }
+
+    /** Unsigned V1 transaction used only by simulateTransaction(sigVerify=false). */
+    fun unsignedV1(message: ByteArray): ByteArray =
+        assembleV1(message, listOf(ByteArray(64)))
+
     fun assemble(message: ByteArray, signatures: List<ByteArray>): ByteArray {
         require(signatures.all { it.size == 64 })
         val w = ByteWriter().shortVec(signatures.size)

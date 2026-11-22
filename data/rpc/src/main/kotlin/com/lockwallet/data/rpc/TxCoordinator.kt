@@ -60,6 +60,46 @@ data class ComputeBudget(val unitLimit: Long, val microLamportsPerUnit: Long) {
 
 enum class PrepBlocker { BUSY, TOO_LARGE, ANALYZER, FEE_UNAVAILABLE, SIMULATION_FAILED, SIMULATION_UNAVAILABLE, BLOCKHASH_INVALID, SIMULATION_SINGLE_SOURCE, SIMULATION_DIVERGED, SIMULATION_ACCOUNT_LIMIT }
 
+/**
+ * Prepared Default Ring V1 transaction. Kept separate from PreparedTx so the
+ * legacy TransactionAnalyzer never parses versioned transaction bytes.
+ */
+class PreparedPrivacyTx internal constructor(
+    val wallet: SolanaPublicKey,
+    val cluster: Cluster,
+    message: ByteArray,
+    val operation: String,
+    val summary: String,
+    val publicCounterparty: String?,
+    amountLamports: Long,
+    val feeLamports: Long,
+    val lastValidBlockHeight: Long,
+) : AutoCloseable {
+    private val bytes = message.copyOf()
+    var amountLamports: Long = amountLamports
+        private set
+    private var closed = false
+    val messageBytes: ByteArray get() {
+        check(!closed) { "mensagem confidencial encerrada" }
+        return bytes.copyOf()
+    }
+    val messageHash: ByteArray get() {
+        check(!closed) { "mensagem confidencial encerrada" }
+        return java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+    }
+    var signable: Boolean = true
+        internal set
+
+    @Synchronized
+    override fun close() {
+        if (closed) return
+        bytes.fill(0)
+        amountLamports = 0L
+        signable = false
+        closed = true
+    }
+}
+
 /** A built, analysed and simulated transaction awaiting the user's authorization. Never persisted unsigned. */
 class PreparedTx internal constructor(
     val intent: TxIntent,
@@ -248,6 +288,81 @@ class TxCoordinator(private val net: NetworkManager, private val journal: TxJour
         rec = broadcast(rec, tx)
         p.state = rec.state
         return rec
+    }
+
+    /**
+     * Prepare the exact V1 message produced by the native Default Ring session.
+     * Simulation and fee estimation use the normal genesis-verified RPC path.
+     */
+    fun preparePrivacyV1(
+        wallet: SolanaPublicKey,
+        message: ByteArray,
+        operation: String,
+        summary: String,
+        publicCounterparty: String?,
+        amountLamports: Long,
+        lastValidBlockHeight: Long,
+    ): PreparedPrivacyTx {
+        require(operation in setOf("deposit_sol", "transfer_sol", "withdraw_sol"))
+        require(message.isNotEmpty() && (message[0].toInt() and 0xff) == 0x81)
+        require(amountLamports > 0L && lastValidBlockHeight > 0L)
+        val cluster = net.config.cluster
+        if (pendingFor(wallet) != null) throw RpcException(RpcException.Kind.RPC_ERROR, "transação anterior aguardando reconciliação")
+        if (message.size + 64 > 4_096) throw RpcException(RpcException.Kind.MALFORMED, "mensagem privada excede o limite v1")
+        val blockHeight = net.withFallback { it.getBlockHeight() }
+        if (blockHeight > lastValidBlockHeight) throw RpcException(RpcException.Kind.RPC_ERROR, "blockhash expirado")
+        val fee = net.withFallback { it.getFeeForMessage(message) }
+            ?: throw RpcException(RpcException.Kind.RPC_ERROR, "taxa de rede indisponível")
+        if (fee < 0L || fee > MAX_OWN_PRIORITY + 5_000L) {
+            throw RpcException(RpcException.Kind.RPC_ERROR, "taxa da operação confidencial excede o limite")
+        }
+        val simulation = net.withFallback { it.simulate(WireTransaction.unsignedV1(message), listOf(wallet)) }
+        if (simulation.err != null || simulation.accounts.size != 1 || simulation.unitsConsumed == null) {
+            throw RpcException(RpcException.Kind.RPC_ERROR, "simulação da operação confidencial recusada")
+        }
+        if (net.config.cluster != cluster) throw RpcException(RpcException.Kind.WRONG_NETWORK, "rede alterada")
+        return PreparedPrivacyTx(wallet, cluster, message, operation, summary, publicCounterparty, amountLamports, fee, lastValidBlockHeight)
+    }
+
+    fun stillValidPrivacy(p: PreparedPrivacyTx): Boolean = try {
+        net.config.cluster == p.cluster && net.withFallback { it.getBlockHeight() } <= p.lastValidBlockHeight
+    } catch (_: RpcException) { false }
+
+    fun cancelPrivacy(p: PreparedPrivacyTx) { p.close() }
+
+    /**
+     * Persists only public/opaque data. Confidential amount, asset and balance
+     * are intentionally omitted from the plaintext transaction journal.
+     * The signature is returned by custody, which self-verifies the Ed25519
+     * signature over the same message before handing it to this coordinator.
+     */
+    fun submitPrivacyV1(p: PreparedPrivacyTx, signature: ByteArray): TxRecord {
+        check(p.signable) { "operação confidencial não autorizável" }
+        check(net.config.cluster == p.cluster) { "network changed" }
+        require(signature.size == 64)
+        val tx = WireTransaction.assembleV1(p.messageBytes, listOf(signature))
+        // Check blockhash validity once more after the second PIN authorization
+        // and immediately before persisting/broadcasting the signed bytes.
+        val height = net.withFallback { it.getBlockHeight() }
+        if (height > p.lastValidBlockHeight) {
+            p.close()
+            throw RpcException(RpcException.Kind.RPC_ERROR, "blockhash expirou antes do envio")
+        }
+        p.signable = false
+        val t = now()
+        var rec = TxRecord(
+            Base58.encode(signature), p.cluster, p.wallet.toBase58(), TxKind.PRIVACY_RING,
+            p.summary, p.publicCounterparty, null, null, null, enc.encodeToString(tx),
+            p.lastValidBlockHeight, p.feeLamports, SIGNED, t, t, 0, 0, null,
+        )
+        p.close()
+        try {
+            journal.put(rec)
+            rec = broadcast(rec, tx)
+            return rec
+        } finally {
+            tx.fill(0)
+        }
     }
 
     /**
