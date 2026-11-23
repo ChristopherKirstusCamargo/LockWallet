@@ -167,6 +167,66 @@ class AppController(
     var hideBalance by mutableStateOf(prefs.hideBalance)
         private set
     fun setHideBalancePref(on: Boolean) { prefs.hideBalance = on; hideBalance = on }
+
+    var balanceInSol by mutableStateOf(prefs.balanceInSol)
+        private set
+    fun setBalanceInSol(on: Boolean) { prefs.balanceInSol = on; balanceInSol = on }
+    fun toggleBalanceUnit() = setBalanceInSol(!balanceInSol)
+
+    var profilePhotoRevision by mutableStateOf(0)
+        private set
+    var pendingProfilePhoto by mutableStateOf<Pair<String, ByteArray>?>(null)
+        private set
+
+    fun profilePhotoPath(walletId: String): String? = prefs.profilePhotos.path(walletId)
+
+    /** Normalize an untrusted image before preview; raw input bytes are wiped after processing. */
+    fun prepareProfilePhoto(walletId: String, source: ByteArray) {
+        if (busy) { source.fill(0); return }
+        val requestEpoch = lifecycleEpoch
+        launchOp {
+            try {
+                val normalized = io { prefs.profilePhotos.prepare(source) }
+                if (requestEpoch != lifecycleEpoch) {
+                    normalized.fill(0)
+                    return@launchOp
+                }
+                discardPendingProfilePhoto()
+                pendingProfilePhoto = walletId to normalized
+            } finally {
+                source.fill(0)
+            }
+        }
+    }
+
+    fun savePendingProfilePhoto(walletId: String) {
+        val pending = pendingProfilePhoto?.takeIf { it.first == walletId } ?: return
+        if (busy) return
+        val bytes = pending.second.copyOf()
+        launchOp {
+            try {
+                io { prefs.profilePhotos.savePrepared(walletId, bytes) }
+                profilePhotoRevision++
+            } finally {
+                bytes.fill(0)
+                pending.second.fill(0)
+                if (pendingProfilePhoto?.second === pending.second) pendingProfilePhoto = null
+            }
+        }
+    }
+
+    fun discardPendingProfilePhoto() {
+        pendingProfilePhoto?.second?.fill(0)
+        pendingProfilePhoto = null
+    }
+
+    fun removeProfilePhoto(walletId: String) {
+        if (busy) return
+        launchOp {
+            io { prefs.profilePhotos.remove(walletId) }
+            profilePhotoRevision++
+        }
+    }
     var haptics by mutableStateOf(prefs.haptics)
         private set
     fun setHapticsPref(on: Boolean) { prefs.haptics = on; haptics = on }
@@ -189,6 +249,8 @@ class AppController(
     var opened: OpenedSession? = null
     /** Encrypted LWRP bytes awaiting a destination (not secret). Password kept only until verification. */
     var pendingExport: Pair<ByteArray, CharArray>? = null
+    /** Changes on every lock so late authentication results cannot restore an obsolete session. */
+    private var lifecycleEpoch: Long = 0L
 
     fun start() {
         refresh()
@@ -305,15 +367,20 @@ class AppController(
     fun home() { discardDraft(); closeOpened(); chain.leavePrivacy(); actionsOpen = false; go(Screen.Home); refresh() }
 
     fun lockNow() {
-        discardDraft(); closeOpened(); clearExport(); chain.onLock(); connect.onLock()
+        lifecycleEpoch++
+        discardDraft(); closeOpened(); clearExport(); discardPendingProfilePhoto()
+        chain.onLock(); connect.onLock()
         unlocked = false
         bioAutoPrompted = false
         refresh()
         screen = if (hasVault()) Screen.Lock else Screen.Home
     }
 
+    /** Losing foreground focus locks immediately; external system pickers remain a deliberate, narrow exception. */
+    fun onPause() { foreground = false; actionsOpen = false; if (!externalPicker) lockNow() }
     fun onStop() { foreground = false; actionsOpen = false; if (!externalPicker) lockNow() }
     fun onStart() { foreground = true }
+    fun onResume() { foreground = true }
 
     private fun discardDraft() { draft?.discard(); draft = null }
     private fun closeOpened() { opened?.session?.close(); opened = null }
@@ -329,6 +396,7 @@ class AppController(
             catch (e: RecoveryException) { error = S.recovery(e.reason) }
             catch (e: com.lockwallet.data.rpc.RpcException) { error = S.rpc(e) }
             catch (e: ChainModel.UserError) { error = e.message }
+            catch (e: ProfilePhotoException) { error = e.message }
             catch (e: com.lockwallet.core.solana.MalformedException) { error = "Dados inválidos recebidos da rede. Nada foi assinado." }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             // Last line of defence: an unexpected answer (hostile/garbled RPC, platform quirk) must never crash the
@@ -460,48 +528,67 @@ class AppController(
     fun refreshLockout() { lockoutMs = runCatching { provider.attempts.lockoutRemainingMs() }.getOrDefault(0L) }
 
     /** PIN typed on the lock or authorize screen. Takes ownership of [pin]. */
-    fun submitPin(pin: CharArray, purpose: AuthPurpose?) = launchOp {
-        try {
-            val walletId = when (purpose) {
-                is AuthPurpose.RevealPhrase -> purpose.walletId
-                is AuthPurpose.ExportLwrp -> purpose.walletId
-                is AuthPurpose.DeleteWallet -> purpose.walletId
-                is AuthPurpose.AddAccount -> purpose.walletId
-                is AuthPurpose.Sign -> purpose.walletId
-                is AuthPurpose.PrivacyOpen -> purpose.walletId
-                is AuthPurpose.PrivacySign -> purpose.walletId
-                is AuthPurpose.DappSign -> purpose.walletId
-                else -> null
-            }
-            val ticket = io { if (walletId != null) provider.beginUnlock(walletId) else provider.beginUnlockAny() }
-            if (!passBiometric(ticket, S.PROMPT_UNLOCK)) return@launchOp
-            when (val r = io { provider.completeUnlock(ticket, pin) }) {
-                is UnlockResult.Failed -> { lockMessage = S.wrongPin(r.attemptsBeforeLockout); refreshLockout() }
-                is UnlockResult.LockedOut -> { lockoutMs = r.remainingMs; lockMessage = null }
-                is UnlockResult.Success -> {
-                    lockMessage = null; lockoutMs = 0
-                    val migration = r.migration
-                    if (migration != null) {
-                        val migrated = try {
-                            val authorized = !migration.needsUserAuth ||
-                                (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE))
-                            if (authorized) io { provider.completeKdfMigration(migration, r.session) }
-                            else { migration.close(); false }
-                        } catch (_: Exception) {
-                            migration.close()
-                            false
-                        }
-                        migrationWarning = if (migrated) null else
-                            "A migração de proteção não foi concluída. O envelope anterior foi preservado e a pendência será oferecida novamente no próximo desbloqueio por PIN."
-                    }
-                    refreshKdfMigrationStatus()
-                    onUnlocked(r.session, purpose)
+    /** PIN typed on the lock or authorize screen. Takes ownership of [pin]. */
+    fun submitPin(pin: CharArray, purpose: AuthPurpose?) {
+        val requestEpoch = lifecycleEpoch
+        launchOp {
+            try {
+                val walletId = when (purpose) {
+                    is AuthPurpose.RevealPhrase -> purpose.walletId
+                    is AuthPurpose.ExportLwrp -> purpose.walletId
+                    is AuthPurpose.DeleteWallet -> purpose.walletId
+                    is AuthPurpose.AddAccount -> purpose.walletId
+                    is AuthPurpose.Sign -> purpose.walletId
+                    is AuthPurpose.PrivacyOpen -> purpose.walletId
+                    is AuthPurpose.PrivacySign -> purpose.walletId
+                    is AuthPurpose.DappSign -> purpose.walletId
+                    else -> null
                 }
+                val ticket = io { if (walletId != null) provider.beginUnlock(walletId) else provider.beginUnlockAny() }
+                if (!passBiometric(ticket, S.PROMPT_UNLOCK)) return@launchOp
+                when (val r = io { provider.completeUnlock(ticket, pin) }) {
+                    is UnlockResult.Failed -> {
+                        if (requestEpoch != lifecycleEpoch) return@launchOp
+                        lockMessage = S.wrongPin(r.attemptsBeforeLockout); refreshLockout()
+                    }
+                    is UnlockResult.LockedOut -> {
+                        if (requestEpoch != lifecycleEpoch) return@launchOp
+                        lockoutMs = r.remainingMs; lockMessage = null
+                    }
+                    is UnlockResult.Success -> {
+                        if (requestEpoch != lifecycleEpoch) {
+                            r.session.close()
+                            return@launchOp
+                        }
+                        lockMessage = null; lockoutMs = 0
+                        val migration = r.migration
+                        if (migration != null) {
+                            val migrated = try {
+                                val authorized = !migration.needsUserAuth ||
+                                    (migration.cipher != null && biometric(migration.cipher!!, S.PROMPT_UPGRADE))
+                                if (authorized) io { provider.completeKdfMigration(migration, r.session) }
+                                else { migration.close(); false }
+                            } catch (_: Exception) {
+                                migration.close()
+                                false
+                            }
+                            migrationWarning = if (migrated) null else
+                                "A migração de proteção não foi concluída. O envelope anterior foi preservado e a pendência será oferecida novamente no próximo desbloqueio por PIN."
+                        }
+                        refreshKdfMigrationStatus()
+                        // A pause can occur during migration/biometric confirmation. Never reopen a stale session.
+                        if (requestEpoch != lifecycleEpoch) {
+                            r.session.close()
+                            return@launchOp
+                        }
+                        onUnlocked(r.session, purpose)
+                    }
+                }
+            } catch (e: CustodyException) {
+                refresh(); throw e
+            } finally {
+                pin.fill('\u0000')
             }
-        } catch (e: CustodyException) {
-            refresh(); throw e
-        } finally {
-            pin.fill('\u0000')
         }
     }
 
@@ -511,12 +598,18 @@ class AppController(
      */
     fun submitBiometric(purpose: AuthPurpose?) {
         if (!purpose.biometricAllowed() || !bioReady) return
+        val requestEpoch = lifecycleEpoch
         launchOp {
             try {
                 val t = io { provider.beginBiometricUnlock(null) }
                 if (!biometric(t.cipher, S.PROMPT_UNLOCK)) return@launchOp
                 val session = io { provider.completeBiometricUnlock(t) }
-                lockMessage = null; onUnlocked(session, null)
+                if (requestEpoch != lifecycleEpoch) {
+                    session.close()
+                    return@launchOp
+                }
+                lockMessage = null
+                onUnlocked(session, null)
             } catch (e: CustodyException) {
                 refreshBiometric()
                 when (e.reason) {

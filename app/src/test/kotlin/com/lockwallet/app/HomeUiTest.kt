@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.lockwallet.app.ui.App
 import com.lockwallet.app.ui.C
+import com.lockwallet.app.ui.solEquivalent
 import com.lockwallet.app.ui.Platform
 import com.lockwallet.custody.local.DeviceSecurityCapabilityManager
 import com.lockwallet.custody.local.LocalSecureProvider
@@ -148,6 +149,14 @@ class MainUiTest {
         val c = start()
         waitFor { c.chain.balance is Loadable.Ready && c.priceState is com.lockwallet.data.price.PriceState.Fresh }
         rule.onNodeWithTag("sol-line").assertTextEquals("2 SOL")
+        assertFalse(c.balanceInSol)
+        rule.onNodeWithTag("price").performClick()
+        rule.waitForIdle()
+        assertTrue(c.balanceInSol)
+        rule.onNodeWithTag("sol-line").assertTextContains("R$")
+        rule.onNodeWithTag("price").performClick()
+        rule.waitForIdle()
+        assertFalse(c.balanceInSol)
         rule.onAllNodesWithText("+5,00%").onFirst().assertExists()        // 24 h change chip (70 → 73.5)
         rule.onNodeWithText("Conta 1").assertExists()
         rule.onNodeWithTag("home-send").assertExists()
@@ -158,6 +167,16 @@ class MainUiTest {
         rule.onNodeWithTag("qr").assertExists()
         rule.onNodeWithTag("copy").performScrollTo().performClick(); rule.waitForIdle()
         assertEquals(listOf(c.wallets.first().address.toBase58()), copied)
+    }
+
+    @Test fun solEquivalentUsesPositiveQuotesAndSafePrecision() {
+        assertEquals(java.math.BigDecimal("5.000000000"), solEquivalent(
+            java.math.BigDecimal("1500.00"), java.math.BigDecimal("300.00")
+        ))
+        assertEquals(java.math.BigDecimal.ZERO, solEquivalent(java.math.BigDecimal.ZERO, java.math.BigDecimal("300")))
+        assertNull(solEquivalent(java.math.BigDecimal("1500"), java.math.BigDecimal.ZERO))
+        assertNull(solEquivalent(java.math.BigDecimal("1500"), null))
+        assertNull(solEquivalent(null, java.math.BigDecimal("300")))
     }
 
     @Test fun hideBalanceAndCurrencyAndThemeSettings() {

@@ -137,6 +137,25 @@ class AppFlowTest {
         return s.walletId
     }
 
+    @Test fun pauseLocksImmediatelyExceptForTheSystemPicker() {
+        val c = controller()
+        createWallet(c)
+        assertTrue(c.unlocked)
+
+        c.externalPicker = true
+        c.onPause()
+        assertTrue("External document/photo selection is an explicit in-app flow", c.unlocked)
+
+        c.externalPicker = false
+        c.onPause()
+        assertFalse(c.unlocked)
+        assertTrue(c.locked)
+        assertEquals(Screen.Lock, c.screen)
+
+        c.onStart()
+        assertTrue(c.locked) // returning to foreground never unlocks by itself
+    }
+
     @Test fun createLockUnlockAndAddSecondWallet() {
         val c = controller()
         assertEquals(Screen.Home, c.screen)

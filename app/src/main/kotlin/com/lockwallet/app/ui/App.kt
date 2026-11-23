@@ -40,6 +40,8 @@ class Platform(
     /** Paste a secret (recovery phrase/key): returns the text and wipes the clipboard. */
     val pasteSecret: () -> String? = paste,
     val haptics: () -> Boolean = { true },
+    /** System Photo Picker only; returns bounded bytes, never a filesystem or network location. */
+    val pickProfilePhoto: ((onBytes: (ByteArray?) -> Unit) -> Unit) = { callback -> callback(null) },
 )
 
 @OptIn(ExperimentalSharedTransitionApi::class)
