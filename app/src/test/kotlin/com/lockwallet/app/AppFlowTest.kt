@@ -144,7 +144,7 @@ class AppFlowTest {
 
         c.externalPicker = true
         c.onPause()
-        assertTrue("External document/photo selection is an explicit in-app flow", c.unlocked)
+        assertTrue("External document selection is an explicit in-app flow", c.unlocked)
 
         c.externalPicker = false
         c.onPause()

@@ -100,13 +100,11 @@ open class MainActivity : FragmentActivity() {
                 val callback = onProfilePhotoPicked.value
                 onProfilePhotoPicked.value = null
                 if (uri == null) {
-                    controller.externalPicker = false
                     callback?.invoke(null)
                 } else {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val bytes = readProfilePhotoBounded(uri)
                         withContext(Dispatchers.Main) {
-                            controller.externalPicker = false
                             callback?.invoke(bytes)
                         }
                     }
@@ -138,12 +136,11 @@ open class MainActivity : FragmentActivity() {
                 pasteSecret = { readAndClearClipboard(this, 400) },
                 haptics = { controller.prefs.haptics },
                 pickProfilePhoto = { callback ->
+                    // Unlike a document transaction flow, photo selection does not bypass background locking.
                     onProfilePhotoPicked.value = callback
-                    controller.externalPicker = true
                     try {
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     } catch (_: Exception) {
-                        controller.externalPicker = false
                         onProfilePhotoPicked.value = null
                         callback(null)
                     }
