@@ -380,7 +380,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
                 value = "Somente neste aparelho",
                 tag = "profile-photo-pick",
             ) {
-                p.pickProfilePhoto { bytes -> if (bytes != null) c.prepareProfilePhoto(w.id, bytes) }
+                p.pickProfilePhoto(w.id) { bytes -> if (bytes != null) c.prepareProfilePhoto(w.id, bytes) }
             }
             if (photoPath != null) {
                 Divider()
