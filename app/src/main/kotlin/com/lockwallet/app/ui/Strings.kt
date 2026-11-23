@@ -152,7 +152,7 @@ object S {
 
     fun material(e: MaterialError, pos: Int?): String = when (e) {
         MaterialError.WORD_COUNT -> "A frase deve ter 12, 15, 18, 21 ou 24 palavras."
-        MaterialError.UNKNOWN_WORD -> "Palavra ${pos?.plus(1) ?: ""} não está na lista padrão de palavras (em inglês). Confira a grafia."
+        MaterialError.UNKNOWN_WORD -> "Palavra ${pos?.plus(1) ?: ""} não pertence à lista BIP-39 oficial em inglês (2.048 palavras). Confira a grafia ou escolha uma sugestão."
         MaterialError.CHECKSUM -> "Frase inválida (soma de verificação). Confira a ordem e a grafia."
         MaterialError.NOT_CANONICAL -> "Use apenas letras a–z separadas por espaço."
         MaterialError.KEY_FORMAT -> "Chave em formato inválido (esperado Base58)."

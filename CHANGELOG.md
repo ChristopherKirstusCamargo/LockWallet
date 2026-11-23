@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.11] — 2026-11-23 — correção da restauração BIP-39 (versionCode 19)
+
+- Confirmada e testada a geração exclusivamente com a lista oficial BIP-39 em inglês, fixada por SHA-256 (2.048 palavras).
+- Normalizada a entrada digitada da frase: maiúsculas passam para minúsculas e espaços Unicode são tratados como separadores, sem alterar letras inválidas.
+- Adicionadas sugestões locais da lista BIP-39 a partir de três letras; a seleção completa apenas a palavra atual. O teclado continua em modo de senha, sem sugestões externas.
+- Incluídos testes da lista inglesa, dos prefixos, da normalização, da restauração e da interface de sugestões.
+
 ## [5.0.10] — 2026-11-23 — refinamento visual e endurecimento de segurança (versionCode 18)
 
 - Removido o painel redundante de “Sessão e autenticação” dos Ajustes; as explicações detalhadas permanecem disponíveis no contexto de ajuda.

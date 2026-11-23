@@ -182,7 +182,7 @@ class PendingMaterial private constructor(
 
         /**
          * Tolerant phrase input (ADR 0003: tolerance lives here, the core accepts canonical only): ASCII letters are
-         * lower-cased and any run of whitespace becomes one space. Non-ASCII letters are refused (English list only).
+         * lower-cased and any Unicode whitespace run becomes one space. Non-ASCII letters are refused (English list only).
          * 12/15/18/21/24 words; checksum enforced. [input] is not modified; the canonical copy is wiped.
          */
         fun fromPhrase(input: CharArray): PendingMaterial {
@@ -191,7 +191,7 @@ class PendingMaterial private constructor(
             var pendingSpace = false
             for (c in input) {
                 when {
-                    c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\u00a0' -> if (n > 0) pendingSpace = true
+                    Character.isWhitespace(c) || Character.isSpaceChar(c) -> if (n > 0) pendingSpace = true
                     c in 'a'..'z' || c in 'A'..'Z' -> {
                         if (pendingSpace) { canon[n++] = ' '; pendingSpace = false }
                         canon[n++] = c.lowercaseChar()

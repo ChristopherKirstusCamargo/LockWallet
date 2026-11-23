@@ -60,7 +60,10 @@ class Bip39ValidationTest {
             Bip39.generateEntropy(len, rng).use { e ->
                 assertEquals(len.entropyBytes, e.size)
                 val m = e.withBytes { Bip39.entropyToMnemonic(it) }
-                assertEquals(len.words, String(m).split(' ').size)
+                val generatedWords = String(m).split(' ')
+                assertEquals(len.words, generatedWords.size)
+                assertTrue("every generated word must belong to the pinned English BIP-39 list",
+                    generatedWords.all { Bip39Wordlist.words.binarySearch(it) >= 0 })
                 Bip39.mnemonicToEntropy(m).use { back -> assertTrue(back.withBytes { b -> e.withBytes { it.contentEquals(b) } }) }
                 m.wipe()
             }

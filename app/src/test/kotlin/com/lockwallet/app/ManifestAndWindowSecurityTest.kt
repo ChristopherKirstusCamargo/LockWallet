@@ -38,7 +38,7 @@ class ManifestAndWindowSecurityTest {
         @Suppress("DEPRECATION")
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         assertEquals(info.versionName, com.lockwallet.app.ui.APP_VERSION)
-        assertEquals(18L, info.longVersionCode)
+        assertEquals(19L, info.longVersionCode)
     }
 
     @Test fun signingAndDappSigningAlwaysRequirePin() {
