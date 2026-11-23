@@ -534,6 +534,9 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
             SpacerH(12.dp)
             Row(verticalAlignment = Alignment.CenterVertically) { Body(S.lockedOut(c.lockoutMs), C.text, align = TextAlign.Center, modifier = Modifier.weight(1f, fill = false)); HelpIcon(Help.LOCKOUT, 18.dp) }
             Spacer(Modifier.weight(1f))
+        } else if (c.finalizingBackgroundLock) {
+            Busy("Protegendo a sessão…")
+            Spacer(Modifier.weight(1f))
         } else if (c.busy) { Busy(S.UNLOCKING); Spacer(Modifier.weight(1f)) }
         else {
             val bio = c.canUseBiometric && purpose.biometricAllowed()

@@ -279,6 +279,8 @@ class AppController(
         private set
     val canUseBiometric: Boolean get() = bioReady && !pinRequiredAfterBackground
     private var backgroundLockPersisting = false
+    var finalizingBackgroundLock by mutableStateOf(false)
+        private set
 
     /** The photo picker returns to this wallet's profile only after the PIN has been verified again. */
     var profilePhotoReturnWalletId: String? = null
@@ -391,13 +393,12 @@ class AppController(
      * Local UI/session lock happens synchronously. The authenticated policy write waits for an in-flight operation
      * to finish, preventing a late successful PIN operation from clearing the lockdown after this transition.
      */
-    private fun lockForBackground() {
-        if (externalPicker) return
-        if (pinRequiredAfterBackground && locked) return
+    private fun lockAndRequirePin() {
         pinRequiredAfterBackground = true
         lockNow()
         if (backgroundLockPersisting) return
         backgroundLockPersisting = true
+        finalizingBackgroundLock = true
         scope.launch {
             try {
                 while (busy) kotlinx.coroutines.delay(16)
@@ -408,9 +409,16 @@ class AppController(
                 error = "Não foi possível gravar o bloqueio biométrico. A carteira permanece bloqueada por PIN nesta sessão."
             } finally {
                 backgroundLockPersisting = false
+                finalizingBackgroundLock = false
                 refreshBiometric()
             }
         }
+    }
+
+    private fun lockForBackground() {
+        if (externalPicker) return
+        if (pinRequiredAfterBackground && locked) return
+        lockAndRequirePin()
     }
 
     fun onPause() { foreground = false; actionsOpen = false; lockForBackground() }
@@ -673,18 +681,8 @@ class AppController(
         else go(Screen.Authorize(AuthPurpose.SetBioWindow(hours)))
     }
 
-    /** Persist the biometric lockdown first; lock locally even if persistence fails, and surface that failure. */
-    fun lockdown() {
-        pinRequiredAfterBackground = true
-        launchOp {
-        try {
-            io { provider.biometricLockdown() }
-        } finally {
-            lockNow()
-            refreshBiometric()
-        }
-        }
-    }
+    /** Manual lock and lifecycle lock share the same PIN-only policy. */
+    fun lockdown() = lockAndRequirePin()
 
     /** Settings toggle: on ⇒ PIN screen (EnableBiometric); off ⇒ immediate. */
     fun setBiometricUnlock(on: Boolean) {
