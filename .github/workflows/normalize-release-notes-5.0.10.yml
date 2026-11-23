@@ -1,4 +1,5 @@
 name: Normalize Lock Wallet 5.0.10 release notes
+# Triggered by a deliberate workflow-file update so the existing v5.0.10 notes can be normalized.
 
 on:
   push:
