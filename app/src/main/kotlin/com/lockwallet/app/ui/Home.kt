@@ -519,6 +519,7 @@ private fun BalanceHeader(c: AppController) {
 /** Fiat value divided by a real positive SOL quote. Null means conversion is not safe to display. */
 fun solEquivalent(valueFiat: BigDecimal?, solPriceFiat: BigDecimal?): BigDecimal? {
     if (valueFiat == null || solPriceFiat == null || valueFiat.signum() < 0 || solPriceFiat.signum() <= 0) return null
+    if (valueFiat.signum() == 0) return BigDecimal.ZERO
     return runCatching { valueFiat.divide(solPriceFiat, 9, RoundingMode.HALF_EVEN) }.getOrNull()
 }
 

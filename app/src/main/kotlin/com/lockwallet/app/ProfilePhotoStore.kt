@@ -26,6 +26,9 @@ class ProfilePhotoStore(private val directory: File) {
         if (input.isEmpty() || input.size > MAX_INPUT_BYTES) {
             throw ProfilePhotoException("A imagem deve ter até 10 MB.")
         }
+        if (!hasSupportedImageSignature(input)) {
+            throw ProfilePhotoException("O arquivo não é uma imagem válida ou possui dimensões excessivas.")
+        }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true; inScaled = false }
         BitmapFactory.decodeByteArray(input, 0, input.size, bounds)
         val width = bounds.outWidth
@@ -108,6 +111,37 @@ class ProfilePhotoStore(private val directory: File) {
 
     fun remove(walletId: String) {
         AtomicFile(File(directory, fileName(walletId))).delete()
+    }
+
+    /**
+     * Reject arbitrary/bogus byte streams before calling platform decoders. BitmapFactory's
+     * bounds-only path may accept malformed data on some Android/Robolectric versions.
+     * The accepted signatures cover the image formats the Android picker commonly returns.
+     */
+    private fun hasSupportedImageSignature(input: ByteArray): Boolean {
+        fun ascii(offset: Int, value: String): Boolean {
+            if (offset < 0 || input.size < offset + value.length) return false
+            return value.indices.all { input[offset + it].toInt() == value[it].code }
+        }
+        // JPEG
+        if (input.size >= 3 && input[0] == 0xff.toByte() &&
+            input[1] == 0xd8.toByte() && input[2] == 0xff.toByte()
+        ) return true
+        // PNG
+        if (input.size >= 8 && input.copyOfRange(0, 8).contentEquals(
+                byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+            )
+        ) return true
+        // WebP (RIFF container)
+        if (input.size >= 12 && ascii(0, "RIFF") && ascii(8, "WEBP")) return true
+        // GIF and BMP
+        if (ascii(0, "GIF87a") || ascii(0, "GIF89a") || ascii(0, "BM")) return true
+        // HEIF/HEIC and AVIF use the ISO-BMFF ftyp box.
+        if (input.size >= 12 && ascii(4, "ftyp")) {
+            val brand = String(input, 8, 4, Charsets.US_ASCII)
+            if (brand in setOf("heic", "heix", "hevc", "hevx", "mif1", "msf1", "avif", "avis")) return true
+        }
+        return false
     }
 
     private fun fileName(walletId: String): String {

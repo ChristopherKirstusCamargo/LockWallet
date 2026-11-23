@@ -153,7 +153,15 @@ class MainUiTest {
         rule.onNodeWithTag("price").performClick()
         rule.waitForIdle()
         assertTrue(c.balanceInSol)
-        rule.onNodeWithTag("sol-line").assertTextContains("R$")
+        val currentValuation = com.lockwallet.app.ui.valuation(c)
+        assertEquals(Fiat.BRL, currentValuation.fiat)
+        val expectedFiat = com.lockwallet.app.ui.formatFiat(
+            requireNotNull(currentValuation.value) { "fiat valuation should exist with a fresh BRL quote" },
+            Fiat.BRL,
+        )
+        rule.waitUntil(5_000) {
+            runCatching { rule.onNodeWithTag("sol-line").assertTextEquals(expectedFiat) }.isSuccess
+        }
         rule.onNodeWithTag("price").performClick()
         rule.waitForIdle()
         assertFalse(c.balanceInSol)
@@ -247,7 +255,7 @@ class MainUiTest {
         rule.onNodeWithTag("privacy-entry").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("sheet").assertExists()
-        rule.onNodeWithText("Continuar para o Default Ring").performScrollTo().assertExists()
+        rule.onNodeWithText("Abrir saldo confidencial").performScrollTo().assertExists()
     }
 
     @Test fun reviewShowsFeeAndSignNeedsAckForNewRecipient() {
