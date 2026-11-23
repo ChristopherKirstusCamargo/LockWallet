@@ -497,12 +497,19 @@ private fun BalanceHeader(c: AppController) {
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(secondaryLine, color = C.dim, fontSize = 14.sp, modifier = Modifier.testTag("sol-line"))
-            if (!hidden) Text("⇄", color = C.faint, fontSize = 14.sp)
             if (v.stale && !hidden && v.value != null) { Spacer(Modifier.width(8.dp)); Chip("cotação atrasada", icon = Ic.CLOCK) }
             Box(Modifier.size(36.dp).clip(CircleShape).pressable(haptic = Haptic.TICK) { c.setHideBalancePref(!hidden) }.testTag("hide-balance")
                 .semantics { contentDescription = if (hidden) "Mostrar saldo" else "Ocultar saldo" }, contentAlignment = Alignment.Center) {
                 Icon(if (hidden) Ic.EYE_OFF else Ic.EYE, C.dim, 18.dp)
             }
+        }
+        if (!hidden && canToggle) {
+            Text(
+                if (c.balanceInSol) "Toque no saldo para ver em ${v.fiat?.name ?: "moeda"}"
+                else "Toque no saldo para ver em SOL",
+                color = C.dim,
+                fontSize = 11.sp,
+            )
         }
         if (!hidden && v.lamports != null && ((v.staked ?: 0L) > 0L || (v.staked == null && c.chain.stakes is Loadable.Failed))) BalanceBreakdown(v)
     }
