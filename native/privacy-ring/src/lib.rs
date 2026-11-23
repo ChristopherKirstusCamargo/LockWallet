@@ -126,10 +126,10 @@ fn lock_wallets() -> Result<std::sync::MutexGuard<'static, HashMap<i64, Arc<Wall
 }
 
 fn helius_service_url(rpc_url: &str) -> Result<String, String> {
-    let mut url = url::Url::parse(rpc_url).map_err(|_| "RPC principal inválido".to_owned())?;
+    let mut url = url::Url::parse(rpc_url).map_err(|_| "Endpoint do Privacy Rings inválido".to_owned())?;
     let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
     if url.scheme() != "https" || !(host == "helius-rpc.com" || host.ends_with(".helius-rpc.com")) {
-        return Err("Configure o RPC principal com um endpoint Helius HTTPS".to_owned());
+        return Err("Configure o endpoint Helius HTTPS em Ajustes → Saldo confidencial".to_owned());
     }
     let has_key = url.query_pairs().any(|(key, value)| key == "api-key" && !value.is_empty());
     if !has_key {

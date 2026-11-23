@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,9 +67,9 @@ fun SettingsTab(c: AppController, p: Platform) {
     Group("Privacidade e segurança") {
         ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
         Divider()
-        ListRow("Saldo confidencial · SOL", Ic.LOCK, value = "Default Ring", help = Help.PRIVACY_RING, tag = "privacy-ring") {
-            c.error = null
-            c.chain.enterPrivacy()
+        ListRow("Saldo confidencial · SOL", Ic.LOCK, value = if (c.prefs.customSpr) "Configurado" else "Default Ring", help = Help.PRIVACY_RING, tag = "privacy-ring") {
+            c.error = null; c.chain.notice = null
+            sheets.show { PrivacyRingSheet(c) }
         }
         Divider()
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
@@ -102,15 +103,22 @@ fun SettingsTab(c: AppController, p: Platform) {
 }
 
 /**
- * Privacy Rings information sheet. The current build only explains the route;
- * it does not create shielded balances or submit private transactions.
+ * Privacy Rings sheet — the Default Ring hub: explains the route and holds the dedicated Helius
+ * endpoint (validated, fail-closed; ADR 0026). Confidential operations use this endpoint only,
+ * never the app-wide RPC.
  */
 @Composable
-private fun PrivacyRingSheet() {
+private fun PrivacyRingSheet(c: AppController) {
     val sheets = LocalSheets.current
+    var spr by remember { mutableStateOf(c.prefs.sprEndpoint ?: "") }
+    var currentHost by remember { mutableStateOf(c.prefs.sprEndpoint?.let { java.net.URI(it).host } ?: "") }
+    LaunchedEffect(c.chain.notice, c.error) {
+        spr = c.prefs.sprEndpoint ?: ""
+        currentHost = c.prefs.sprEndpoint?.let { java.net.URI(it).host } ?: ""
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Title("Saldo confidencial", Modifier.weight(1f))
-        Chip("EM INTEGRAÇÃO", icon = Ic.INFO)
+        Chip("MAINNET · SOL", icon = Ic.INFO)
         HelpIcon(Help.PRIVACY_RING, 18.dp)
     }
     Card {
@@ -144,16 +152,35 @@ private fun PrivacyRingSheet() {
         Divider()
         ListRow("IP e metadados de conexão", Ic.GLOBE, "Não são ocultados pelo protocolo", chevron = false)
     }
+    Group("Endpoint Helius (necessário para operar)", Help.PRIVACY_RING) {
+        ListRow(
+            "Situação",
+            Ic.LINK,
+            if (currentHost.isNotBlank()) "Configurado · $currentHost" else "Não configurado — operações confidenciais bloqueadas",
+            chevron = false,
+        )
+        Field(spr, { spr = it.trim().take(512) }, "URL Helius com api-key", keyboard = KeyboardType.Uri, mono = true)
+        Body("Formato: https://mainnet.helius-rpc.com/?api-key=SUA_CHAVE. A carteira confere se o endpoint responde como a Mainnet Solana antes de salvar. A chave de API fica guardada apenas neste aparelho e é usada pelo serviço Helius (RPC, indexador e provador de provas); ela não assina nem movimenta seus fundos. Não aceite URLs de terceiros.")
+        c.chain.notice?.let { Notice(it, Ic.INFO) }
+        ErrorText(c.error)
+        if (c.busy) Busy("Conferindo o endpoint…") else {
+            Primary("Testar e salvar", tag = "spr-save") { c.chain.saveSprEndpoint(spr) }
+            if (currentHost.isNotBlank()) Secondary("Remover endpoint", tag = "spr-remove") { c.chain.resetSprEndpoint() }
+        }
+    }
     Group("Chaves e recuperação") {
         Body("A chave de visualização permite à carteira descriptografar seu saldo e histórico privados. A chave de gasto autoriza o uso desses fundos. Elas precisam ser derivadas e protegidas dentro da custódia local. Nunca devem aparecer em logs, arquivos comuns, capturas de tela ou serem enviadas a terceiros.")
         Body("A carteira precisa de um procedimento compatível de backup e restauração dessas chaves. Se as chaves necessárias forem perdidas, ninguém consegue recuperar o saldo por você.")
     }
     Group("Limites do Default Ring") {
         Body("O Default Ring protege o ativo e a quantidade das transferências privadas, mas não oculta os endereços do remetente e do destinatário. Depósitos e retiradas também são públicos e revelam ativo, valor e endereço envolvido.")
-        Body("O protocolo não oculta IP nem metadados de conexão. Para funcionar na LockWallet, ainda são necessários SDK, custódia das chaves, indexador, provador com atestação verificada, sincronização do saldo e análise específica das transações.")
+        Body("O protocolo não oculta IP nem metadados de conexão. A integração usa o SDK oficial fixado por hash, deriva as chaves de visualização e de gasto dentro da custódia local (com PIN) e descriptografa o saldo no próprio aparelho; as provas são geradas pelo provador Helius com política TEE assinada. Falha de RPC, indexador, prova ou simulação bloqueia a operação — não há fallback para um envio público comum.")
     }
-    Notice("O Default Ring oculta o ativo e a quantidade da transferência. Os endereços continuam públicos. Depósito e retirada também são públicos. Nesta versão: somente SOL, carteira Local Secure e Mainnet com endpoint Helius.", Ic.INFO, Help.PRIVACY_RING)
-    PillButton("Entendi", Modifier.fillMaxWidth()) { sheets.dismiss() }
+    Notice("O Default Ring oculta o ativo e a quantidade da transferência. Os endereços continuam públicos. Depósito e retirada também são públicos. Nesta versão: somente SOL, carteira Local Secure e Mainnet, com o endpoint Helius configurado acima.", Ic.INFO, Help.PRIVACY_RING)
+    PillButton("Continuar para o Default Ring", Modifier.fillMaxWidth()) {
+        if (c.prefs.sprEndpoint == null) c.error = S.SPR_NOT_SET
+        else { sheets.dismiss(); c.chain.enterPrivacy() }
+    }
 }
 
 const val APP_VERSION = "Final"

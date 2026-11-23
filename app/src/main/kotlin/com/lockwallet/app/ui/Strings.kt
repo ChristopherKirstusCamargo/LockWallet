@@ -274,6 +274,12 @@ object S {
     const val URL_UNREACHABLE = "Não foi possível falar com este servidor."
     const val URL_SAVED = "Servidor conferido (é a rede principal da Solana) e salvo."
     const val URL_RESET = "Voltamos aos servidores padrão."
+    // Default Ring (Privacy Rings / Helius) — dedicated endpoint, fail-closed (ADR 0026).
+    const val SPR_BAD_URL = "Endpoint inválido. Use uma URL Helius HTTPS com api-key, ex.: https://mainnet.helius-rpc.com/?api-key=SUA_CHAVE."
+    const val SPR_UNREACHABLE = "Não foi possível falar com o endpoint Helius."
+    const val SPR_SAVED = "Endpoint Helius conferido (é a rede principal da Solana) e salvo. As operações confidenciais passam a usá-lo."
+    const val SPR_REMOVED = "Endpoint do Privacy Rings removido. As operações confidenciais ficam bloqueadas até configurar outro."
+    const val SPR_NOT_SET = "Configure o endpoint Helius em Ajustes → Saldo confidencial. Sem ele, as operações do Default Ring ficam bloqueadas."
     fun urlOther(known: com.lockwallet.data.rpc.Cluster?) =
         if (known != null) "Este servidor é de uma rede de testes (${known.label}), não da Solana principal. Nada foi salvo."
         else "Este servidor não é da rede principal da Solana. Nada foi salvo."

@@ -239,3 +239,20 @@ A primeira versão não afirma suporte a SPL, SeedVault, anonimato dos endereço
 visualização sem Helius ou funcionamento offline. Erros de RPC, indexador,
 prova/TEE, simulação, blockhash ou custódia bloqueiam a assinatura; não há
 fallback para envio público comum nem saldo presumido como zero.
+
+## Endpoint dedicado — 2026-11-23 (5.0.7)
+
+A decisão 6 passa a valer integralmente na interface. O Default Ring usa um
+endpoint Helius dedicado, configurado em Ajustes → Saldo confidencial e
+validado antes de salvar: HTTPS, host `helius-rpc.com` (ou subdomínio) com
+`api-key` não vazia e Genesis Hash da Mainnet conferido no próprio endpoint
+(a mesma validação da ponte nativa, aplicada antes de qualquer chamada).
+O campo é separado do servidor da rede comum: o tráfego `/v1/spr`
+(indexador e provador) nunca usa o RPC comum nem o secundário, e o RPC comum
+nunca é promovido a endpoint de privacidade. Sem endpoint configurado, a rota
+bloqueia com instrução clara (fail-closed) antes mesmo de pedir o PIN; salvar
+ou remover o endpoint encerra qualquer sessão confidencial ativa. A URL com a
+api-key fica nas preferências locais do aparelho, no mesmo padrão já
+documentado para o RPC comum; a tela mostra apenas o host, nunca a chave.
+Migração única: um RPC principal Helius configurado antes desta versão é
+copiado uma única vez para o campo dedicado; o RPC comum permanece inalterado.

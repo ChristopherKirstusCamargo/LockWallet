@@ -18,7 +18,7 @@ android {
         applicationId = "com.lockwallet.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 14
+        versionCode = 15
         versionName = "Final"
     }
 

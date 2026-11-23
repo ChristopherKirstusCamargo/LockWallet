@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## [5.0.7] — 2026-11-23 — endpoint dedicado do Default Ring e endurecimento (versionCode 15)
+
+- `versionName` permanece `Final`. `versionCode` 15.
+- **Default Ring (endpoint Helius dedicado — correção):** as operações de saldo confidencial passam a usar um endpoint Helius próprio, configurado em Ajustes → Saldo confidencial — campo novo, validado antes de salvar (HTTPS, host Helius com api-key e Genesis Hash da Mainnet conferidos no próprio endpoint) e separado do servidor da rede comum. Antes, o fluxo usava o RPC principal do app: sem campo dedicado, o usuário era orientado a transformar o RPC comum em endpoint Helius (misturando o tráfego comum e o privado sob a mesma API key) ou recebia erro genérico sem saber onde configurar. Agora o comportamento é fail-closed: sem endpoint configurado, a entrada do Default Ring bloqueia com instrução clara; o tráfego `/v1/spr` (indexador e provador) nunca cai no RPC público comum; salvar ou remover o endpoint encerra qualquer sessão confidencial ativa.
+- **Default Ring (migração):** quem já usava um RPC Helius como servidor principal tem a URL migrada automaticamente (uma única vez) para o campo dedicado na primeira leitura; nada muda para o restante do app.
+- **Default Ring (mensagens da ponte nativa):** os erros da ponte Rust passam a apontar o lugar da configuração (“Ajustes → Saldo confidencial”) em vez de mencionar o “RPC principal”.
+- **UI:** a folha “Saldo confidencial” em Ajustes, antes inacessível (nunca era aberta pelo app), volta a ser o centro do recurso: situação do endpoint, campo de configuração com teste e salvamento, remoção, explicação do fluxo e entrada direta para o Default Ring.
+- **Testes:** 9 testes novos (`SprEndpointTest`) cobrem a validação do endpoint, o bloqueio fail-closed sem endpoint, a remoção, a migração legada e o formato da URL; a suíte completa do módulo app fica verde (teste de versionCode atualizado para 15).
+- Certificado de assinatura novo. Não instala por cima da v5.0.6 nem das versões anteriores. Faça backup verificado antes de desinstalar.
+- A chave privada e a senha não entram no repositório nem na Release.
 
 ## [5.0.6] — 2026-11-23 — correções de segurança da auditoria dupla (versionCode 14)
 

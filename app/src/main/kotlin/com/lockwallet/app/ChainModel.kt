@@ -167,6 +167,8 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
             c.error = "Saldo confidencial está disponível apenas para carteiras Local Secure."
             return
         }
+        // Fail-closed before asking for the PIN: no dedicated Helius endpoint, no Default Ring.
+        if (prefs.sprEndpoint == null) { c.error = S.SPR_NOT_SET; return }
         c.go(Screen.Authorize(AuthPurpose.PrivacyOpen(w.id)))
     }
 
@@ -182,11 +184,16 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
         leavePrivacy()
         try {
             if (config.cluster != Cluster.MAINNET) throw UserError("Default Ring está habilitado somente na Mainnet Solana.")
-            // Verify the configured endpoint's genesis before the SDK's direct RPC/indexer calls.
-            val genesis = net { net.withFallback { it.getGenesisHash() } }
-            if (genesis != Cluster.MAINNET.genesisHash) throw UserError("O servidor configurado não é a Mainnet Solana.")
+            // Dedicated SPR endpoint (Helius): Mainnet-verified and fail-closed before any SDK RPC/indexer call.
+            val spr = sprUrl()
+            when (val r = net { net.check(spr, Cluster.MAINNET) }) {
+                EndpointCheck.Ok -> {}
+                EndpointCheck.BadUrl -> throw UserError(S.SPR_BAD_URL)
+                EndpointCheck.Unreachable -> throw UserError(S.SPR_UNREACHABLE)
+                is EndpointCheck.OtherNetwork -> throw UserError(S.urlOther(r.known))
+            }
             val address = net { session.privacyShieldedAddress() }
-            val scanned = JSONObject(net { session.privacyScanSol(config.primaryUrl) })
+            val scanned = JSONObject(net { session.privacyScanSol(spr) })
             val amount = scanned.getLong("amountLamports")
             val count = scanned.getInt("utxoCount")
             if (amount < 0L || count < 0) throw UserError("Resposta inválida do saldo confidencial.")
@@ -205,7 +212,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
 
     fun refreshPrivacySol() = c.launchOp {
         val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
-        val scanned = JSONObject(net { session.privacyScanSol(config.primaryUrl) })
+        val scanned = JSONObject(net { session.privacyScanSol(sprUrl()) })
         val amount = scanned.getLong("amountLamports")
         val count = scanned.getInt("utxoCount")
         if (amount < 0L || count < 0) throw UserError("Resposta inválida do saldo confidencial.")
@@ -226,7 +233,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
         val session = privacySession ?: throw UserError("A sessão confidencial foi encerrada.")
         discardPendingPrivacy(session)
         preparePrivacyOperation(
-            session.privacyPrepareDepositSol(config.primaryUrl, amount),
+            session.privacyPrepareDepositSol(sprUrl(), amount),
             amount,
         )
     }
@@ -238,7 +245,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
         if (to.isEmpty()) throw UserError(S.BAD_ADDRESS)
         discardPendingPrivacy(session)
         preparePrivacyOperation(
-            session.privacyPrepareTransferSol(config.primaryUrl, to, amount),
+            session.privacyPrepareTransferSol(sprUrl(), to, amount),
             amount,
         )
     }
@@ -250,7 +257,7 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
         if (to == wallet()?.address) throw UserError(S.SELF_SEND)
         discardPendingPrivacy(session)
         preparePrivacyOperation(
-            session.privacyPrepareWithdrawSol(config.primaryUrl, to.toBase58(), amount),
+            session.privacyPrepareWithdrawSol(sprUrl(), to.toBase58(), amount),
             amount,
         )
     }
@@ -583,6 +590,27 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     }
 
     fun resetEndpoints() { applyConfig(NetworkConfig.MAINNET_DEFAULT); notice = S.URL_RESET }
+
+    /** Privacy Rings endpoint (Helius HTTPS + api-key). Never the app-wide primary (ADR 0026, decision 6):
+     *  /v1/spr traffic (indexer, prover) uses the dedicated, Mainnet-verified service and fails closed. */
+    private fun sprUrl(): String = prefs.sprEndpoint ?: throw UserError(S.SPR_NOT_SET)
+
+    /** Validates and stores the dedicated Privacy Rings endpoint; any active confidential session is closed first. */
+    fun saveSprEndpoint(url: String) = c.launchOp {
+        val u = url.trim()
+        if (RpcClient.validateUrl(u) == null || !isHeliusSprUrl(u)) throw UserError(S.SPR_BAD_URL)
+        when (val r = net { net.check(u, Cluster.MAINNET) }) {
+            EndpointCheck.Ok -> {}
+            EndpointCheck.BadUrl -> throw UserError(S.SPR_BAD_URL)
+            EndpointCheck.Unreachable -> throw UserError(S.SPR_UNREACHABLE)
+            is EndpointCheck.OtherNetwork -> throw UserError(S.urlOther(r.known))
+        }
+        leavePrivacy()
+        prefs.sprEndpoint = u
+        notice = S.SPR_SAVED
+    }
+
+    fun resetSprEndpoint() { leavePrivacy(); prefs.sprEndpoint = null; notice = S.SPR_REMOVED }
 
     private fun applyConfig(cfg: NetworkConfig) {
         leavePrivacy()
