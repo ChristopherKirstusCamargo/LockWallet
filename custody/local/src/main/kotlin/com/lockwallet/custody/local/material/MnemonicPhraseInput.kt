@@ -11,7 +11,7 @@ import com.lockwallet.core.crypto.Bip39Wordlist
  */
 object MnemonicPhraseInput {
     const val MIN_PREFIX_LENGTH = 3
-    const val MAX_SUGGESTIONS = 8
+    const val MAX_SUGGESTIONS = 16
 
     /**
      * Lowercases ASCII, collapses Unicode whitespace and preserves one trailing

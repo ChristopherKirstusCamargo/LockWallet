@@ -47,9 +47,20 @@ class MnemonicPhraseInputTest {
         }
     }
 
-    @Test fun suggestionsAreBoundedAndNeverIncludeNonWordlistEntries() {
+    @Test fun defaultSuggestionsIncludeEveryMatchForEveryThreeLetterPrefix() {
+        val prefixes = Bip39Wordlist.words.map { it.take(3) }.toSet()
+        prefixes.forEach { prefix ->
+            val expected = Bip39Wordlist.words.filter { it.startsWith(prefix) }
+            val actual = MnemonicPhraseInput.suggestions(prefix)
+            assertEquals("all candidates must be shown for prefix $prefix", expected, actual)
+            assertTrue("prefix $prefix exceeds safe UI capacity", actual.size <= MnemonicPhraseInput.MAX_SUGGESTIONS)
+        }
+        assertEquals(13, MnemonicPhraseInput.suggestions("pro").size)
+    }
+
+    @Test fun suggestionsCanBeExplicitlyBoundedAndNeverIncludeNonWordlistEntries() {
         assertTrue(MnemonicPhraseInput.suggestions("a").isEmpty())
-        val matches = MnemonicPhraseInput.suggestions("fla", limit = 8)
+        val matches = MnemonicPhraseInput.suggestions("pro", limit = 8)
         assertTrue(matches.size <= 8)
         assertFalse(matches.any { it !in Bip39Wordlist.words })
     }
