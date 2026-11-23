@@ -9,7 +9,7 @@
 - Ação manual “Bloquear agora” unificada para também invalidar a autorização biométrica até o próximo PIN.
 - Fotografia por carteira via seletor de imagens do Android, com prévia, substituição, remoção e armazenamento local privado sem backup.
 - Configurações reorganizadas; prazo de uso da biometria explicado separadamente do bloqueio ao sair do aplicativo.
-- Testes novos para conversão, ciclo de vida e processamento de imagens; execução do CI pendente.
+- Testes novos para conversão, ciclo de vida e processamento de imagens; validação automatizada a ser confirmada pelo workflow desta PR.
 
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
