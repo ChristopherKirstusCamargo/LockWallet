@@ -55,8 +55,8 @@ fun SettingsTab(c: AppController, p: Platform) {
             }
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Proteção local", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Body("A sessão é encerrada ao sair do aplicativo. Ao voltar, confirme novamente com a digital válida ou com o PIN.")
+                Text("Sessão e autenticação", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Body("Sair do app encerra a sessão, não a autorização biométrica. Ao voltar, use a digital se ainda estiver válida ou o PIN quando a política exigir. “Bloquear agora” força o PIN.")
             }
         }
     }
@@ -141,12 +141,6 @@ fun SettingsTab(c: AppController, p: Platform) {
             }
         }
         if (c.vaultPresent) {
-            Divider()
-            Notice(
-                "Ao sair do aplicativo ou apagar a tela, a sessão é encerrada. No retorno, a carteira solicita uma nova autenticação: digital quando a política permitir ou PIN.",
-                Ic.INFO,
-                Help.AUTO_LOCK,
-            )
             Divider()
             ListRow(
                 "Bloquear agora",
