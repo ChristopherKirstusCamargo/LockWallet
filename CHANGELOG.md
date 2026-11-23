@@ -5,10 +5,10 @@
 - Alternância do saldo principal entre a moeda fiduciária configurada e a equivalência matemática em SOL, sem alterar a quantidade real de SOL ou tokens.
 - Preferência da unidade do saldo persistida; conversão não exibida quando a cotação não é utilizável.
 - Ocultação de saldo aplicada ao total, tokens, staking e quantidades exibidas em telas de detalhes e origem de envio.
-- Bloqueio ao perder o primeiro plano com PIN obrigatório na próxima abertura, persistido na política biométrica e protegido contra conclusões tardias de autenticação.
-- Ação manual “Bloquear agora” unificada para também invalidar a autorização biométrica até o próximo PIN.
+- Sessão encerrada imediatamente ao sair do primeiro plano; no retorno, a carteira exige nova autenticação por biometria quando a política estiver válida ou por PIN quando a política exigir.
+- “Bloquear agora” permanece como bloqueio de emergência distinto: grava a política PIN-only até o próximo PIN correto, sem confundir essa ação com a saída normal do aplicativo.
 - Fotografia por carteira via seletor de imagens do Android, com prévia, substituição, remoção e armazenamento local privado sem backup.
-- Configurações reorganizadas; prazo de uso da biometria explicado separadamente do bloqueio ao sair do aplicativo.
+- Configurações reorganizadas, tela de bloqueio refinada e orientação visual para alternância do saldo entre moeda fiduciária e SOL.
 - Testes novos para conversão, ciclo de vida e processamento de imagens; validação automatizada a ser confirmada pelo workflow desta PR.
 
 
