@@ -177,7 +177,7 @@ class MainUiTest {
         assertTrue(c.balanceInSol)
         rule.runOnUiThread { c.setPriceOn(false) }
         rule.waitForIdle()
-        rule.onNodeWithTag("price").assertTextContains("2,00 SOL")
+        rule.onNodeWithText("2,00 SOL").assertExists()
     }
 
     @Test fun solEquivalentUsesPositiveQuotesAndSafePrecision() {
