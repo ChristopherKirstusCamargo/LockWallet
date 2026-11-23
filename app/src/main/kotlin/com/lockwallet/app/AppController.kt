@@ -273,13 +273,18 @@ class AppController(
         private set
     var bioReady by mutableStateOf(false)
         private set
+    /** While checking the current device policy, never offer a possibly stale biometric unlock. */
+    var biometricPolicyRefreshing by mutableStateOf(false)
+        private set
+    private var biometricRefreshGeneration = 0L
 
     /** Manual emergency lockdown suppresses biometrics while its PIN-only policy is persisted. */
     private var manualLockPersisting = false
     private var manualLockFailClosed = false
     var finalizingManualLock by mutableStateOf(false)
         private set
-    val canUseBiometric: Boolean get() = bioReady && !finalizingManualLock && !manualLockFailClosed
+    val canUseBiometric: Boolean get() =
+        bioReady && !biometricPolicyRefreshing && !finalizingManualLock && !manualLockFailClosed
 
     /** The photo picker returns to this wallet's profile only after fresh authentication. */
     var profilePhotoReturnWalletId: String? = null
@@ -312,13 +317,26 @@ class AppController(
 
     /** Keystore lookups + HMAC check run off the main thread (no jank/ANR on slow keystores). */
     fun refreshBiometric() {
+        val generation = ++biometricRefreshGeneration
+        biometricPolicyRefreshing = true
         scope.launch {
-            val (on, ready) = io {
-                val on = runCatching { provider.biometricEnabled() }.getOrDefault(false)
-                Triple(on, on && runCatching { provider.biometricGate() == com.lockwallet.custody.local.bio.BioGate.READY }.getOrDefault(false),
-                    if (on) provider.biometricWindowHours() else null)
-            }.let { (a, b, w) -> Pair(a, b).also { bioWindowHours = w } }
-            bioEnabled = on; bioReady = ready
+            try {
+                val (on, ready, window) = io {
+                    val on = runCatching { provider.biometricEnabled() }.getOrDefault(false)
+                    val ready = on && runCatching {
+                        provider.biometricGate() == com.lockwallet.custody.local.bio.BioGate.READY
+                    }.getOrDefault(false)
+                    Triple(on, ready, if (on) provider.biometricWindowHours() else null)
+                }
+                if (generation != biometricRefreshGeneration) return@launch
+                bioWindowHours = window
+                bioEnabled = on
+                bioReady = ready
+            } catch (_: Exception) {
+                if (generation == biometricRefreshGeneration) bioReady = false
+            } finally {
+                if (generation == biometricRefreshGeneration) biometricPolicyRefreshing = false
+            }
         }
     }
 
@@ -422,14 +440,23 @@ class AppController(
     private fun lockForBackground() {
         if (externalPicker) return
         // onPause and onStop can both arrive for one transition; avoid repeated invalidation.
-        if (locked && !busy) return
+        if (locked && !busy) {
+            bioAutoPrompted = false
+            return
+        }
         lockNow()
     }
 
     fun onPause() { foreground = false; actionsOpen = false; lockForBackground() }
     fun onStop() { foreground = false; actionsOpen = false; lockForBackground() }
-    fun onStart() { foreground = true }
-    fun onResume() { foreground = true }
+    fun onStart() {
+        if (locked) refreshBiometric()
+        foreground = true
+    }
+    fun onResume() {
+        if (locked) refreshBiometric()
+        foreground = true
+    }
 
     private fun discardDraft() { draft?.discard(); draft = null }
     private fun closeOpened() { opened?.session?.close(); opened = null }
