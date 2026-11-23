@@ -361,14 +361,15 @@ fun Detail(c: AppController, p: Platform, id: String) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Avatar(w.name, 84.dp, Modifier.shared("avatar-${w.id}"), photoPath, c.profilePhotoRevision)
                 Text(w.name, color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Chip(if (w.role == WalletRole.VAULT) "Lock Vault" else "Lock Connect", icon = if (w.role == WalletRole.VAULT) Ic.LOCK else Ic.APPS)
-                    HelpIcon(if (w.role == WalletRole.VAULT) Help.ROLE_VAULT else Help.ROLE_CONNECT, 14.dp)
-                    Chip(if (sv) "Seed Vault" else "Neste aparelho", icon = if (sv) Ic.CHIP else Ic.PHONE)
-                    HelpIcon(if (sv) Help.CUSTODY_SEED_VAULT else Help.CUSTODY_LOCAL, 14.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Chip(if (w.role == WalletRole.VAULT) "Lock Vault" else "Lock Connect", icon = if (w.role == WalletRole.VAULT) Ic.LOCK else Ic.APPS)
+                        HelpIcon(if (w.role == WalletRole.VAULT) Help.ROLE_VAULT else Help.ROLE_CONNECT, 14.dp)
+                    }
+                    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Chip(if (sv) "Seed Vault" else "Neste aparelho", icon = if (sv) Ic.CHIP else Ic.PHONE)
+                        HelpIcon(if (sv) Help.CUSTODY_SEED_VAULT else Help.CUSTODY_LOCAL, 14.dp)
+                    }
                 }
             }
         }
