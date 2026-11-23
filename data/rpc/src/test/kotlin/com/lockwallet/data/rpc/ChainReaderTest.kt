@@ -21,7 +21,8 @@ class ChainReaderTest {
 
     private fun net(f: FakeRpc): NetworkManager {
         f.on(FakeRpc.A, "getGenesisHash") { "\"${Cluster.DEVNET.genesisHash}\"" }
-        return NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, null), f)
+        f.on(FakeRpc.B, "getGenesisHash") { "\"${Cluster.DEVNET.genesisHash}\"" }
+        return NetworkManager(NetworkConfig(Cluster.DEVNET, FakeRpc.A, FakeRpc.B), f)
     }
 
     @Test fun tokensWithPolicyAndAtaFlag() {
@@ -33,12 +34,14 @@ class ChainReaderTest {
         val evilAcctHex = evilMint.toByteArray().joinToString("") { "%02x".format(it) } + bob.toByteArray().joinToString("") { "%02x".format(it) } +
             "0a00000000000000" + "00".repeat(36) + "01" + "00".repeat(12) + "00".repeat(8) + "00".repeat(36)
         val evilAcct = SolanaPublicKey.fromBase58("ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4")
-        f.on(FakeRpc.A, "getTokenAccountsByOwner") { body ->
+        val tokenAccounts: (String) -> String = { body ->
             if (body.contains(ProgramIds.SPL_TOKEN_LEGACY.toBase58()))
                 """{"context":{"slot":1},"value":[{"pubkey":"${k("bob_ata").toBase58()}","account":${account(ProgramIds.SPL_TOKEN_LEGACY, acc["bob_ata_legacy_hex"] as String)}}]}"""
             else """{"context":{"slot":1},"value":[{"pubkey":"${evilAcct.toBase58()}","account":${account(ProgramIds.TOKEN_2022, evilAcctHex)}}]}"""
         }
-        f.on(FakeRpc.A, "getMultipleAccounts") { body ->
+        f.on(FakeRpc.A, "getTokenAccountsByOwner", tokenAccounts)
+        f.on(FakeRpc.B, "getTokenAccountsByOwner", tokenAccounts)
+        val mintAccounts: (String) -> String = { body ->
             val ks = body.substringAfter("[[").substringBefore("]").split(",").map { it.trim('"') }
             ks.joinToString(",", """{"context":{"slot":1},"value":[""", "]}") { key ->
                 when (key) {
@@ -48,6 +51,8 @@ class ChainReaderTest {
                 }
             }
         }
+        f.on(FakeRpc.A, "getMultipleAccounts", mintAccounts)
+        f.on(FakeRpc.B, "getMultipleAccounts", mintAccounts)
         val t = ChainReader(n).tokens(bob)
         assertEquals(2, t.size)
         val legacy = t.first { it.program == ProgramIds.SPL_TOKEN_LEGACY }

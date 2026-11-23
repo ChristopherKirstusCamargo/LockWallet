@@ -146,7 +146,7 @@ class NetworkTest {
         val good = """{"context":{"slot":1},"value":[{"lamports":1,"owner":"11111111111111111111111111111111","executable":false,"data":["AQ==","base64"]}]}"""
         f.on(FakeRpc.A, "getMultipleAccounts") { good }
         f.on(FakeRpc.B, "getMultipleAccounts") { good }
-        val manager = NetworkManager(NetworkConfig.MAINNET_DEFAULT, f, sleeper = {})
+        val manager = NetworkManager(NetworkConfig(Cluster.MAINNET, FakeRpc.A, FakeRpc.B), f, sleeper = {})
         val key = com.lockwallet.core.solana.ProgramIds.SYSTEM
         assertEquals(1, manager.getMultipleAccountsVerified(listOf(key)).size)
 
