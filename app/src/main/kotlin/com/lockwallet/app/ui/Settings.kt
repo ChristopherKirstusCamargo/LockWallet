@@ -48,6 +48,18 @@ import com.lockwallet.data.price.Fiat
 fun SettingsTab(c: AppController, p: Platform) {
     val sheets = LocalSheets.current
     Row(Modifier.padding(top = 8.dp)) { Title("Ajustes") }
+    Card(padding = 16.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Ic.SHIELD, size = 22.dp)
+            }
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Proteção local", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Body("A sessão é encerrada ao sair do aplicativo. Ao voltar, confirme novamente com a digital válida ou com o PIN.")
+            }
+        }
+    }
 
     Group("Aparência e exibição") {
         ListRow("Tema", Ic.MOON, value = if (C.dark) "Escuro" else "Claro", help = Help.THEME, tag = "theme") { c.setDarkTheme(!C.dark) }
@@ -98,11 +110,18 @@ fun SettingsTab(c: AppController, p: Platform) {
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
         if (c.vaultPresent && c.bioCapable) {
             Divider()
-            ToggleRow("Digital para consulta", c.bioEnabled, Ic.FINGER, help = Help.BIO_UNLOCK, tag = "bio-toggle") { c.setBiometricUnlock(it) }
+            ToggleRow(
+                "Digital para consulta",
+                c.bioEnabled,
+                Ic.FINGER,
+                subtitle = "Reabre a consulta com a digital quando válida; o PIN continua disponível.",
+                help = Help.BIO_UNLOCK,
+                tag = "bio-toggle",
+            ) { c.setBiometricUnlock(it) }
             if (c.bioEnabled && !c.bioReady) {
                 Divider()
                 Notice(
-                    "A digital para consulta está ativada, mas o PIN é necessário agora. Isso ocorre após reinício, expiração do prazo, tentativas erradas, bloqueio manual ou retorno do segundo plano.",
+                    "A digital está ativada, mas não pode ser usada agora. O PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual.",
                     Ic.INFO, Help.BIO_UNLOCK,
                 )
             }
@@ -115,12 +134,27 @@ fun SettingsTab(c: AppController, p: Platform) {
                 }
                 val opts = com.lockwallet.custody.local.bio.BioVault.WINDOWS_H
                 Segmented(opts.map { "$it h" }, opts.indexOf(w).coerceAtLeast(0), Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) { c.setBioWindow(opts[it]) }
-                Notice("Esse prazo controla somente o uso da digital para consulta. O bloqueio ao sair do aplicativo é imediato e independente.", Ic.INFO)
+                Notice(
+                    "Esse prazo controla a validade da digital para consulta. Ao sair do aplicativo, a sessão é encerrada e uma nova autenticação será solicitada; a digital pode ser usada enquanto continuar válida.",
+                    Ic.INFO,
+                )
             }
         }
         if (c.vaultPresent) {
             Divider()
-            ListRow("Bloquear agora", Ic.LOCK, help = Help.LOCKDOWN, tag = "lock-now") { c.lockdown() }
+            Notice(
+                "Ao sair do aplicativo ou apagar a tela, a sessão é encerrada. No retorno, a carteira solicita uma nova autenticação: digital quando a política permitir ou PIN.",
+                Ic.INFO,
+                Help.AUTO_LOCK,
+            )
+            Divider()
+            ListRow(
+                "Bloquear agora",
+                Ic.LOCK,
+                subtitle = "Força o PIN no próximo desbloqueio",
+                help = Help.LOCKDOWN,
+                tag = "lock-now",
+            ) { c.lockdown() }
         }
     }
 
