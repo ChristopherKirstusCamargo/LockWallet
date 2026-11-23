@@ -137,6 +137,32 @@ class AppFlowTest {
         return s.walletId
     }
 
+    @Test fun pauseLocksImmediatelyExceptForTheSystemPicker() {
+        val c = controller()
+        createWallet(c)
+        assertTrue(c.unlocked)
+
+        c.externalPicker = true
+        c.onPause()
+        assertTrue("External document selection is an explicit in-app flow", c.unlocked)
+
+        c.externalPicker = false
+        c.onPause()
+        assertFalse(c.unlocked)
+        assertTrue(c.locked)
+        assertTrue(
+            "Backgrounding must not persist the emergency PIN-only lockdown",
+            c.provider.biometricGate() != com.lockwallet.custody.local.bio.BioGate.PIN_LOCKDOWN,
+        )
+        assertEquals(Screen.Lock, c.screen)
+
+        c.onStart()
+        assertTrue(c.locked) // returning to foreground never unlocks by itself
+        c.submitPin(pin(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")), null)
+        c.await()
+        assertTrue(c.unlocked)
+    }
+
     @Test fun createLockUnlockAndAddSecondWallet() {
         val c = controller()
         assertEquals(Screen.Home, c.screen)

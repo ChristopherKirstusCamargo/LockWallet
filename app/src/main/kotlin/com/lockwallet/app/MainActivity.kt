@@ -8,6 +8,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
@@ -20,6 +21,9 @@ import com.lockwallet.app.ui.S
 import com.lockwallet.custody.local.DeviceSecurityCapabilityManager
 import com.lockwallet.custody.local.LocalCustody
 import com.lockwallet.custody.local.RecoveryDocumentIo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import com.lockwallet.data.price.PriceService
 import javax.crypto.Cipher
@@ -89,6 +93,23 @@ open class MainActivity : FragmentActivity() {
                 val bytes = uri?.let { runCatching { docs.readBounded(it, MAX_IMPORT_BYTES) }.getOrNull() }
                 onOpened?.invoke(bytes)
             }
+            val onProfilePhotoPicked = androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableStateOf<((ByteArray?) -> Unit)?>(null)
+            }
+            val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+                val callback = onProfilePhotoPicked.value
+                onProfilePhotoPicked.value = null
+                if (uri == null) {
+                    callback?.invoke(null)
+                } else {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val bytes = readProfilePhotoBounded(uri)
+                        withContext(Dispatchers.Main) {
+                            callback?.invoke(bytes)
+                        }
+                    }
+                }
+            }
             val create = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
                 val expected = controller.opened?.session?.info?.address
                 if (uri == null || expected == null) { controller.externalPicker = false; controller.clearExport() }
@@ -114,6 +135,18 @@ open class MainActivity : FragmentActivity() {
                 },
                 pasteSecret = { readAndClearClipboard(this, 400) },
                 haptics = { controller.prefs.haptics },
+                pickProfilePhoto = { walletId, callback ->
+                    // The picker may background the app; return to the profile only after fresh biometric or PIN authentication.
+                    controller.profilePhotoReturnWalletId = walletId
+                    onProfilePhotoPicked.value = { bytes -> callback(bytes) }
+                    try {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    } catch (_: Exception) {
+                        onProfilePhotoPicked.value = null
+                        controller.profilePhotoReturnWalletId = null
+                        callback(null)
+                    }
+                },
             )
             App(controller, platform)
         }
@@ -124,9 +157,19 @@ open class MainActivity : FragmentActivity() {
         controller.onStart()
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (::controller.isInitialized) controller.onPause()
+    }
+
     override fun onStop() {
         super.onStop()
-        controller.onStop()
+        if (::controller.isInitialized) controller.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::controller.isInitialized) controller.onResume()
     }
 
     /** BiometricPrompt bound to the Keystore cipher (CryptoObject): success unlocks exactly this operation. */
@@ -194,6 +237,25 @@ open class MainActivity : FragmentActivity() {
         const val MAX_IMPORT_BYTES = 1024
     }
 }
+
+/** Bounded read from the system Photo Picker; no broad storage permission or persisted URI grant is used. */
+private const val MAX_PROFILE_PHOTO_INPUT_BYTES = 10 * 1024 * 1024
+
+private fun MainActivity.readProfilePhotoBounded(uri: Uri): ByteArray? = try {
+    contentResolver.openInputStream(uri)?.use { input ->
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            val remaining = MAX_PROFILE_PHOTO_INPUT_BYTES + 1 - out.size()
+            if (remaining <= 0) break
+            out.write(buffer, 0, minOf(n, remaining))
+            if (out.size() > MAX_PROFILE_PHOTO_INPUT_BYTES) break
+        }
+        out.toByteArray()
+    }
+} catch (_: Exception) { null }
 
 /**
  * Secret paste (recovery phrase / private key): read the clipboard once, then wipe it so other apps and the keyboard's

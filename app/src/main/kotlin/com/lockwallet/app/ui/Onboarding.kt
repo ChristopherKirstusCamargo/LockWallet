@@ -502,10 +502,12 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
         is com.lockwallet.app.AuthPurpose.SetBioWindow -> "Confirme o PIN para aumentar o prazo"
         is com.lockwallet.app.AuthPurpose.DeleteWallet -> "Confirme o PIN para excluir a carteira"
     }
+    val biometricViewUnlock = c.canUseBiometric && purpose.biometricAllowed()
     val sub = when (purpose) {
         null -> when {
-            c.bioReady -> "A digital desta tela libera apenas a consulta. Para enviar, assinar ou autorizar dApps, digite o PIN e confirme a biometria da chave principal."
-            c.bioEnabled -> "A digital para consulta está ativada, mas o PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual."
+            c.biometricPolicyRefreshing -> "Conferindo a política de segurança deste aparelho…"
+            biometricViewUnlock -> "A digital para consulta pode reabrir enquanto estiver válida. O PIN continua disponível e respeita a confirmação da chave exigida pelo Android; envios e assinaturas sempre exigem PIN e biometria da chave principal."
+            c.bioEnabled -> "A digital está ativada, mas indisponível agora. O PIN é exigido após reinício, prazo expirado, tentativas erradas ou bloqueio manual."
             else -> S.PIN_ENTER
         }
         is com.lockwallet.app.AuthPurpose.Sign -> c.chain.prepared?.intent?.summary
@@ -527,19 +529,42 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
             if (purpose == null) CircleButton(Ic.SHIELD, S.SECURITY_CENTER, tag = "lock-security") { c.go(Screen.SecurityCenter) }
         }
         Spacer(Modifier.weight(0.5f))
-        Box(Modifier.size(72.dp).clip(CircleShape).background(C.text).graphicsLayer { }, contentAlignment = Alignment.Center) { Icon(Ic.LOCK, C.bg, 34.dp) }
-        SpacerH(18.dp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(78.dp).glass(CircleShape, strong = true), contentAlignment = Alignment.Center) {
+                Icon(Ic.LOCK, size = 34.dp)
+            }
+            Chip(
+                if (purpose == null) "COFRE BLOQUEADO" else "AUTORIZAÇÃO NECESSÁRIA",
+                icon = if (biometricViewUnlock) Ic.FINGER else Ic.LOCK,
+            )
+        }
+        SpacerH(16.dp)
         if (c.lockoutMs > 0) {
             Text(title, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             SpacerH(12.dp)
             Row(verticalAlignment = Alignment.CenterVertically) { Body(S.lockedOut(c.lockoutMs), C.text, align = TextAlign.Center, modifier = Modifier.weight(1f, fill = false)); HelpIcon(Help.LOCKOUT, 18.dp) }
             Spacer(Modifier.weight(1f))
+        } else if (c.finalizingManualLock) {
+            Busy("Gravando bloqueio por PIN…")
+            Spacer(Modifier.weight(1f))
         } else if (c.busy) { Busy(S.UNLOCKING); Spacer(Modifier.weight(1f)) }
         else {
-            val bio = c.bioReady && purpose.biometricAllowed()
-            // Biometric first when allowed (once per appearance); the PIN pad stays as the fallback, with a finger key.
-            LaunchedEffect(purpose, bio) { if (bio) c.autoBiometric(purpose) }
-            PinPad(title, c.lockMessage ?: c.error, subtitle = sub, onBiometric = if (bio) ({ c.submitBiometric(purpose) }) else null, digits = c.pinLength) { pin -> c.submitPin(pin, purpose) }
+            val bio = biometricViewUnlock
+            // The system biometric prompt opens automatically when policy allows; the PIN remains available.
+            LaunchedEffect(purpose, bio, c.foreground) {
+                if (bio && c.foreground) c.autoBiometric(purpose)
+            }
+            Column(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(28.dp)).padding(horizontal = 14.dp, vertical = 16.dp),
+            ) {
+                PinPad(
+                    title,
+                    c.lockMessage ?: c.error,
+                    subtitle = sub,
+                    onBiometric = if (bio) ({ c.submitBiometric(purpose) }) else null,
+                    digits = c.pinLength,
+                ) { pin -> c.submitPin(pin, purpose) }
+            }
             Spacer(Modifier.weight(1f))
         }
         if (purpose == null) HelpIcon(Help.AUTO_LOCK, 16.dp)

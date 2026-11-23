@@ -38,7 +38,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -93,6 +95,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
@@ -709,12 +713,29 @@ fun shortAddress(a: String) = if (a.length > 10) a.take(4) + "…" + a.takeLast(
 /** Full address in groups of 4 so a human can actually compare it character by character. */
 fun groupedAddress(a: String) = a.chunked(4).joinToString(" ")
 
-/** Avatar bubble with the wallet's initial (monochrome). */
+/** Monogram avatar with an optional locally stored profile photo. */
 @Composable
-fun Avatar(name: String, size: Dp = 40.dp, modifier: Modifier = Modifier) =
-    Box(modifier.size(size).clip(CircleShape).background(C.text), contentAlignment = Alignment.Center) {
-        Text(name.trim().take(1).uppercase().ifEmpty { "L" }, color = C.bg, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+fun Avatar(
+    name: String,
+    size: Dp = 40.dp,
+    modifier: Modifier = Modifier,
+    photoPath: String? = null,
+    photoRevision: Int = 0,
+) {
+    val photo = remember(photoPath, photoRevision) {
+        photoPath?.let { path -> runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() }
     }
+    Box(
+        modifier.size(size).clip(CircleShape).background(if (photo == null) C.text else Color.Transparent),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (photo != null) {
+            Image(bitmap = photo, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Text(name.trim().take(1).uppercase().ifEmpty { "L" }, color = C.bg, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
 
 @Composable
 fun SpacerH(h: Dp) = Spacer(Modifier.height(h))

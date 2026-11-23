@@ -133,9 +133,9 @@ object Help {
         "Ver de verdade quanto você tem. Para enviar, só conta o “Disponível”: o SOL em stake precisa ser desativado e sacado antes. “Última época” é a recompensa que a rede informou para a época passada; se a rede não responder de forma confiável, a carteira não mostra nada em vez de chutar.",
         "Você tem 2 SOL disponíveis e 10 SOL em stake que renderam 0,004 SOL na última época: o saldo mostra 12,004 SOL, mas “Máximo” no envio usa só os 2 SOL.")
     val BIO_WINDOW = t("Prazo da digital",
-        "O tempo máximo em que a digital pode desbloquear a visualização sem digitar o PIN. Toda assinatura, envio e autorização de dApp exige o PIN.",
-        "Quanto menor o prazo, menor o risco de alguém usar seu dedo à força. Diminuir vale na hora; aumentar pede o PIN, para que ninguém estenda o prazo só com a sua digital.",
-        "Com 4 h: você digita o PIN de manhã e usa a digital até o almoço; depois disso, PIN de novo.")
+        "O tempo máximo em que a digital pode reabrir a consulta sem digitar o PIN. Sair do aplicativo encerra a sessão; ao voltar, a carteira pede autenticação novamente: digital se ainda estiver válida ou PIN se a política exigir.",
+        "Quanto menor o prazo, menor o risco de alguém usar seu dedo à força. Diminuir vale na hora; aumentar pede o PIN. Toda assinatura, envio e autorização de dApp continua exigindo PIN.",
+        "Com 4 h: você digita o PIN de manhã e pode usar a digital para consultar até o almoço. Ao sair e voltar ao app, a sessão abre apenas depois de uma nova confirmação.")
     val LOCKDOWN = t("Bloquear agora",
         "Fecha a carteira na hora e desliga a digital até você digitar o PIN de novo.",
         "Use se achar que alguém pode forçar você a encostar o dedo: depois de tocar aqui, só o PIN abre a carteira. Nada é apagado.",
@@ -319,9 +319,9 @@ object Help {
         "Receber SOL e tokens da rede Solana principal. Só a rede Solana: não envie de outras redes para este endereço.",
         "Mostre o QR para um amigo ou cole o endereço numa corretora para sacar SOL para você.")
     val HIDE_BALANCE = t("Ocultar saldo",
-        "Troca os valores por “••••” na tela inicial.",
-        "Privacidade em público: abrir a carteira sem mostrar quanto você tem para quem está do lado.",
-        "No ônibus, ligue “Ocultar saldo”. Em casa, toque no saldo para mostrar de novo.")
+        "Oculta saldos e quantidades nas telas da carteira. O ícone de olho e este ajuste controlam o mesmo estado. Valores digitados e exibidos na revisão de uma operação continuam visíveis para permitir a conferência.",
+        "Privacidade em público: consultar a carteira sem expor quanto você tem para quem está ao lado.",
+        "No ônibus, toque no olho para ocultar; o ajuste em Configurações reflete o mesmo estado.")
     val HAPTICS = t("Vibração",
         "Pequenas vibrações ao tocar em botões, errar o PIN ou concluir uma ação.",
         "Dar retorno físico sem precisar olhar para a tela.",

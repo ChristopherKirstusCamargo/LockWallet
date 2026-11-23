@@ -4,6 +4,7 @@ import android.content.Context
 import com.lockwallet.data.price.Fiat
 import com.lockwallet.data.rpc.Cluster
 import com.lockwallet.data.rpc.NetworkConfig
+import java.io.File
 
 /** Non-secret preferences only (theme, price, network, selection, confirmed recipients). Excluded from backup. */
 class Prefs(context: Context) {
@@ -17,6 +18,14 @@ class Prefs(context: Context) {
     var fiat: Fiat
         get() = Fiat.entries.firstOrNull { it.name == sp.getString("fiat", "BRL") } ?: Fiat.entries.first()
         set(v) { sp.edit().putString("fiat", v.name).apply() }
+
+    /** Preferred starting unit for the home balance. Tapping the balance toggles this value. */
+    var balanceInSol: Boolean
+        get() = sp.getBoolean("balanceInSol", false)
+        set(v) { sp.edit().putBoolean("balanceInSol", v).apply() }
+
+    /** User images are kept under noBackupFilesDir, separate from wallet custody and excluded from backup. */
+    val profilePhotos = ProfilePhotoStore(File(context.noBackupFilesDir, "profile-photos"))
 
     /** Mainnet endpoints (2.0.0: the only network). Custom URLs are stored only after a genesis check. */
     var network: NetworkConfig

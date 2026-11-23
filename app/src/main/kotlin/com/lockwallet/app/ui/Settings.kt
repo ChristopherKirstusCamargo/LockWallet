@@ -1,5 +1,10 @@
 package com.lockwallet.app.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +24,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,10 +48,33 @@ import com.lockwallet.data.price.Fiat
 fun SettingsTab(c: AppController, p: Platform) {
     val sheets = LocalSheets.current
     Row(Modifier.padding(top = 8.dp)) { Title("Ajustes") }
-    Group("Preferências") {
+    Card(padding = 16.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Ic.SHIELD, size = 22.dp)
+            }
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Sessão e autenticação", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Body("Sair do app encerra a sessão, sem alterar a autorização biométrica. Ao voltar, a digital para consulta pode ser usada se ainda estiver válida; caso contrário, o desbloqueio segue a política do PIN e da chave protegida pelo Android. “Bloquear agora” força o PIN.")
+            }
+        }
+    }
+
+    Group("Aparência e exibição") {
         ListRow("Tema", Ic.MOON, value = if (C.dark) "Escuro" else "Claro", help = Help.THEME, tag = "theme") { c.setDarkTheme(!C.dark) }
         Divider()
         ListRow("Moeda", Ic.COIN, value = fiatName(c.fiat), help = Help.CURRENCY, tag = "currency") { sheets.show { CurrencySheet(c) } }
+        Divider()
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Label("Unidade do saldo", modifier = Modifier.weight(1f))
+            HelpIcon(Help.CURRENCY, 14.dp)
+        }
+        Segmented(
+            listOf(c.fiat.name, "SOL"),
+            if (c.balanceInSol) 1 else 0,
+            Modifier.padding(horizontal = 16.dp, vertical = 2.dp).testTag("balance-unit"),
+        ) { c.setBalanceInSol(it == 1) }
         Divider()
         ToggleRow("Cotação ao vivo", c.priceEnabled, Ic.BOLT, help = Help.PRICE, tag = "price-toggle") { c.setPriceOn(it) }
         Divider()
@@ -52,6 +82,7 @@ fun SettingsTab(c: AppController, p: Platform) {
         Divider()
         ToggleRow("Vibração", c.haptics, Ic.VIBRATE, help = Help.HAPTICS, tag = "haptics-toggle") { c.setHapticsPref(it) }
     }
+
     val active = c.wallets
     if (active.isNotEmpty()) Group("Carteiras", Help.ACCOUNT) {
         active.forEachIndexed { i, w ->
@@ -65,35 +96,62 @@ fun SettingsTab(c: AppController, p: Platform) {
         Divider()
         ListRow("Importar carteira", Ic.KEY) { c.startFlow(FlowMode.RESTORE) }
     }
-    Group("Privacidade e segurança") {
-        ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
-        Divider()
+
+    Group("Privacidade") {
         ListRow("Saldo confidencial · SOL", Ic.LOCK, value = if (c.prefs.customSpr) "Configurado" else "Não configurado", help = Help.PRIVACY_RING, tag = "privacy-ring") {
             c.error = null; c.chain.notice = null
             sheets.show { PrivacyRingSheet(c) }
         }
+    }
+
+    Group("Segurança") {
+        ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
         Divider()
         ListRow("Servidor da rede", Ic.GLOBE, value = if (c.prefs.customRpc) "Personalizado" else "Padrão", help = Help.RPC, tag = "network") { c.chain.notice = null; c.error = null; c.go(Screen.Network) }
         if (c.vaultPresent && c.bioCapable) {
             Divider()
-            ToggleRow("Digital para consulta", c.bioEnabled, Ic.FINGER, help = Help.BIO_UNLOCK, tag = "bio-toggle") { c.setBiometricUnlock(it) }
+            ToggleRow(
+                "Digital para consulta",
+                c.bioEnabled,
+                Ic.FINGER,
+                subtitle = "Reabre a consulta com a digital quando válida; o PIN continua disponível.",
+                help = Help.BIO_UNLOCK,
+                tag = "bio-toggle",
+            ) { c.setBiometricUnlock(it) }
             if (c.bioEnabled && !c.bioReady) {
                 Divider()
                 Notice(
-                    "A digital para consulta está ativada, mas o PIN é necessário agora. Isso ocorre após reinício, expiração do prazo, tentativas erradas ou uso de “Bloquear agora”.",
+                    "A digital está ativada, mas não pode ser usada agora. O PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual.",
                     Ic.INFO, Help.BIO_UNLOCK,
                 )
             }
             val w = c.bioWindowHours
             if (c.bioEnabled && w != null) {
                 Divider()
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Label("Pedir o PIN pelo menos a cada", modifier = Modifier.weight(1f)); HelpIcon(Help.BIO_WINDOW, 14.dp) }
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Label("Exigir PIN pelo menos a cada", modifier = Modifier.weight(1f))
+                    HelpIcon(Help.BIO_WINDOW, 14.dp)
+                }
                 val opts = com.lockwallet.custody.local.bio.BioVault.WINDOWS_H
                 Segmented(opts.map { "$it h" }, opts.indexOf(w).coerceAtLeast(0), Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) { c.setBioWindow(opts[it]) }
+                Notice(
+                    "Esse prazo controla a validade da digital para consulta. Ao sair do aplicativo, a sessão é encerrada e uma nova autenticação será solicitada; a digital pode ser usada enquanto continuar válida.",
+                    Ic.INFO,
+                )
             }
         }
-        if (c.vaultPresent) { Divider(); ListRow("Bloquear agora", Ic.LOCK, help = Help.LOCKDOWN, tag = "lock-now") { c.lockdown() } }
+        if (c.vaultPresent) {
+            Divider()
+            ListRow(
+                "Bloquear agora",
+                Ic.LOCK,
+                subtitle = "Força o PIN no próximo desbloqueio",
+                help = Help.LOCKDOWN,
+                tag = "lock-now",
+            ) { c.lockdown() }
+        }
     }
+
     Group("Suporte") {
         ListRow("Ajuda", Ic.HELP, tag = "help-index") { sheets.show { HelpIndex() } }
         Divider()
@@ -184,7 +242,7 @@ fun PrivacyRingSheet(c: AppController) {
     }
 }
 
-const val APP_VERSION = "Final"
+const val APP_VERSION = "5.0.9"
 
 /** pt-BR currency names (settings list and value). */
 fun fiatName(f: Fiat): String = when (f) {
@@ -293,15 +351,53 @@ fun Detail(c: AppController, p: Platform, id: String) {
     var typed by remember { mutableStateOf("") }
     var name by remember { mutableStateOf(w.name) }
     val sv = w.provider == com.lockwallet.custody.local.api.CustodyProviderId.SEED_VAULT
+    val photoPath = c.profilePhotoPath(w.id)
+    val pendingPhotoBytes = c.pendingProfilePhoto?.takeIf { it.first == w.id }?.second
+    val photoPreview = remember(pendingPhotoBytes) {
+        pendingPhotoBytes?.let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+    }
     Screen("", onBack = { c.home() }) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Avatar(w.name, 84.dp, Modifier.shared("avatar-${w.id}"))
-            Text(w.name, color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Chip(if (w.role == WalletRole.VAULT) "Lock Vault" else "Lock Connect", icon = if (w.role == WalletRole.VAULT) Ic.LOCK else Ic.APPS)
-                HelpIcon(if (w.role == WalletRole.VAULT) Help.ROLE_VAULT else Help.ROLE_CONNECT, 14.dp)
-                Chip(if (sv) "Seed Vault" else "Neste aparelho", icon = if (sv) Ic.CHIP else Ic.PHONE)
-                HelpIcon(if (sv) Help.CUSTODY_SEED_VAULT else Help.CUSTODY_LOCAL, 14.dp)
+        Card(padding = 18.dp) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Avatar(w.name, 84.dp, Modifier.shared("avatar-${w.id}"), photoPath, c.profilePhotoRevision)
+                Text(w.name, color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Chip(if (w.role == WalletRole.VAULT) "Lock Vault" else "Lock Connect", icon = if (w.role == WalletRole.VAULT) Ic.LOCK else Ic.APPS)
+                        HelpIcon(if (w.role == WalletRole.VAULT) Help.ROLE_VAULT else Help.ROLE_CONNECT, 14.dp)
+                    }
+                    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Chip(if (sv) "Seed Vault" else "Neste aparelho", icon = if (sv) Ic.CHIP else Ic.PHONE)
+                        HelpIcon(if (sv) Help.CUSTODY_SEED_VAULT else Help.CUSTODY_LOCAL, 14.dp)
+                    }
+                }
+            }
+        }
+        Group("Fotografia do perfil") {
+            ListRow(
+                if (photoPath == null) "Adicionar fotografia" else "Alterar fotografia",
+                Ic.PERSON,
+                value = "Somente neste aparelho",
+                tag = "profile-photo-pick",
+            ) {
+                p.pickProfilePhoto(w.id) { bytes -> if (bytes != null) c.prepareProfilePhoto(w.id, bytes) }
+            }
+            if (photoPath != null) {
+                Divider()
+                ListRow("Remover fotografia", Ic.TRASH, tag = "profile-photo-remove") { c.removeProfilePhoto(w.id) }
+            }
+        }
+        if (photoPreview != null) {
+            Card {
+                Text("Prévia da fotografia", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Image(
+                    bitmap = photoPreview,
+                    contentDescription = "Prévia da fotografia de perfil",
+                    modifier = androidx.compose.ui.Modifier.size(112.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                )
+                Primary("Salvar fotografia") { c.savePendingProfilePhoto(w.id) }
+                Secondary("Cancelar") { c.discardPendingProfilePhoto() }
             }
         }
         if (w.state == WalletState.QUARANTINED) Notice(S.QUARANTINED, Ic.WARN, Help.QUARANTINE, strong = true)
@@ -322,7 +418,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
             Primary("Cancelar") { confirmDelete = false; typed = "" }
         }
         ErrorText(c.error)
-        Group {
+        Group("Gerenciar carteira") {
             if (!renaming) { ListRow(S.RENAME, Ic.PERSON) { renaming = true }; Divider() }
             if (sv) {
                 ListRow("Backup", Ic.SHIELD, S.SV_BACKUP, chevron = false)

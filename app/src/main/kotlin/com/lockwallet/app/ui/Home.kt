@@ -278,7 +278,7 @@ private fun Drawer(c: AppController, p: Platform, open: Boolean, close: () -> Un
         Column(Modifier.fillMaxHeight().widthIn(max = 330.dp).fillMaxWidth(0.84f).glass(RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp), strong = true)
             .safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp).testTag("drawer"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (w != null) {
-                Avatar(w.name, 64.dp, Modifier.shared("avatar-${w.id}"))
+                Avatar(w.name, 64.dp, Modifier.shared("avatar-${w.id}"), c.profilePhotoPath(w.id), c.profilePhotoRevision)
                 SpacerH(8.dp)
                 Text(w.name, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("@" + shortAddress(w.address.toBase58()), color = C.dim, fontSize = 14.sp)
@@ -296,11 +296,11 @@ private fun Drawer(c: AppController, p: Platform, open: Boolean, close: () -> Un
             }
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(C.glassBorder))
             DrawerItem(Ic.PERSON, "Perfil") { close(); w?.let { c.go(Screen.Detail(it.id)) } }
-            DrawerItem(Ic.HISTORY, "Histórico") { close(); c.tab = Tab.HOME; c.homeSegment = 1 }
-            DrawerItem(Ic.SETTINGS, "Definições") { close(); c.tab = Tab.SETTINGS }
+            DrawerItem(Ic.HISTORY, "Atividade") { close(); c.tab = Tab.HOME; c.homeSegment = 1 }
+            DrawerItem(Ic.SETTINGS, "Ajustes") { close(); c.tab = Tab.SETTINGS }
             DrawerItem(Ic.SHIELD, "Central de Segurança") { close(); c.go(Screen.SecurityCenter) }
             DrawerItem(Ic.HELP, "Ajuda") { close(); sheets.show { HelpIndex() } }
-            if (c.vaultPresent) DrawerItem(Ic.LOCK, "Bloquear agora") { close(); c.lockNow() }
+            if (c.vaultPresent) DrawerItem(Ic.LOCK, "Bloquear agora") { close(); c.lockdown() }
         }
     }
 }
@@ -316,7 +316,7 @@ private fun DrawerItem(ic: Ic, label: String, onClick: () -> Unit) =
 private fun AccountRow(c: AppController, w: WalletInfo, selected: Boolean, onClick: () -> Unit) =
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(if (selected) C.glass else Color.Transparent).pressable { onClick() }
         .padding(horizontal = 10.dp, vertical = 10.dp).testTag("account-${w.name}"), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(w.name, 36.dp); Spacer(Modifier.width(12.dp))
+        Avatar(w.name, 36.dp, photoPath = c.profilePhotoPath(w.id), photoRevision = c.profilePhotoRevision); Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(w.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(shortAddress(w.address.toBase58()) + " · " + if (w.role == com.lockwallet.custody.local.storage.WalletRole.VAULT) "Vault" else "Connect", color = C.dim, fontSize = 12.sp)
@@ -412,7 +412,7 @@ private fun HomeSecurityAttention(c: AppController) {
 private fun TopRow(c: AppController, p: Platform, w: WalletInfo?, openDrawer: () -> Unit) {
     val sheets = LocalSheets.current
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.clip(CircleShape).pressable { openDrawer() }.testTag("avatar")) { Avatar(w?.name ?: "L", 40.dp, if (w != null) Modifier.shared("avatar-${w.id}") else Modifier) }
+        Box(Modifier.clip(CircleShape).pressable { openDrawer() }.testTag("avatar")) { Avatar(w?.name ?: "L", 40.dp, if (w != null) Modifier.shared("avatar-${w.id}") else Modifier, w?.let { c.profilePhotoPath(it.id) }, c.profilePhotoRevision) }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(Modifier.clip(CircleShape).pressable { sheets.show { AccountSheet(c) } }.padding(vertical = 2.dp).testTag("account-selector"), verticalAlignment = Alignment.CenterVertically) {
@@ -443,26 +443,40 @@ private fun ColumnScope.AccountSheet(c: AppController) {
 }
 
 /** Huge centred balance with green/red 24 h change; tap toggles BRL/USD, long-press-free "eye" hides it. */
+/** Large balance: tap alternates between the selected fiat unit and a SOL-equivalent valuation. */
 @Composable
 private fun BalanceHeader(c: AppController) {
     val v = valuation(c)
     val hidden = c.hideBalance
     val loading = v.lamports == null && c.chain.balance !is Loadable.Failed
+    // SOL quantity comes from the actual lamport balance; it must remain visible even with a stale/offline quote.
+    val solAmount = (v.total ?: v.lamports)?.let { Amounts.toDecimal(it, 9) }
+    val canToggle = !hidden && v.value != null && v.fiat != null
+
     Column(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        val sheets = LocalSheets.current
-        Box(Modifier.clip(RoundedCornerShape(16.dp)).pressable(enabled = v.price != null && !hidden) {
-            sheets.show { CurrencySheet(c) }
-        }.testTag("price"), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.clip(RoundedCornerShape(16.dp))
+                .pressable(enabled = canToggle) { c.toggleBalanceUnit() }
+                .semantics {
+                    contentDescription = "Saldo. Toque para alternar entre ${v.fiat?.name ?: "moeda selecionada"} e SOL."
+                }
+                .testTag("price"),
+            contentAlignment = Alignment.Center,
+        ) {
             when {
                 loading -> Skeleton(Modifier.fillMaxWidth(0.62f).height(56.dp), RoundedCornerShape(16.dp))
                 hidden -> Text("••••••", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                c.balanceInSol -> when {
+                    solAmount != null -> AnimatedNumber(formatSolEquivalent(solAmount), 52)
+                    else -> Text("—", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                }
                 v.value != null && v.fiat != null -> AnimatedNumber(formatFiat(v.value, v.fiat), 52)
                 (v.total ?: v.lamports) != null -> AnimatedNumber(Fmt.sol(v.total ?: v.lamports!!) + " SOL", 44)
                 else -> Text("—", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!hidden && v.change != null && v.changeValue != null && v.fiat != null) {
+            if (!hidden && !c.balanceInSol && v.change != null && v.changeValue != null && v.fiat != null) {
                 val pctZero = v.change.multiply(BigDecimal(100)).setScale(2, RoundingMode.HALF_EVEN).signum() == 0
                 val col by animateColorAsState(if (pctZero) C.dim else if (v.change.signum() > 0) C.up else C.down, Motion.soft(), label = "chg")
                 AnimatedNumber((if (pctZero) "" else if (v.changeValue.signum() > 0) "+" else "−") + formatFiat(v.changeValue.abs(), v.fiat), 16, col, FontWeight.SemiBold)
@@ -470,24 +484,51 @@ private fun BalanceHeader(c: AppController) {
                 HelpIcon(Help.CHANGE_24H, 16.dp)
             }
         }
-        val solLine = when {
+        val secondaryLine = when {
             hidden -> "Saldo oculto"
-            v.lamports != null && v.value != null -> Fmt.sol(v.total ?: v.lamports) + " SOL"
-            v.lamports != null && !c.priceEnabled -> "Cotação desligada"
-            v.lamports != null -> "Cotação indisponível"   // the big number already shows the SOL amount
+            c.balanceInSol && v.stale -> "Cotação desatualizada"
+            c.balanceInSol && v.value != null && v.fiat != null -> formatFiat(v.value, v.fiat)
+            c.balanceInSol && !c.priceEnabled -> "Cotação desligada"
+            c.balanceInSol && c.chain.balance is Loadable.Failed -> "Saldo indisponível"
+            c.balanceInSol -> "Cotação indisponível"
+            v.lamports != null -> Fmt.sol(v.total ?: v.lamports) + " SOL"
+            !c.priceEnabled -> "Cotação desligada"
             c.chain.balance is Loadable.Failed -> "Saldo indisponível"
             else -> "Carregando…"
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(solLine, color = C.dim, fontSize = 14.sp, modifier = Modifier.testTag("sol-line"))
+            Text(secondaryLine, color = C.dim, fontSize = 14.sp, modifier = Modifier.testTag("sol-line"))
             if (v.stale && !hidden && v.value != null) { Spacer(Modifier.width(8.dp)); Chip("cotação atrasada", icon = Ic.CLOCK) }
             Box(Modifier.size(36.dp).clip(CircleShape).pressable(haptic = Haptic.TICK) { c.setHideBalancePref(!hidden) }.testTag("hide-balance")
                 .semantics { contentDescription = if (hidden) "Mostrar saldo" else "Ocultar saldo" }, contentAlignment = Alignment.Center) {
                 Icon(if (hidden) Ic.EYE_OFF else Ic.EYE, C.dim, 18.dp)
             }
         }
+        if (!hidden && canToggle) {
+            Text(
+                if (c.balanceInSol) "Toque no saldo para ver em ${v.fiat?.name ?: "moeda"}"
+                else "Toque no saldo para ver em SOL",
+                color = C.dim,
+                fontSize = 11.sp,
+            )
+        }
         if (!hidden && v.lamports != null && ((v.staked ?: 0L) > 0L || (v.staked == null && c.chain.stakes is Loadable.Failed))) BalanceBreakdown(v)
     }
+}
+
+/** Fiat value divided by a real positive SOL quote. Null means conversion is not safe to display. */
+fun solEquivalent(valueFiat: BigDecimal?, solPriceFiat: BigDecimal?): BigDecimal? {
+    if (valueFiat == null || solPriceFiat == null || valueFiat.signum() < 0 || solPriceFiat.signum() <= 0) return null
+    return runCatching { valueFiat.divide(solPriceFiat, 9, RoundingMode.HALF_EVEN) }.getOrNull()
+}
+
+private fun formatSolEquivalent(value: BigDecimal): String {
+    val nf = NumberFormat.getNumberInstance(PT).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = 9
+        roundingMode = RoundingMode.HALF_EVEN
+    }
+    return nf.format(value) + " SOL"
 }
 
 /** Disponível / Em stake (+ last-epoch reward when the chain answered consistently). */

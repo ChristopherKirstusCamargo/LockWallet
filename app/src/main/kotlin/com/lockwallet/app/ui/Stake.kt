@@ -117,7 +117,11 @@ private fun StakeRow(c: AppController, v: StakeView, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(v.state.voter?.let { "Validador " + TxText.short(it) } ?: "Sem delegação", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(S.lifecycle(v.lifecycle) + (v.lastReward?.let { " · +${Fmt.sol(it.amount)} SOL na última época" } ?: ""), color = C.dim, fontSize = 12.sp)
+            Text(
+                S.lifecycle(v.lifecycle) + (v.lastReward?.let { " · " + if (c.hideBalance) "••••" else "+${Fmt.sol(it.amount)} SOL na última época" } ?: ""),
+                color = C.dim,
+                fontSize = 12.sp,
+            )
         }
         Text(if (c.hideBalance) "••••" else Fmt.sol(v.lamports), color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
@@ -139,7 +143,11 @@ fun StakeNew(c: AppController) {
         if (c.busy) Busy("Preparando e testando…") else Primary("Revisar", enabled = amount.isNotBlank() && picked != null, tag = "review") { c.chain.reviewStakeCreate(amount, picked!!) }
     }) {
         val bal = c.chain.balance.valueOrNull()
-        AmountEntry(amount, { amount = it }, "SOL", "stake-amount", fiatHint = bal?.let { "Disponível: ${Fmt.sol(it)} SOL" }, onMax = null)
+        AmountEntry(
+            amount, { amount = it }, "SOL", "stake-amount",
+            fiatHint = if (c.hideBalance) "Disponível: •••• SOL" else bal?.let { "Disponível: ${Fmt.sol(it)} SOL" },
+            onMax = null,
+        )
         Row(verticalAlignment = Alignment.CenterVertically) { Label("Mínimo", modifier = Modifier.weight(1f)); HelpIcon(Help.MIN_STAKE, 16.dp) }
         Row(verticalAlignment = Alignment.CenterVertically) { Label("Recomendados", modifier = Modifier.weight(1f)); HelpIcon(Help.CURATED_ORDER, 16.dp); HelpIcon(Help.CURATED, 16.dp) }
         val vs = c.chain.validators
@@ -245,19 +253,19 @@ fun StakeAccountScreen(c: AppController, p: Platform, address: String) {
         if (v == null || me == null) { Body(S.STAKE_GONE); return@Screen }
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(64.dp).clip(CircleShape).background(C.text).shared("stake-$address"), contentAlignment = Alignment.Center) { Icon(Ic.STAKE, C.bg, 28.dp) }
-            AnimatedNumber(Fmt.sol(v.lamports) + " SOL", 36)
+            AnimatedNumber(if (c.hideBalance) "••••" else Fmt.sol(v.lamports) + " SOL", 36)
             Text(S.lifecycle(v.lifecycle), color = C.dim, fontSize = 14.sp)
         }
         StakeTimeline(v.lifecycle)
         Group {
-            DetailLine("Delegado", Fmt.sol(v.state.delegatedStake) + " SOL")
-            DetailLine("Depósito da conta", Fmt.sol(v.state.rentExemptReserve) + " SOL", Help.RENT)
+            DetailLine("Delegado", if (c.hideBalance) "••••" else Fmt.sol(v.state.delegatedStake) + " SOL")
+            DetailLine("Depósito da conta", if (c.hideBalance) "••••" else Fmt.sol(v.state.rentExemptReserve) + " SOL", Help.RENT)
             v.state.voter?.let { vote ->
                 val info = c.chain.validator(vote)
                 DetailLine("Validador", TxText.short(vote), Help.VALIDATOR)
                 info?.let { DetailLine("Comissão", "${it.commission}%" + if (it.delinquent) " · fora do ar" else "", Help.COMMISSION) }
             }
-            v.lastReward?.let { DetailLine("Última recompensa", "+${Fmt.sol(it.amount)} SOL") }
+            v.lastReward?.let { DetailLine("Última recompensa", if (c.hideBalance) "••••" else "+${Fmt.sol(it.amount)} SOL") }
             DetailLine("Controle", if (v.controlledBy(me)) "você" else "outra conta")
         }
         if (!v.controlledBy(me)) Notice(S.STAKE_NOT_CONTROLLED, Ic.LOCK)
@@ -266,7 +274,10 @@ fun StakeAccountScreen(c: AppController, p: Platform, address: String) {
         if (!v.controlledBy(me) || v.state.hasLockup) return@Screen
         when (v.lifecycle) {
             StakeLifecycle.ACTIVE, StakeLifecycle.ACTIVATING -> Primary("Desativar", tag = "deactivate") { c.chain.reviewDeactivate(address) }
-            StakeLifecycle.INACTIVE, StakeLifecycle.INITIALIZED -> Primary("Sacar ${Fmt.sol(v.lamports)} SOL", tag = "withdraw") { c.chain.reviewWithdraw(address) }
+            StakeLifecycle.INACTIVE, StakeLifecycle.INITIALIZED -> Primary(
+                if (c.hideBalance) "Sacar stake" else "Sacar ${Fmt.sol(v.lamports)} SOL",
+                tag = "withdraw",
+            ) { c.chain.reviewWithdraw(address) }
             StakeLifecycle.DEACTIVATING -> Notice("Desativando", Ic.CLOCK, Help.EPOCH)
         }
         if (showSplit) {
@@ -278,7 +289,12 @@ fun StakeAccountScreen(c: AppController, p: Platform, address: String) {
         val merge = c.chain.mergeCandidates(v, me)
         if (merge.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically) { Label("Juntar outra conta nesta"); HelpIcon(Help.MERGE, 14.dp) }
-            merge.forEach { m -> Secondary("Juntar ${TxText.short(m.address)} · ${Fmt.sol(m.lamports)} SOL", icon = Ic.MERGE) { c.chain.reviewMerge(address, m.address.toBase58()) } }
+            merge.forEach { m ->
+                Secondary(
+                    "Juntar ${TxText.short(m.address)} · ${if (c.hideBalance) "••••" else Fmt.sol(m.lamports) + " SOL"}",
+                    icon = Ic.MERGE,
+                ) { c.chain.reviewMerge(address, m.address.toBase58()) }
+            }
         }
         c.chain.config.cluster.explorerAddress(address)?.let { url -> Secondary("Ver no explorador", icon = Ic.GLOBE) { p.openUrl(url) } }
     }
