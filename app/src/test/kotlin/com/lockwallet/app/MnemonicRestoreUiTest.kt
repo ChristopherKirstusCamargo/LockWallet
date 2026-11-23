@@ -62,7 +62,7 @@ class MnemonicRestoreUiTest {
         rule.onNodeWithTag("phrase-input").performTextInput("neither lonely fla")
         rule.onNodeWithTag("mnemonic-suggestion-flavor").assertIsDisplayed().performClick()
         // The recovery field is intentionally a secret semantics node; never inspect its plaintext in accessibility.
-        // Selecting an exact BIP-39 candidate completes the current token and leaves the next token empty.
-        rule.onNodeWithTag("mnemonic-suggestions").assertDoesNotExist()
+        // The selected exact candidate must disappear from the suggestion list after completion.
+        rule.onNodeWithTag("mnemonic-suggestion-flavor").assertDoesNotExist()
     }
 }
