@@ -1,0 +1,55 @@
+name: Normalize Lock Wallet 5.0.10 release notes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/normalize-release-notes-5.0.10.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Write standardized release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          # Lock Wallet 5.0.10
+
+          Android release build do `main` (`6797be6`).
+
+          - Android versionCode: 18
+          - Android versionName: 5.0.10
+          - APK SHA-256: `f7c804ef3e15e31b0d3eca023a3eec6321152dfd0d80cf1f1b5b3a0e34dcf469`
+          - Assinatura: APK Signature Scheme v2 e v3 verificada. Manifesto de release conferido (backup desativado, sem cleartext).
+
+          Publicação do `main` com refinamento visual, ajustes no Default Ring e endurecimento das leituras usadas pelas políticas de tokens.
+
+          - **Ajustes:** removido o painel redundante de “Sessão e autenticação”; as explicações permanecem no contexto de ajuda. A folha de saldo confidencial foi simplificada, com conexão, estado do endpoint e visibilidade em blocos curtos.
+          - **Default Ring:** valor responsivo, respeito à opção de ocultar saldo, estado de sincronização sem expor a contagem interna de notas e endereços apresentados em blocos próprios, inclusive na revisão antes da autorização.
+          - **Lock Connect / Token-2022:** dados de mint usados pela política de extensões passam a exigir respostas idênticas de dois RPCs independentes. Se o segundo RPC estiver indisponível ou os dados divergirem, a decisão de assinatura é bloqueada (fail-closed).
+          - **Sessão confidencial:** a sessão candidata é registrada antes das chamadas assíncronas. Bloquear o app ou sair da tela invalida uma abertura em andamento e impede a permanência de uma sessão após o encerramento.
+          - **Perfil da carteira:** nomes longos se ajustam ao espaço disponível; a indicação de armazenamento local e a prévia da fotografia foram reorganizadas. Dados de imagem malformados ou excessivos são rejeitados antes da decodificação.
+          - **Testes:** testes da ponte nativa Rust, dos módulos Android e do app passaram. A build release, a assinatura e o manifesto também foram verificados.
+
+          **Migração de instalação:** esta versão usa uma nova chave de assinatura Android. O Android não instala este APK por cima de uma versão 5.0.9 assinada com a chave anterior. Antes de atualizar, exporte o backup de recuperação da carteira e confirme que consegue restaurá-lo. Só então desinstale a versão anterior, instale a 5.0.10 e restaure a carteira. Nunca compartilhe a frase de recuperação nem o Recovery Package.
+
+          O backup da nova chave de assinatura está anexado a esta Release em formato criptografado. Preserve-o junto do arquivo de recuperação correspondente, mantido separadamente e offline.
+          EOF
+
+      - name: Update the existing official GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit v5.0.10 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Lock Wallet 5.0.10" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
