@@ -505,7 +505,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
     val sub = when (purpose) {
         null -> when {
             c.canUseBiometric -> "A digital desta tela libera apenas a consulta. Para enviar, assinar ou autorizar dApps, digite o PIN e confirme a biometria da chave principal."
-            c.bioEnabled -> "A digital para consulta está ativada, mas o PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual."
+            c.bioEnabled -> "A digital para consulta está ativada, mas o PIN é exigido após reinício, expiração do prazo, tentativas erradas, bloqueio manual ou retorno do segundo plano."
             else -> S.PIN_ENTER
         }
         is com.lockwallet.app.AuthPurpose.Sign -> c.chain.prepared?.intent?.summary

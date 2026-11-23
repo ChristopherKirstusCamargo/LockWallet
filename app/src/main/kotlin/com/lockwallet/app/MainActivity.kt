@@ -138,10 +138,7 @@ open class MainActivity : FragmentActivity() {
                 pickProfilePhoto = { walletId, callback ->
                     // The picker is allowed to background the app; the return path is shown only after a fresh PIN.
                     controller.profilePhotoReturnWalletId = walletId
-                    onProfilePhotoPicked.value = { bytes ->
-                        if (bytes == null) controller.profilePhotoReturnWalletId = null
-                        callback(bytes)
-                    }
+                    onProfilePhotoPicked.value = { bytes -> callback(bytes) }
                     try {
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     } catch (_: Exception) {

@@ -102,7 +102,7 @@ fun SettingsTab(c: AppController, p: Platform) {
             if (c.bioEnabled && !c.bioReady) {
                 Divider()
                 Notice(
-                    "A digital para consulta está ativada, mas o PIN é necessário agora. Isso ocorre após reinício, expiração do prazo, tentativas erradas ou uso de “Bloquear agora”.",
+                    "A digital para consulta está ativada, mas o PIN é necessário agora. Isso ocorre após reinício, expiração do prazo, tentativas erradas, bloqueio manual ou retorno do segundo plano.",
                     Ic.INFO, Help.BIO_UNLOCK,
                 )
             }

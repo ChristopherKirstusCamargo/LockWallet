@@ -417,7 +417,8 @@ class AppController(
 
     private fun lockForBackground() {
         if (externalPicker) return
-        if (pinRequiredAfterBackground && locked) return
+        // A second background transition while PIN authentication is in flight must invalidate that attempt too.
+        if (pinRequiredAfterBackground && locked && !busy) return
         lockAndRequirePin()
     }
 

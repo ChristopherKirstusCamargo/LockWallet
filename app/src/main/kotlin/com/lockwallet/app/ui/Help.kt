@@ -133,7 +133,7 @@ object Help {
         "Ver de verdade quanto você tem. Para enviar, só conta o “Disponível”: o SOL em stake precisa ser desativado e sacado antes. “Última época” é a recompensa que a rede informou para a época passada; se a rede não responder de forma confiável, a carteira não mostra nada em vez de chutar.",
         "Você tem 2 SOL disponíveis e 10 SOL em stake que renderam 0,004 SOL na última época: o saldo mostra 12,004 SOL, mas “Máximo” no envio usa só os 2 SOL.")
     val BIO_WINDOW = t("Prazo da digital",
-        "O tempo máximo em que a digital pode desbloquear a visualização sem digitar o PIN. Esse prazo não mantém a sessão aberta quando você sai do aplicativo: o bloqueio de segundo plano é imediato e independente.",
+        "O tempo máximo em que a digital pode desbloquear a visualização sem digitar o PIN. Sair do aplicativo bloqueia a sessão e exige PIN ao retornar; esse bloqueio é imediato e independente do prazo da digital.",
         "Quanto menor o prazo, menor o risco de alguém usar seu dedo à força. Diminuir vale na hora; aumentar pede o PIN. Toda assinatura, envio e autorização de dApp continua exigindo PIN.",
         "Com 4 h: você digita o PIN de manhã e usa a digital para consultar até o almoço; depois disso, PIN de novo.")
     val LOCKDOWN = t("Bloquear agora",
