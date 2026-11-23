@@ -2,9 +2,9 @@ package com.lockwallet.app
 
 import android.content.Context
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -17,6 +17,7 @@ import com.lockwallet.custody.local.LocalSecureProvider
 import com.lockwallet.data.price.PriceService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExternalResource
@@ -65,6 +66,6 @@ class MnemonicRestoreUiTest {
         rule.onNodeWithTag("mnemonic-suggestion-flavor").assertIsDisplayed().performClick()
         // The recovery field is intentionally a secret semantics node; never inspect its plaintext in accessibility.
         // The selected exact candidate must disappear from the suggestion list after completion.
-        rule.onNodeWithTag("mnemonic-suggestion-flavor").assertDoesNotExist()
+        assertEquals(0, rule.onAllNodesWithTag("mnemonic-suggestion-flavor").fetchSemanticsNodes().size)
     }
 }
