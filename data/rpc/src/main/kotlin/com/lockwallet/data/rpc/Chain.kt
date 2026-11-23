@@ -67,9 +67,16 @@ class ChainReader(private val net: NetworkManager) {
         val mintKeys = accounts.map { it.second.mint }.distinct()
         val mints = HashMap<SolanaPublicKey, MintState?>()
         mintKeys.chunked(100).forEach { chunk ->
-            net.withFallback { it.getMultipleAccounts(chunk) }.forEachIndexed { i, a ->
-                mints[chunk[i]] = a?.takeIf { it.owner in ProgramIds.TOKEN_PROGRAMS }?.let { acc ->
-                    try { TokenState.parseMint(acc.owner, acc.data) } catch (_: MalformedException) { null }
+            // Mint extensions decide whether a token can be sent. A one-node fallback is not enough
+            // for this security decision; if independent RPCs disagree or one is unavailable, fail closed.
+            val verified = runCatching { net.getMultipleAccountsVerified(chunk) }.getOrNull()
+            if (verified == null) {
+                chunk.forEach { mints[it] = null }
+            } else {
+                verified.forEachIndexed { i, a ->
+                    mints[chunk[i]] = a?.takeIf { it.owner in ProgramIds.TOKEN_PROGRAMS }?.let { acc ->
+                        try { TokenState.parseMint(acc.owner, acc.data) } catch (_: MalformedException) { null }
+                    }
                 }
             }
         }

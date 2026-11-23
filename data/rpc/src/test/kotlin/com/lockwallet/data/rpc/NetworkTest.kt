@@ -139,6 +139,36 @@ class NetworkTest {
         catch (e: RpcException) { assertEquals(RpcException.Kind.MALFORMED, e.kind) }
     }
 
+    @Test fun securitySensitiveAccountReadsRequireMatchingIndependentRpcSnapshots() {
+        val f = FakeRpc()
+        f.on(FakeRpc.A, "getGenesisHash") { mainnet }
+        f.on(FakeRpc.B, "getGenesisHash") { mainnet }
+        val good = """{"context":{"slot":1},"value":[{"lamports":1,"owner":"11111111111111111111111111111111","executable":false,"data":["AQ==","base64"]}]}"""
+        f.on(FakeRpc.A, "getMultipleAccounts") { good }
+        f.on(FakeRpc.B, "getMultipleAccounts") { good }
+        val manager = NetworkManager(NetworkConfig.MAINNET_DEFAULT, f, sleeper = {})
+        val key = com.lockwallet.core.solana.ProgramIds.SYSTEM
+        assertEquals(1, manager.getMultipleAccountsVerified(listOf(key)).size)
+
+        // Same owner and balance but different raw mint bytes must be rejected.
+        f.on(FakeRpc.B, "getMultipleAccounts") { good.replace("AQ==", "Ag==") }
+        try {
+            manager.getMultipleAccountsVerified(listOf(key))
+            fail("RPC disagreement was accepted")
+        } catch (e: RpcException) {
+            assertEquals(RpcException.Kind.MALFORMED, e.kind)
+        }
+
+        // With no independent endpoint, the security-sensitive read must fail closed.
+        val single = NetworkManager(NetworkConfig(Cluster.MAINNET, FakeRpc.A, null), f, sleeper = {})
+        try {
+            single.getMultipleAccountsVerified(listOf(key))
+            fail("single-RPC security read was accepted")
+        } catch (e: RpcException) {
+            assertEquals(RpcException.Kind.TRANSPORT, e.kind)
+        }
+    }
+
     @Test fun explorerLinksAreMainnet() {
         assertEquals("https://explorer.solana.com/tx/abc", Cluster.MAINNET.explorerTx("abc"))
         assertEquals("https://explorer.solana.com/address/x", Cluster.MAINNET.explorerAddress("x"))

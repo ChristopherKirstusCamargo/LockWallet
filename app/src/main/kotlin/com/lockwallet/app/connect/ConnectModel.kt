@@ -342,7 +342,8 @@ class ConnectModel(private val c: AppController, dataDir: File?) {
                 if (deltaOverflow) problems += S_ACCOUNT_DELTA_OVERFLOW else solDelta = totalSolDelta
 
                 if (mints.isNotEmpty()) {
-                    val mintInfo = runCatching { c.chain.net.withFallback { it.getMultipleAccounts(mints.toList()) } }.getOrNull()
+                    // Mint extensions affect the signing policy: require matching, independent RPC snapshots.
+                    val mintInfo = runCatching { c.chain.net.getMultipleAccountsVerified(mints.toList()) }.getOrNull()
                     deltas.indices.forEach { i ->
                         val mint = SolanaPublicKey.fromBase58(deltas[i].mint)
                         val mintAccount = mintInfo?.getOrNull(mints.indexOf(mint))

@@ -1,5 +1,7 @@
 package com.lockwallet.data.rpc
 
+import com.lockwallet.core.solana.SolanaPublicKey
+
 /**
  * Solana Network Manager: Mainnet only for production transactions. Devnet/Testnet identifiers remain solely
  * to recognise and reject endpoints that report another genesis hash.
@@ -68,6 +70,23 @@ class NetworkManager(config: NetworkConfig, private val transport: RpcTransport,
     fun primary(): RpcClient = verifiedClient(config.primaryUrl)
     /** Secondary (genesis-verified) or null if not configured / not answering. */
     fun secondaryOrNull(): RpcClient? = config.secondaryUrl?.let { u -> try { verifiedClient(u) } catch (_: RpcException) { null } }
+
+    /**
+     * Security-sensitive account read: both independently configured, genesis-verified RPCs must return
+     * byte-for-byte identical account snapshots. Never use the normal fallback path for policy decisions:
+     * a successful but dishonest primary response must not be treated as authoritative.
+     */
+    fun getMultipleAccountsVerified(keys: List<SolanaPublicKey>): List<AccountData?> {
+        if (keys.isEmpty()) return emptyList()
+        val first = primary().getMultipleAccounts(keys)
+        val second = secondaryOrNull()
+            ?: throw RpcException(RpcException.Kind.TRANSPORT, "independent RPC unavailable")
+        val comparison = second.getMultipleAccounts(keys)
+        if (first != comparison) {
+            throw RpcException(RpcException.Kind.MALFORMED, "independent RPC account snapshots disagree")
+        }
+        return first
+    }
 
     /**
      * Read path: runs [block] on the primary; on any failure except a wrong-network endpoint it falls back to the

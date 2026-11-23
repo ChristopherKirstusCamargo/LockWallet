@@ -1,5 +1,7 @@
 package com.lockwallet.app
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.lockwallet.app.ui.Fmt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -104,6 +106,8 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
     var privacyNotice by mutableStateOf<String?>(null)
         private set
     private var privacySession: UnlockedWallet? = null
+    /** Invalidates an in-flight Default Ring open whenever the app locks or the screen is left. */
+    private val privacyLifecycleEpoch = AtomicLong(0L)
     var notice by mutableStateOf<String?>(null)
     var tokens by mutableStateOf<Loadable<List<TokenHolding>>>(Loadable.Idle)
     var hidden by mutableStateOf(prefs.hiddenTokens)
@@ -146,6 +150,8 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
 
     /** Clears all private state from Compose and closes the Rust key session. */
     fun leavePrivacy() {
+        // Invalidate any openPrivacy() coroutine before releasing the candidate session.
+        privacyLifecycleEpoch.incrementAndGet()
         privacyPrepared?.let { coordinator.cancelPrivacy(it) }
         closePrivacySession()
         privacyAddress = null
@@ -182,31 +188,48 @@ class ChainModel(private val c: AppController, private val prefs: Prefs, transpo
             throw UserError("Selecione uma carteira Local Secure para usar o Default Ring.")
         }
         leavePrivacy()
+        val openingEpoch = privacyLifecycleEpoch.get()
+        // Register before the first suspension so onLock()/leavePrivacy() can close this candidate too.
+        privacySession = session
         try {
             if (config.cluster != Cluster.MAINNET) throw UserError("Default Ring está habilitado somente na Mainnet Solana.")
             // Dedicated SPR endpoint (Helius): Mainnet-verified and fail-closed before any SDK RPC/indexer call.
             val spr = sprUrl()
-            when (val r = net { net.check(spr, Cluster.MAINNET) }) {
+            val endpoint = net { net.check(spr, Cluster.MAINNET) }
+            requirePrivacyOpeningCurrent(session, openingEpoch)
+            when (val r = endpoint) {
                 EndpointCheck.Ok -> {}
                 EndpointCheck.BadUrl -> throw UserError(S.SPR_BAD_URL)
                 EndpointCheck.Unreachable -> throw UserError(S.SPR_UNREACHABLE)
                 is EndpointCheck.OtherNetwork -> throw UserError(S.urlOther(r.known))
             }
             val address = net { session.privacyShieldedAddress() }
-            val scanned = JSONObject(net { session.privacyScanSol(spr) })
+            requirePrivacyOpeningCurrent(session, openingEpoch)
+            val scanJson = net { session.privacyScanSol(spr) }
+            requirePrivacyOpeningCurrent(session, openingEpoch)
+            val scanned = JSONObject(scanJson)
             val amount = scanned.getLong("amountLamports")
             val count = scanned.getInt("utxoCount")
             if (amount < 0L || count < 0) throw UserError("Resposta inválida do saldo confidencial.")
-            privacySession = session
             privacyAddress = address
             privacyBalanceLamports = amount
             privacyUtxoCount = count
             privacyNotice = null
             c.go(Screen.Privacy)
         } catch (e: Exception) {
-            session.close()
+            // A lifecycle path may already have closed and cleared this session. Do not close a newer session.
+            if (privacySession === session) {
+                privacySession = null
+                session.close()
+            }
             val safe = e.message?.takeIf { it.isNotBlank() } ?: "Não foi possível sincronizar o Default Ring."
             throw UserError(safe)
+        }
+    }
+
+    private fun requirePrivacyOpeningCurrent(session: UnlockedWallet, epoch: Long) {
+        if (privacyLifecycleEpoch.get() != epoch || privacySession !== session) {
+            throw UserError("A sessão confidencial foi encerrada.")
         }
     }
 

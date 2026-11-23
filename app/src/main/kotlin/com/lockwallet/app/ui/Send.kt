@@ -358,7 +358,6 @@ private fun StatusOrb(ok: Boolean, bad: Boolean) {
 // ======================================================================= Solana Privacy Rings — Default Ring (SOL)
 
 @Composable
-@Composable
 private fun PrivacyReviewAddress(label: String, address: String) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
