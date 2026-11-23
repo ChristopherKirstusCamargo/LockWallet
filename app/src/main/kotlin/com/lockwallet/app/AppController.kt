@@ -170,8 +170,8 @@ class AppController(
 
     var balanceInSol by mutableStateOf(prefs.balanceInSol)
         private set
-    fun setBalanceInSol(on: Boolean) { prefs.balanceInSol = on; balanceInSol = on }
-    fun toggleBalanceUnit() = setBalanceInSol(!balanceInSol)
+    fun setBalanceInSolPref(on: Boolean) { prefs.balanceInSol = on; balanceInSol = on }
+    fun toggleBalanceUnit() = setBalanceInSolPref(!balanceInSol)
 
     var profilePhotoRevision by mutableStateOf(0)
         private set

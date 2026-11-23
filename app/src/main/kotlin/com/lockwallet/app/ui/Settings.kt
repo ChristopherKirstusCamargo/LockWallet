@@ -74,7 +74,7 @@ fun SettingsTab(c: AppController, p: Platform) {
             listOf(c.fiat.name, "SOL"),
             if (c.balanceInSol) 1 else 0,
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp).testTag("balance-unit"),
-        ) { c.setBalanceInSol(it == 1) }
+        ) { c.setBalanceInSolPref(it == 1) }
         Divider()
         ToggleRow("Cotação ao vivo", c.priceEnabled, Ic.BOLT, help = Help.PRICE, tag = "price-toggle") { c.setPriceOn(it) }
         Divider()
