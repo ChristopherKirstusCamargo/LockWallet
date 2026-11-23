@@ -136,7 +136,7 @@ open class MainActivity : FragmentActivity() {
                 pasteSecret = { readAndClearClipboard(this, 400) },
                 haptics = { controller.prefs.haptics },
                 pickProfilePhoto = { walletId, callback ->
-                    // The picker is allowed to background the app; the return path is shown only after a fresh PIN.
+                    // The picker may background the app; return to the profile only after fresh biometric or PIN authentication.
                     controller.profilePhotoReturnWalletId = walletId
                     onProfilePhotoPicked.value = { bytes -> callback(bytes) }
                     try {
