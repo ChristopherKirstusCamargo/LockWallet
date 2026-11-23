@@ -358,6 +358,18 @@ private fun StatusOrb(ok: Boolean, bad: Boolean) {
 // ======================================================================= Solana Privacy Rings — Default Ring (SOL)
 
 @Composable
+@Composable
+private fun PrivacyReviewAddress(label: String, address: String) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Label(label)
+        Mono(groupedAddress(address), C.text, 12, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
 fun PrivacyScreen(c: AppController, p: Platform) {
     var action by remember { mutableIntStateOf(0) }
     var recipient by remember { mutableStateOf("") }
@@ -399,31 +411,38 @@ fun PrivacyScreen(c: AppController, p: Platform) {
             }
         }
     }) {
-        Group("Saldo no Default Ring", Help.PRIVACY_RING) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("SOL confidencial", color = C.dim, fontSize = 13.sp)
-                Text(
-                    balance?.let { Fmt.sol(it) + " SOL" } ?: "Saldo indisponível",
-                    color = C.text,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Black,
+        Card(padding = 18.dp) {
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Text("SALDO DISPONÍVEL", color = C.dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                FitText(
+                    when {
+                        c.hideBalance -> "•••••• SOL"
+                        balance != null -> Fmt.sol(balance) + " SOL"
+                        else -> "— SOL"
+                    },
+                    C.text,
+                    34.sp,
+                    FontWeight.Black,
+                    Modifier.fillMaxWidth(),
                 )
                 Text(
-                    c.chain.privacyUtxoCount?.let { "$it notas confidenciais sincronizadas" } ?: "Sincronização pendente",
+                    if (c.hideBalance) "Saldo oculto"
+                    else if (c.chain.privacyUtxoCount != null) "Saldo sincronizado"
+                    else "Aguardando sincronização",
                     color = C.dim,
                     fontSize = 12.sp,
                 )
             }
-            if (address != null) {
-                Divider()
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Label("Endereço Shielded para receber")
-                    // Grouped like every full address in the app: comparable by eye, wraps instead of clipping.
-                    Mono(groupedAddress(address), C.text, 12, Modifier.fillMaxWidth())
-                }
-            }
         }
         if (address != null) {
+            Card(padding = 14.dp) {
+                Label("Endereço para receber")
+                Mono(groupedAddress(address), C.text, 12, Modifier.fillMaxWidth())
+            }
             Secondary("Copiar endereço confidencial", icon = Ic.COPY, tag = "privacy-copy-address") {
                 p.copyAddress(address)
             }
@@ -440,7 +459,7 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                 DetailLine("Valor", Fmt.sol(review.amountLamports) + " SOL")
                 DetailLine("Visibilidade", review.visibility)
                 if (review.counterparty.isNotBlank()) {
-                    DetailLine(
+                    PrivacyReviewAddress(
                         if (review.operation == "deposit_sol") "Carteira de origem" else "Endereço público",
                         review.counterparty,
                     )
@@ -448,7 +467,7 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                 // The destination exactly as typed (shielded address for private transfers): the only form the
                 // user can compare against what they pasted; the derived public address is not comparable by eye.
                 review.typedCounterparty?.let { typed ->
-                    DetailLine(
+                    PrivacyReviewAddress(
                         if (review.operation == "transfer_sol") "Destino digitado (confira)" else "Destino digitado",
                         typed,
                     )
@@ -473,13 +492,13 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                 }
                 when (action) {
                     0 -> Notice(
-                        "Move SOL da carteira pública para o saldo confidencial. O depósito continua público.",
+                        "O depósito é público e revela o valor enviado.",
                         Ic.ARROW_DOWN,
                         Help.PRIVACY_RING,
                     )
                     1 -> {
                         Notice(
-                            "Use um endereço Shielded de destino. O valor e o ativo ficam confidenciais; os endereços continuam públicos.",
+                            "O valor fica oculto; os endereços continuam públicos.",
                             Ic.LOCK,
                             Help.PRIVACY_RING,
                         )
@@ -494,7 +513,7 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                     }
                     else -> {
                         Notice(
-                            "Retorna SOL para um endereço Solana normal. A retirada é pública.",
+                            "A retirada é pública e revela o valor e o destino.",
                             Ic.ARROW_UP,
                             Help.PRIVACY_RING,
                         )
@@ -512,11 +531,5 @@ fun PrivacyScreen(c: AppController, p: Platform) {
             }
         }
 
-        Group("Limites do Default Ring") {
-            DetailLine("Ativo e valor da transferência privada", "Ocultos")
-            DetailLine("Endereços de origem e destino", "Públicos")
-            DetailLine("Depósitos e retiradas", "Públicos")
-            DetailLine("Tokens SPL", "Ainda não habilitados nesta integração")
-        }
     }
 }

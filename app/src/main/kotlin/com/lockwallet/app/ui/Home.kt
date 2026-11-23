@@ -578,9 +578,9 @@ private fun PrivacyEntryCard(c: AppController) {
             Text("Saldo confidencial", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 when {
-                    !eligible -> "Requer carteira Local Secure"
-                    !configured -> "Default Ring · configurar endpoint Helius"
-                    else -> "Default Ring · pronto para usar"
+                    !eligible -> "Indisponível para esta carteira"
+                    !configured -> "Configuração necessária"
+                    else -> "Valor protegido nas transferências"
                 },
                 color = C.dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

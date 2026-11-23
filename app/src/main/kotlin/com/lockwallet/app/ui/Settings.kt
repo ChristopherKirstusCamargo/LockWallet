@@ -48,19 +48,6 @@ import com.lockwallet.data.price.Fiat
 fun SettingsTab(c: AppController, p: Platform) {
     val sheets = LocalSheets.current
     Row(Modifier.padding(top = 8.dp)) { Title("Ajustes") }
-    Card(padding = 16.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Ic.SHIELD, size = 22.dp)
-            }
-            Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Sessão e autenticação", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Body("Sair do app encerra a sessão, sem alterar a autorização biométrica. Ao voltar, a digital para consulta pode ser usada se ainda estiver válida; caso contrário, o desbloqueio segue a política do PIN e da chave protegida pelo Android. “Bloquear agora” força o PIN.")
-            }
-        }
-    }
-
     Group("Aparência e exibição") {
         ListRow("Tema", Ic.MOON, value = if (C.dark) "Escuro" else "Claro", help = Help.THEME, tag = "theme") { c.setDarkTheme(!C.dark) }
         Divider()
@@ -120,10 +107,7 @@ fun SettingsTab(c: AppController, p: Platform) {
             ) { c.setBiometricUnlock(it) }
             if (c.bioEnabled && !c.bioReady) {
                 Divider()
-                Notice(
-                    "A digital está ativada, mas não pode ser usada agora. O PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual.",
-                    Ic.INFO, Help.BIO_UNLOCK,
-                )
+                Notice("A digital não está disponível agora. Use o PIN para desbloquear.", Ic.INFO, Help.BIO_UNLOCK)
             }
             val w = c.bioWindowHours
             if (c.bioEnabled && w != null) {
@@ -134,10 +118,7 @@ fun SettingsTab(c: AppController, p: Platform) {
                 }
                 val opts = com.lockwallet.custody.local.bio.BioVault.WINDOWS_H
                 Segmented(opts.map { "$it h" }, opts.indexOf(w).coerceAtLeast(0), Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) { c.setBioWindow(opts[it]) }
-                Notice(
-                    "Esse prazo controla a validade da digital para consulta. Ao sair do aplicativo, a sessão é encerrada e uma nova autenticação será solicitada; a digital pode ser usada enquanto continuar válida.",
-                    Ic.INFO,
-                )
+                // The help topic contains the detailed biometric-window explanation.
             }
         }
         if (c.vaultPresent) {
@@ -155,8 +136,6 @@ fun SettingsTab(c: AppController, p: Platform) {
     Group("Suporte") {
         ListRow("Ajuda", Ic.HELP, tag = "help-index") { sheets.show { HelpIndex() } }
         Divider()
-        ListRow("Notificações", Ic.INFO, value = "Não usadas", help = Help.NO_NOTIFICATIONS, chevron = false)
-        Divider()
         ListRow("Sobre", Ic.SPARK, help = Help.ABOUT, chevron = false)
     }
 }
@@ -171,78 +150,70 @@ fun PrivacyRingSheet(c: AppController) {
     val sheets = LocalSheets.current
     var spr by remember { mutableStateOf(c.prefs.sprEndpoint ?: "") }
     var currentHost by remember { mutableStateOf(c.prefs.sprEndpoint?.let { java.net.URI(it).host } ?: "") }
+
     LaunchedEffect(c.chain.notice, c.error) {
         spr = c.prefs.sprEndpoint ?: ""
         currentHost = c.prefs.sprEndpoint?.let { java.net.URI(it).host } ?: ""
     }
+
     Row(verticalAlignment = Alignment.CenterVertically) {
         Title("Saldo confidencial", Modifier.weight(1f))
-        Chip("MAINNET · SOL", icon = Ic.INFO)
+        Chip("SOL · MAINNET", icon = Ic.INFO)
         HelpIcon(Help.PRIVACY_RING, 18.dp)
     }
-    Card {
+
+    Card(padding = 16.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(42.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Ic.LOCK, size = 21.dp)
             }
-            Column(Modifier.weight(1f)) {
-                Text("Privacidade por escolha", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Solana Privacy Rings · Helius · Mainnet", color = C.dim, fontSize = 13.sp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Privacidade nas transferências", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("O valor fica oculto; os endereços continuam públicos.", color = C.dim, fontSize = 13.sp)
             }
         }
-        Body("O anel cria um saldo confidencial diretamente na Solana. A carteira usa chaves de assinatura, visualização e gasto para reconhecer e abrir os valores que pertencem a você. Provas de conhecimento zero permitem à rede validar a operação sem publicar o ativo e a quantidade transferidos.")
     }
-    Group("Como o fluxo funciona", Help.PRIVACY_RING) {
-        ListRow("1. Depositar", Ic.ARROW_DOWN, "Público → privado", chevron = false)
-        Body("Você move SOL ou um token do saldo normal para o saldo confidencial. Esse depósito continua público: qualquer pessoa pode ver o endereço de origem, o ativo e a quantidade que entrou.")
-        Divider()
-        ListRow("2. Transferir", Ic.LOCK, "Privado → privado", chevron = false)
-        Body("Você envia a partir do saldo confidencial para uma carteira que tenha as chaves necessárias para receber e consultar o valor. No anel padrão, o ativo e a quantidade ficam protegidos, mas os endereços de origem e destino continuam visíveis.")
-        Divider()
-        ListRow("3. Retirar", Ic.ARROW_UP, "Privado → público", chevron = false)
-        Body("Você devolve parte do saldo para um endereço Solana normal. A retirada é pública e revela o ativo, a quantidade e o destino.")
-    }
-    Group("O que fica protegido", Help.PRIVACY_RING) {
-        ListRow("Ativo e quantidade da transferência privada", Ic.LOCK, "Protegidos", chevron = false)
-        Divider()
-        ListRow("Endereço de origem e destino", Ic.GLOBE, "Públicos", chevron = false)
-        Divider()
-        ListRow("Depósitos e retiradas", Ic.GLOBE, "Públicos", chevron = false)
-        Divider()
-        ListRow("IP e metadados de conexão", Ic.GLOBE, "Não são ocultados pelo protocolo", chevron = false)
-    }
-    Group("Endpoint Helius (necessário para operar)", Help.PRIVACY_RING) {
+
+    Group("Conexão", Help.PRIVACY_RING) {
         ListRow(
-            "Situação",
+            "Endpoint Helius",
             Ic.LINK,
-            if (currentHost.isNotBlank()) "Configurado · $currentHost" else "Não configurado — operações confidenciais bloqueadas",
+            value = if (currentHost.isNotBlank()) "Configurado" else "Pendente",
             chevron = false,
         )
-        Field(spr, { spr = it.trim().take(512) }, "URL Helius com api-key", keyboard = KeyboardType.Uri, mono = true)
-        Body("Formato: https://mainnet.helius-rpc.com/?api-key=SUA_CHAVE. A carteira confere se o endpoint responde como a Mainnet Solana antes de salvar. A chave de API fica guardada apenas neste aparelho e é usada pelo serviço Helius (RPC, indexador e provador de provas); ela não assina nem movimenta seus fundos. Não aceite URLs de terceiros.")
+        Field(spr, { spr = it.trim().take(512) }, "URL Helius com API key", keyboard = KeyboardType.Uri, mono = true)
+        Body("Use uma URL HTTPS da Helius para a Mainnet. O endereço é validado antes de salvar e fica armazenado neste aparelho.")
         c.chain.notice?.let { Notice(it, Ic.INFO) }
         ErrorText(c.error)
-        if (c.busy) Busy("Conferindo o endpoint…") else {
+        if (c.busy) {
+            Busy("Conferindo conexão…")
+        } else {
             Primary("Testar e salvar", tag = "spr-save") { c.chain.saveSprEndpoint(spr) }
-            if (currentHost.isNotBlank()) Secondary("Remover endpoint", tag = "spr-remove") { c.chain.resetSprEndpoint() }
+            if (currentHost.isNotBlank()) {
+                Secondary("Remover endpoint", tag = "spr-remove") { c.chain.resetSprEndpoint() }
+            }
         }
     }
-    Group("Chaves e recuperação") {
-        Body("A chave de visualização permite à carteira descriptografar seu saldo e histórico privados. A chave de gasto autoriza o uso desses fundos. Elas precisam ser derivadas e protegidas dentro da custódia local. Nunca devem aparecer em logs, arquivos comuns, capturas de tela ou serem enviadas a terceiros.")
-        Body("A carteira precisa de um procedimento compatível de backup e restauração dessas chaves. Se as chaves necessárias forem perdidas, ninguém consegue recuperar o saldo por você.")
+
+    Group("Visibilidade") {
+        DetailLine("Transferência privada", "Valor oculto")
+        DetailLine("Endereços", "Públicos")
+        DetailLine("Depósitos e retiradas", "Públicos")
     }
-    Group("Limites do Default Ring") {
-        Body("O Default Ring protege o ativo e a quantidade das transferências privadas, mas não oculta os endereços do remetente e do destinatário. Depósitos e retiradas também são públicos e revelam ativo, valor e endereço envolvido.")
-        Body("O protocolo não oculta IP nem metadados de conexão. A integração usa o SDK oficial fixado por hash, deriva as chaves de visualização e de gasto dentro da custódia local (com PIN) e descriptografa o saldo no próprio aparelho; as provas são geradas pelo provador Helius com política TEE assinada. Falha de RPC, indexador, prova ou simulação bloqueia a operação — não há fallback para um envio público comum.")
-    }
-    Notice("O Default Ring oculta o ativo e a quantidade da transferência. Os endereços continuam públicos. Depósito e retirada também são públicos. Nesta versão: somente SOL, carteira Local Secure e Mainnet, com o endpoint Helius configurado acima.", Ic.INFO, Help.PRIVACY_RING)
-    PillButton("Continuar para o Default Ring", Modifier.fillMaxWidth()) {
+
+    Notice(
+        "O protocolo protege o valor da transferência privada. Não oculta os endereços nem os metadados de conexão.",
+        Ic.INFO,
+        Help.PRIVACY_RING,
+    )
+
+    PillButton("Abrir saldo confidencial", Modifier.fillMaxWidth()) {
         if (c.prefs.sprEndpoint == null) c.error = S.SPR_NOT_SET
         else { sheets.dismiss(); c.chain.enterPrivacy() }
     }
 }
 
-const val APP_VERSION = "5.0.9"
+const val APP_VERSION = "5.0.10"
 
 /** pt-BR currency names (settings list and value). */
 fun fiatName(f: Fiat): String = when (f) {
@@ -360,7 +331,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
         Card(padding = 18.dp) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Avatar(w.name, 84.dp, Modifier.shared("avatar-${w.id}"), photoPath, c.profilePhotoRevision)
-                Text(w.name, color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                FitText(w.name, C.text, 26.sp, FontWeight.Black, Modifier.fillMaxWidth())
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Chip(if (w.role == WalletRole.VAULT) "Lock Vault" else "Lock Connect", icon = if (w.role == WalletRole.VAULT) Ic.LOCK else Ic.APPS)
@@ -377,7 +348,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
             ListRow(
                 if (photoPath == null) "Adicionar fotografia" else "Alterar fotografia",
                 Ic.PERSON,
-                value = "Somente neste aparelho",
+                subtitle = "Armazenada neste aparelho",
                 tag = "profile-photo-pick",
             ) {
                 p.pickProfilePhoto(w.id) { bytes -> if (bytes != null) c.prepareProfilePhoto(w.id, bytes) }
@@ -388,16 +359,21 @@ fun Detail(c: AppController, p: Platform, id: String) {
             }
         }
         if (photoPreview != null) {
-            Card {
-                Text("Prévia da fotografia", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Image(
-                    bitmap = photoPreview,
-                    contentDescription = "Prévia da fotografia de perfil",
-                    modifier = androidx.compose.ui.Modifier.size(112.dp).clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-                Primary("Salvar fotografia") { c.savePendingProfilePhoto(w.id) }
-                Secondary("Cancelar") { c.discardPendingProfilePhoto() }
+            Card(padding = 14.dp) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        bitmap = photoPreview,
+                        contentDescription = "Prévia da fotografia de perfil",
+                        modifier = Modifier.size(88.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Usar esta fotografia?", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Primary("Salvar foto", icon = Ic.CHECK) { c.savePendingProfilePhoto(w.id) }
+                        Secondary("Descartar") { c.discardPendingProfilePhoto() }
+                    }
+                }
             }
         }
         if (w.state == WalletState.QUARANTINED) Notice(S.QUARANTINED, Ic.WARN, Help.QUARANTINE, strong = true)

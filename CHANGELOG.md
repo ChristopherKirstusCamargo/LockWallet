@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.10] — 2026-11-23 — refinamento visual da interface (versionCode 18)
+
+- Removido o painel redundante de “Sessão e autenticação” dos Ajustes; as explicações detalhadas permanecem disponíveis no contexto de ajuda.
+- Simplificada a folha de saldo confidencial: conexão, estado do endpoint e visibilidade agora aparecem em blocos curtos, sem longas notas técnicas na tela principal.
+- Reorganizado o saldo confidencial com valor responsivo, respeito à opção de ocultar saldo e estado de sincronização sem expor a contagem interna de notas.
+- Endereços da operação passaram a ocupar blocos próprios para quebrar linhas corretamente, inclusive na revisão antes da autorização.
+- Perfil da carteira ajustado para nomes longos, indicação de armazenamento local e prévia de fotografia com ações alinhadas lado a lado.
+- Mantida a identidade visual Glass monocromática e os fluxos de carteira, privacidade e autenticação. Nenhuma alteração em custódia, chaves, derivação, assinatura ou transações.
+- Nenhum teste ou build foi executado nesta atualização, conforme solicitado.
+
+
 ## [5.0.9] — 2026-11-23 — revisão de UX, sessão e perfil local (em validação)
 
 - Alternância do saldo principal entre a moeda fiduciária configurada e a equivalência matemática em SOL, sem alterar a quantidade real de SOL ou tokens.
