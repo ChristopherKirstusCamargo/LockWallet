@@ -112,7 +112,7 @@ class ProfilePhotoStore(private val directory: File) {
 
     private fun fileName(walletId: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(walletId.toByteArray(Charsets.UTF_8))
-        val key = digest.take(16).joinToString("") { "%02x".format(it) }
+        val key = digest.take(16).joinToString("") { "%02x".format(it.toInt() and 0xff) }
         return "$key.webp"
     }
 

@@ -339,7 +339,7 @@ fun Detail(c: AppController, p: Platform, id: String) {
         }
         ListRow(
             if (photoPath == null) "Adicionar fotografia" else "Alterar fotografia",
-            Ic.CAMERA,
+            Ic.PERSON,
             value = "Armazenada apenas neste aparelho",
             tag = "profile-photo-pick",
         ) {

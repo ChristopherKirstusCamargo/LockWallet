@@ -93,12 +93,12 @@ open class MainActivity : FragmentActivity() {
                 val bytes = uri?.let { runCatching { docs.readBounded(it, MAX_IMPORT_BYTES) }.getOrNull() }
                 onOpened?.invoke(bytes)
             }
-            var onProfilePhotoPicked by androidx.compose.runtime.remember {
+            val onProfilePhotoPicked = androidx.compose.runtime.remember {
                 androidx.compose.runtime.mutableStateOf<((ByteArray?) -> Unit)?>(null)
             }
             val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-                val callback = onProfilePhotoPicked
-                onProfilePhotoPicked = null
+                val callback = onProfilePhotoPicked.value
+                onProfilePhotoPicked.value = null
                 if (uri == null) {
                     controller.externalPicker = false
                     callback?.invoke(null)
@@ -138,13 +138,13 @@ open class MainActivity : FragmentActivity() {
                 pasteSecret = { readAndClearClipboard(this, 400) },
                 haptics = { controller.prefs.haptics },
                 pickProfilePhoto = { callback ->
-                    onProfilePhotoPicked = callback
+                    onProfilePhotoPicked.value = callback
                     controller.externalPicker = true
                     try {
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     } catch (_: Exception) {
                         controller.externalPicker = false
-                        onProfilePhotoPicked = null
+                        onProfilePhotoPicked.value = null
                         callback(null)
                     }
                 },

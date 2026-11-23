@@ -485,8 +485,8 @@ private fun BalanceHeader(c: AppController) {
         }
         val secondaryLine = when {
             hidden -> "Saldo oculto"
-            c.balanceInSol && v.value != null && v.fiat != null -> formatFiat(v.value, v.fiat)
             c.balanceInSol && v.stale -> "Cotação desatualizada"
+            c.balanceInSol && v.value != null && v.fiat != null -> formatFiat(v.value, v.fiat)
             c.balanceInSol && !c.priceEnabled -> "Cotação desligada"
             c.balanceInSol && c.chain.balance is Loadable.Failed -> "Saldo indisponível"
             c.balanceInSol -> "Cotação indisponível"
