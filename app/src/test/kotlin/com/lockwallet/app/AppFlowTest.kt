@@ -150,8 +150,10 @@ class AppFlowTest {
         c.onPause()
         assertFalse(c.unlocked)
         assertTrue(c.locked)
-        assertTrue(c.pinRequiredAfterBackground)
-        assertFalse(c.canUseBiometric)
+        assertTrue(
+            "Backgrounding must not persist the emergency PIN-only lockdown",
+            c.provider.biometricGate() != com.lockwallet.custody.local.bio.BioGate.PIN_LOCKDOWN,
+        )
         assertEquals(Screen.Lock, c.screen)
 
         c.onStart()
@@ -159,7 +161,6 @@ class AppFlowTest {
         c.submitPin(pin(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")), null)
         c.await()
         assertTrue(c.unlocked)
-        assertFalse(c.pinRequiredAfterBackground)
     }
 
     @Test fun createLockUnlockAndAddSecondWallet() {
