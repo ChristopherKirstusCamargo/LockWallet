@@ -70,7 +70,11 @@ fun SendSol(c: AppController, p: Platform) {
         ErrorText(c.error)
         if (c.busy) Busy("Preparando e testando…") else Primary("Revisar", enabled = to.isNotBlank() && amount.isNotBlank(), tag = "review") { c.chain.reviewSol(to, amount, max = false) }
     }) {
-        w?.let { FromCard(it.name, it.id, "Solana", v.lamports?.let { b -> Fmt.sol(b) + " SOL disponíveis" }) { SolLogo(40.dp, Modifier.shared("logo-sol")) } }
+        w?.let {
+            FromCard(it.name, it.id, "Solana", if (c.hideBalance) "•••• disponíveis" else v.lamports?.let { b -> Fmt.sol(b) + " SOL disponíveis" }) {
+                SolLogo(40.dp, Modifier.shared("logo-sol"))
+            }
+        }
         AddressField(to, { to = it }, "send-to", c, p) { scanning = true }
         if (scanning) QrScanner(onAddress = { to = it; scanning = false }, onMessage = { c.error = it; scanning = false }, onClose = { scanning = false })
         AmountEntry(amount, { amount = it }, "SOL", "send-amount",

@@ -86,7 +86,7 @@ fun TokenScreen(c: AppController, p: Platform, account: String) {
         val mint = h.state.mint.toBase58()
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             TokenAvatar(name, 72.dp, Modifier.shared("logo-$account"))
-            AnimatedNumber(amountOf(h), 40)
+            AnimatedNumber(if (c.hideBalance) "••••" else amountOf(h), 40)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(name, color = C.dim, fontSize = 15.sp, textAlign = TextAlign.Center)
                 if (h.name != null || h.symbol != null) HelpIcon(Help.UNVERIFIED_NAME, 16.dp)
@@ -97,7 +97,16 @@ fun TokenScreen(c: AppController, p: Platform, account: String) {
             else h.verdict.reasons.forEach { ListRow(it, Ic.X_CIRCLE, chevron = false) }
             if (h.mint?.freezeAuthority != null) { Divider(); ListRow("Emissor pode congelar", Ic.WARN, help = Help.FREEZE, chevron = false) }
             if (h.mint?.mintAuthority != null) { Divider(); ListRow("Emissor pode criar mais", Ic.WARN, help = Help.MINT_AUTH, chevron = false) }
-            if (h.state.delegate != null) { Divider(); ListRow("Há um delegado", Ic.WARN, "Pode mover até ${h.mint?.let { Fmt.units(h.state.delegatedAmount, it.decimals) }}", help = Help.DELEGATE, chevron = false) }
+            if (h.state.delegate != null) {
+                Divider()
+                ListRow(
+                    "Há um delegado",
+                    Ic.WARN,
+                    if (c.hideBalance) "Pode mover até ••••" else "Pode mover até ${h.mint?.let { Fmt.units(h.state.delegatedAmount, it.decimals) }}",
+                    help = Help.DELEGATE,
+                    chevron = false,
+                )
+            }
             if (h.state.frozen) { Divider(); ListRow("Sua conta está congelada", Ic.LOCK, help = Help.FREEZE, chevron = false) }
             if (h.state.isNative) { Divider(); ListRow("SOL embrulhado", Ic.COIN, "Fechar a conta devolve o SOL", chevron = false) }
         }
@@ -126,7 +135,11 @@ fun SendToken(c: AppController, p: Platform, account: String) {
         if (c.busy) Busy("Preparando e testando…") else Primary("Revisar", enabled = to.isNotBlank() && amount.isNotBlank(), tag = "review") { c.chain.reviewToken(account, to, amount) }
     }) {
         if (h == null || h.mint == null) { Body(S.TOKEN_GONE); return@Screen }
-        c.chain.wallet()?.let { w -> FromCard(w.name, w.id, name, "${amountOf(h)} disponíveis") { TokenAvatar(name, 40.dp, Modifier.shared("logo-$account")) } }
+        c.chain.wallet()?.let { w ->
+            FromCard(w.name, w.id, name, if (c.hideBalance) "•••• disponíveis" else "${amountOf(h)} disponíveis") {
+                TokenAvatar(name, 40.dp, Modifier.shared("logo-$account"))
+            }
+        }
         AddressField(to, { to = it }, "token-to", c, p, "Carteira de destino") { scanning = true }
         if (scanning) QrScanner(onAddress = { to = it; scanning = false }, onMessage = { c.error = it; scanning = false }, onClose = { scanning = false })
         AmountEntry(amount, { amount = it }, h.symbol?.take(8) ?: "", "token-amount") { amount = amountOf(h) }

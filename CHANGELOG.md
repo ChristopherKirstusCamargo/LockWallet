@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.0.9] — 2026-11-23 — revisão de UX, sessão e perfil local (em validação)
+
+- Alternância do saldo principal entre a moeda fiduciária configurada e a equivalência matemática em SOL, sem alterar a quantidade real de SOL ou tokens.
+- Preferência da unidade do saldo persistida; conversão não exibida quando a cotação não é utilizável.
+- Ocultação de saldo aplicada ao total, tokens, staking e quantidades exibidas em telas de detalhes e origem de envio.
+- Bloqueio ao perder o primeiro plano e descarte de resultados de autenticação assíncronos iniciados antes da transição.
+- Ação manual “Bloquear agora” unificada para também invalidar a autorização biométrica até o próximo PIN.
+- Fotografia por carteira via seletor de imagens do Android, com prévia, substituição, remoção e armazenamento local privado sem backup.
+- Configurações reorganizadas; prazo de uso da biometria explicado separadamente do bloqueio ao sair do aplicativo.
+- Testes novos para conversão, ciclo de vida e processamento de imagens; execução do CI pendente.
+
+
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
 ## [5.0.8] — 2026-11-23 — refinamento visual e entrada do Default Ring na tela inicial (versionCode 16)
