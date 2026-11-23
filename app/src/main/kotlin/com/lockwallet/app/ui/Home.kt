@@ -449,8 +449,9 @@ private fun BalanceHeader(c: AppController) {
     val v = valuation(c)
     val hidden = c.hideBalance
     val loading = v.lamports == null && c.chain.balance !is Loadable.Failed
-    val equivalentSol = if (!v.stale) solEquivalent(v.value, v.price) else null
-    val canToggle = !hidden && (c.balanceInSol || equivalentSol != null)
+    // SOL quantity comes from the actual lamport balance; it must remain visible even with a stale/offline quote.
+    val solAmount = (v.total ?: v.lamports)?.let { Amounts.toDecimal(it, 9) }
+    val canToggle = !hidden && v.value != null && v.fiat != null
 
     Column(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
@@ -466,7 +467,7 @@ private fun BalanceHeader(c: AppController) {
                 loading -> Skeleton(Modifier.fillMaxWidth(0.62f).height(56.dp), RoundedCornerShape(16.dp))
                 hidden -> Text("••••••", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
                 c.balanceInSol -> when {
-                    equivalentSol != null -> AnimatedNumber(formatSolEquivalent(equivalentSol), 52)
+                    solAmount != null -> AnimatedNumber(formatSolEquivalent(solAmount), 52)
                     else -> Text("—", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
                 }
                 v.value != null && v.fiat != null -> AnimatedNumber(formatFiat(v.value, v.fiat), 52)
