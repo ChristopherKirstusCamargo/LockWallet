@@ -276,9 +276,10 @@ class AppController(
 
     /** Manual emergency lockdown suppresses biometrics while its PIN-only policy is persisted. */
     private var manualLockPersisting = false
+    private var manualLockFailClosed = false
     var finalizingManualLock by mutableStateOf(false)
         private set
-    val canUseBiometric: Boolean get() = bioReady && !finalizingManualLock
+    val canUseBiometric: Boolean get() = bioReady && !finalizingManualLock && !manualLockFailClosed
 
     /** The photo picker returns to this wallet's profile only after fresh authentication. */
     var profilePhotoReturnWalletId: String? = null
@@ -401,7 +402,8 @@ class AppController(
                 while (busy) kotlinx.coroutines.delay(16)
                 io { provider.biometricLockdown() }
             } catch (_: Exception) {
-                // Fail closed in this process; surface that durable PIN-only state could not be confirmed.
+                // Fail closed in this process even if a subsequent gate refresh still reports READY.
+                manualLockFailClosed = true
                 bioReady = false
                 error = "Não foi possível gravar o bloqueio biométrico. A carteira permanece bloqueada nesta sessão."
             } finally {
@@ -694,6 +696,7 @@ class AppController(
     }
 
     private suspend fun onUnlocked(s: UnlockedWallet, purpose: AuthPurpose?) {
+        if (s.viaPin) manualLockFailClosed = false
         unlocked = true
         when (purpose) {
             is AuthPurpose.SetBioWindow -> {
