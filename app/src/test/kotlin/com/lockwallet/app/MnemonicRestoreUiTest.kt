@@ -6,7 +6,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.lockwallet.app.ui.App
 import com.lockwallet.app.ui.C
@@ -41,7 +40,7 @@ class MnemonicRestoreUiTest {
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val tmp = TemporaryFolder()
 
-    @Test fun restoreSuggestsAndCompletesTheCurrentEnglishBip39Word() {
+    @Test fun restoreShowsAndSelectsEnglishBip39SuggestionWithoutExposingPhrase() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val provider = LocalSecureProvider(tmp.newFolder(), SoftKek(), Clock())
         val c = AppController(
@@ -63,9 +62,7 @@ class MnemonicRestoreUiTest {
         rule.onNodeWithTag("phrase-input").performTextInput("neither lonely fla")
         rule.onNodeWithTag("mnemonic-suggestion-flavor").assertIsDisplayed().performClick()
         // The recovery field is intentionally a secret semantics node; never inspect its plaintext in accessibility.
-        rule.onNodeWithTag("mnemonic-suggestion-flavor").assertDoesNotExist()
-        // Prove the selected word was completed and the cursor moved to the next word without exposing the phrase.
-        rule.onNodeWithTag("phrase-input").performTextInput("arg")
-        rule.onNodeWithTag("mnemonic-suggestion-argue").assertIsDisplayed()
+        // Selecting an exact BIP-39 candidate completes the current token and leaves the next token empty.
+        rule.onNodeWithTag("mnemonic-suggestions").assertDoesNotExist()
     }
 }
