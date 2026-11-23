@@ -274,15 +274,13 @@ class AppController(
     var bioReady by mutableStateOf(false)
         private set
 
-    /** Background transitions require a real PIN, even when the biometric time window is otherwise valid. */
-    var pinRequiredAfterBackground by mutableStateOf(false)
+    /** Manual emergency lockdown suppresses biometrics while its PIN-only policy is persisted. */
+    private var manualLockPersisting = false
+    var finalizingManualLock by mutableStateOf(false)
         private set
-    val canUseBiometric: Boolean get() = bioReady && !pinRequiredAfterBackground
-    private var backgroundLockPersisting = false
-    var finalizingBackgroundLock by mutableStateOf(false)
-        private set
+    val canUseBiometric: Boolean get() = bioReady && !finalizingManualLock
 
-    /** The photo picker returns to this wallet's profile only after the PIN has been verified again. */
+    /** The photo picker returns to this wallet's profile only after fresh authentication. */
     var profilePhotoReturnWalletId: String? = null
         internal set
 
@@ -389,37 +387,41 @@ class AppController(
     }
 
     /**
-     * Backgrounding is stricter than the ordinary biometric time window: the next unlock must use the PIN.
-     * Local UI/session lock happens synchronously. The authenticated policy write waits for an in-flight operation
-     * to finish, preventing a late successful PIN operation from clearing the lockdown after this transition.
+     * “Bloquear agora” is an explicit emergency action: the session closes immediately and the
+     * authenticated biometric policy is changed to PIN-only until the next correct PIN.
+     * Persist after any in-flight operation so a late completion cannot undo the lockdown.
      */
     private fun lockAndRequirePin() {
-        pinRequiredAfterBackground = true
+        if (manualLockPersisting) return
+        manualLockPersisting = true
+        finalizingManualLock = true
         lockNow()
-        if (backgroundLockPersisting) return
-        backgroundLockPersisting = true
-        finalizingBackgroundLock = true
         scope.launch {
             try {
                 while (busy) kotlinx.coroutines.delay(16)
                 io { provider.biometricLockdown() }
             } catch (_: Exception) {
-                // The in-memory PIN gate remains active and no biometric button is offered in this process.
+                // Fail closed in this process; surface that durable PIN-only state could not be confirmed.
                 bioReady = false
-                error = "Não foi possível gravar o bloqueio biométrico. A carteira permanece bloqueada por PIN nesta sessão."
+                error = "Não foi possível gravar o bloqueio biométrico. A carteira permanece bloqueada nesta sessão."
             } finally {
-                backgroundLockPersisting = false
-                finalizingBackgroundLock = false
+                manualLockPersisting = false
+                finalizingManualLock = false
                 refreshBiometric()
             }
         }
     }
 
+    /**
+     * Leaving the foreground always ends the in-memory session. It does not alter the biometric policy:
+     * on return, the Lock screen requests fresh authentication. A READY biometric gate can unlock the
+     * view; otherwise the existing custody policy requires the PIN.
+     */
     private fun lockForBackground() {
         if (externalPicker) return
-        // A second background transition while PIN authentication is in flight must invalidate that attempt too.
-        if (pinRequiredAfterBackground && locked && !busy) return
-        lockAndRequirePin()
+        // onPause and onStop can both arrive for one transition; avoid repeated invalidation.
+        if (locked && !busy) return
+        lockNow()
     }
 
     fun onPause() { foreground = false; actionsOpen = false; lockForBackground() }
@@ -692,7 +694,6 @@ class AppController(
     }
 
     private suspend fun onUnlocked(s: UnlockedWallet, purpose: AuthPurpose?) {
-        if (s.viaPin) pinRequiredAfterBackground = false
         unlocked = true
         when (purpose) {
             is AuthPurpose.SetBioWindow -> {
