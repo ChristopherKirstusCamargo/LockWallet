@@ -296,8 +296,8 @@ private fun Drawer(c: AppController, p: Platform, open: Boolean, close: () -> Un
             }
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(C.glassBorder))
             DrawerItem(Ic.PERSON, "Perfil") { close(); w?.let { c.go(Screen.Detail(it.id)) } }
-            DrawerItem(Ic.HISTORY, "Histórico") { close(); c.tab = Tab.HOME; c.homeSegment = 1 }
-            DrawerItem(Ic.SETTINGS, "Definições") { close(); c.tab = Tab.SETTINGS }
+            DrawerItem(Ic.HISTORY, "Atividade") { close(); c.tab = Tab.HOME; c.homeSegment = 1 }
+            DrawerItem(Ic.SETTINGS, "Ajustes") { close(); c.tab = Tab.SETTINGS }
             DrawerItem(Ic.SHIELD, "Central de Segurança") { close(); c.go(Screen.SecurityCenter) }
             DrawerItem(Ic.HELP, "Ajuda") { close(); sheets.show { HelpIndex() } }
             if (c.vaultPresent) DrawerItem(Ic.LOCK, "Bloquear agora") { close(); c.lockdown() }
