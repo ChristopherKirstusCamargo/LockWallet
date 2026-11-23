@@ -169,6 +169,17 @@ class MainUiTest {
         assertEquals(listOf(c.wallets.first().address.toBase58()), copied)
     }
 
+    @Test fun solBalanceRemainsAccurateWhenQuotesAreDisabled() {
+        val c = start()
+        waitFor { c.chain.balance is Loadable.Ready && c.priceState is com.lockwallet.data.price.PriceState.Fresh }
+        rule.onNodeWithTag("price").performClick()
+        rule.waitForIdle()
+        assertTrue(c.balanceInSol)
+        rule.runOnUiThread { c.setPriceOn(false) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("price").assertTextContains("2,00 SOL")
+    }
+
     @Test fun solEquivalentUsesPositiveQuotesAndSafePrecision() {
         assertEquals(java.math.BigDecimal("5.000000000"), solEquivalent(
             java.math.BigDecimal("1500.00"), java.math.BigDecimal("300.00")
