@@ -3,7 +3,6 @@ package com.lockwallet.app
 import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -63,7 +62,10 @@ class MnemonicRestoreUiTest {
         rule.onNodeWithTag("r-phrase").performClick()
         rule.onNodeWithTag("phrase-input").performTextInput("neither lonely fla")
         rule.onNodeWithTag("mnemonic-suggestion-flavor").assertIsDisplayed().performClick()
-        rule.onNodeWithTag("phrase-input").assertTextContains("flavor")
-        rule.onNodeWithTag("mnemonic-suggestions").assertDoesNotExist()
+        // The recovery field is intentionally a secret semantics node; never inspect its plaintext in accessibility.
+        rule.onNodeWithTag("mnemonic-suggestion-flavor").assertDoesNotExist()
+        // Prove the selected word was completed and the cursor moved to the next word without exposing the phrase.
+        rule.onNodeWithTag("phrase-input").performTextInput("arg")
+        rule.onNodeWithTag("mnemonic-suggestion-argue").assertIsDisplayed()
     }
 }
