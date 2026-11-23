@@ -2,10 +2,12 @@ package com.lockwallet.app
 
 import android.content.Context
 import androidx.activity.compose.setContent
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.lockwallet.app.ui.App
 import com.lockwallet.app.ui.C
