@@ -15,7 +15,12 @@ android {
     defaultConfig {
         // Application id fixed since 2.0.0 (Mainnet); never changes, so updates install in place. Spec §2.3 still holds:
         // the network is never switched by a hidden flag / remote config / dev build.
-        applicationId = "com.lockwallet.app"
+        // Production keeps its permanent package ID; the temporary test APK is isolated.
+        applicationId = if (providers.gradleProperty("lockwallet.testBuild").orNull == "true") {
+            "com.lockwallet.app.test"
+        } else {
+            "com.lockwallet.app"
+        }
         minSdk = 31
         targetSdk = 36
         versionCode = 18
