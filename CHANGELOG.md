@@ -1,15 +1,18 @@
 # Changelog
 
-## [5.0.10] — 2026-11-23 — refinamento visual da interface (versionCode 18)
+## [5.0.10] — 2026-11-23 — refinamento visual e endurecimento de segurança (versionCode 18)
 
 - Removido o painel redundante de “Sessão e autenticação” dos Ajustes; as explicações detalhadas permanecem disponíveis no contexto de ajuda.
-- Simplificada a folha de saldo confidencial: conexão, estado do endpoint e visibilidade agora aparecem em blocos curtos, sem longas notas técnicas na tela principal.
+- Simplificada a folha de saldo confidencial: conexão, estado do endpoint e visibilidade aparecem em blocos curtos, sem longas notas técnicas na tela principal.
 - Reorganizado o saldo confidencial com valor responsivo, respeito à opção de ocultar saldo e estado de sincronização sem expor a contagem interna de notas.
 - Endereços da operação passaram a ocupar blocos próprios para quebrar linhas corretamente, inclusive na revisão antes da autorização.
 - Perfil da carteira ajustado para nomes longos, indicação de armazenamento local e prévia de fotografia com ações alinhadas lado a lado.
-- Mantida a identidade visual Glass monocromática e os fluxos de carteira, privacidade e autenticação. Nenhuma alteração em custódia, chaves, derivação, assinatura ou transações.
-- Nenhum teste ou build foi executado nesta atualização, conforme solicitado.
-
+- **Lock Connect / Token-2022:** leituras de dados de mint usadas na política de extensões exigem respostas idênticas de dois RPCs independentes; indisponibilidade ou divergência bloqueia a decisão de assinatura (fail-closed).
+- **Default Ring:** a sessão candidata é registrada antes das chamadas assíncronas; bloqueio ou saída da tela invalida a abertura em andamento e impede que uma sessão confidencial permaneça ativa.
+- **Imagens de perfil:** a entrada valida os formatos de imagem suportados antes da decodificação e rejeita dados malformados ou excessivos.
+- Mantida a identidade visual Glass monocromática e os fluxos existentes de carteira, privacidade e autenticação.
+- **Verificação:** testes da ponte nativa Rust, testes dos módulos Android e testes unitários do app passaram; a build release, a assinatura e o manifesto também foram verificados no GitHub Actions.
+- **Migração:** esta versão usa uma nova chave de assinatura Android e não atualiza diretamente uma instalação assinada pela chave anterior (5.0.9). Exporte e verifique a recuperação da carteira antes de desinstalar a versão anterior.
 
 ## [5.0.9] — 2026-11-23 — revisão de UX, sessão e perfil local (em validação)
 
