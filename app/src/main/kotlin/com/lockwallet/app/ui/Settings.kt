@@ -56,7 +56,7 @@ fun SettingsTab(c: AppController, p: Platform) {
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Sessão e autenticação", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Body("Sair do app encerra a sessão, não a autorização biométrica. Ao voltar, use a digital se ainda estiver válida ou o PIN quando a política exigir. “Bloquear agora” força o PIN.")
+                Body("Sair do app encerra a sessão, sem alterar a autorização biométrica. Ao voltar, a digital para consulta pode ser usada se ainda estiver válida; caso contrário, o desbloqueio segue a política do PIN e da chave protegida pelo Android. “Bloquear agora” força o PIN.")
             }
         }
     }
