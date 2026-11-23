@@ -505,6 +505,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
     val biometricViewUnlock = c.canUseBiometric && purpose.biometricAllowed()
     val sub = when (purpose) {
         null -> when {
+            c.biometricPolicyRefreshing -> "Conferindo a política de segurança deste aparelho…"
             biometricViewUnlock -> "A digital para consulta pode reabrir enquanto estiver válida. O PIN continua disponível e respeita a confirmação da chave exigida pelo Android; envios e assinaturas sempre exigem PIN e biometria da chave principal."
             c.bioEnabled -> "A digital está ativada, mas indisponível agora. O PIN é exigido após reinício, prazo expirado, tentativas erradas ou bloqueio manual."
             else -> S.PIN_ENTER
@@ -550,7 +551,9 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
         else {
             val bio = biometricViewUnlock
             // The system biometric prompt opens automatically when policy allows; the PIN remains available.
-            LaunchedEffect(purpose, bio) { if (bio) c.autoBiometric(purpose) }
+            LaunchedEffect(purpose, bio, c.foreground) {
+                if (bio && c.foreground) c.autoBiometric(purpose)
+            }
             Column(
                 Modifier.fillMaxWidth().glass(RoundedCornerShape(28.dp)).padding(horizontal = 14.dp, vertical = 16.dp),
             ) {
