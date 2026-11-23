@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -369,7 +370,7 @@ fun NameWallet(c: AppController) {
 private fun PinLengthOption(length: Int, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Row(
-        modifier.fillMaxWidth().height(76.dp).clip(shape)
+        modifier.fillMaxWidth().heightIn(min = 76.dp).clip(shape)
             .background(if (selected) C.text.copy(alpha = 0.10f) else C.glass)
             .border(1.dp, if (selected) C.text else C.glassBorder, shape)
             .pressable { onClick() }

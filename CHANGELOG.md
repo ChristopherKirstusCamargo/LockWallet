@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versionamento: SemVer.
 
+## [5.0.8] — 2026-11-23 — refinamento visual e entrada do Default Ring na tela inicial (versionCode 16)
+
+- `versionName` permanece `Final`. `versionCode` 16.
+- **Tela inicial (entrada do Default Ring):** novo cartão “Saldo confidencial” logo abaixo dos botões Enviar/Depositar — acesso direto ao saldo confidencial (Solana Privacy Rings, Default Ring). Ele substitui os antigos blocos de atalho (Enviar/Receber/Stake/dApps), que duplicavam os botões logo acima, as abas logo abaixo e o menu do botão +; nenhuma função saiu do app (tudo continua nas abas, nos botões e no menu +). Sem o endpoint Helius configurado, o cartão abre a folha de configuração; configurado e elegível, entra direto no fluxo (as verificações fail-closed de `ChainModel.enterPrivacy` permanecem intactas). Ajustes continua sendo o centro de configuração do recurso e a tela de envio passa a apontar para lá.
+- **Refinamento visual (sem redesign; identidade Glass/iOS, cores, cartões e navegação mantidos):** nomes de carteira (gaveta, seletor e lista de contas), nomes de sessões dApps, chips e validadores recomendados truncam com reticências em vez de empurrar o layout; esqueleto do saldo passa a acompanhar a largura da tela em vez de largura fixa; fileiras de escolha do tamanho do PIN com altura mínima em vez de fixa (não cortam com fonte ampliada); “Mínimo” no novo stake com a mesma tipografia das demais legendas; “Depositar” com o ícone de receber (antes repetia o + do FAB); espaçamento do seletor de janela do PIN alinhado ao restante da lista; hosts de rede exibidos com reticência ao truncar (uma URL cortada nunca parece uma URL menor); endereço Shielded na tela de privacidade agrupado como todos os endereços do app, com o botão de cópia na posição padrão.
+- **Testes:** 1 teste novo (`privacyEntryOnHomeOpensTheConfigSheet`) — o cartão da tela inicial abre a folha de configuração quando falta o endpoint e os blocos antigos saíram; teste de versionCode atualizado para 16; suíte completa do módulo app verde (110 testes).
+- Nenhuma mudança em segurança, criptografia, geração/armazenamento/derivação de chaves, transações, assinatura ou integração Solana; nenhuma dependência nova; nenhum fluxo removido.
+- Certificado de assinatura novo. Não instala por cima da v5.0.7 nem das versões anteriores. Faça backup verificado antes de desinstalar.
+- A chave privada e a senha não entram no repositório nem na Release.
+
 ## [5.0.7] — 2026-11-23 — endpoint dedicado do Default Ring e endurecimento (versionCode 15)
 
 - `versionName` permanece `Final`. `versionCode` 15.

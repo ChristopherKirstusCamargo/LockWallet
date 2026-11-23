@@ -73,6 +73,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -279,7 +280,7 @@ private fun Drawer(c: AppController, p: Platform, open: Boolean, close: () -> Un
             if (w != null) {
                 Avatar(w.name, 64.dp, Modifier.shared("avatar-${w.id}"))
                 SpacerH(8.dp)
-                Text(w.name, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(w.name, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("@" + shortAddress(w.address.toBase58()), color = C.dim, fontSize = 14.sp)
                 SpacerH(12.dp)
                 Label("Contas")
@@ -317,7 +318,7 @@ private fun AccountRow(c: AppController, w: WalletInfo, selected: Boolean, onCli
         .padding(horizontal = 10.dp, vertical = 10.dp).testTag("account-${w.name}"), verticalAlignment = Alignment.CenterVertically) {
         Avatar(w.name, 36.dp); Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(w.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(w.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(shortAddress(w.address.toBase58()) + " · " + if (w.role == com.lockwallet.custody.local.storage.WalletRole.VAULT) "Vault" else "Connect", color = C.dim, fontSize = 12.sp)
         }
         if (selected) Icon(Ic.CHECK, size = 18.dp)
@@ -359,9 +360,9 @@ private fun HomeTab(c: AppController, p: Platform, openDrawer: () -> Unit) {
     BalanceHeader(c)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         PillButton("Enviar", Modifier.weight(1f), icon = Ic.SEND, tag = "home-send") { c.error = null; c.go(Screen.Send()) }
-        PillButton("Depositar", Modifier.weight(1f), icon = Ic.PLUS, filled = false, tag = "home-receive") { c.go(Screen.Receive) }
+        PillButton("Depositar", Modifier.weight(1f), icon = Ic.RECEIVE, filled = false, tag = "home-receive") { c.go(Screen.Receive) }
     }
-    ActionTiles(c)
+    PrivacyEntryCard(c)
     if (c.needsBackup(w)) BackupCard(c, w)
     (c.chain.balance as? Loadable.Failed)?.let { f ->
         Notice("Sem conexão", Ic.GLOBE, Help.RPC)
@@ -415,7 +416,7 @@ private fun TopRow(c: AppController, p: Platform, w: WalletInfo?, openDrawer: ()
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(Modifier.clip(CircleShape).pressable { sheets.show { AccountSheet(c) } }.padding(vertical = 2.dp).testTag("account-selector"), verticalAlignment = Alignment.CenterVertically) {
-                Text(w?.name ?: "Lock Wallet", color = C.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(w?.name ?: "Lock Wallet", color = C.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.width(4.dp)); Icon(Ic.CHEVRON_DOWN, C.dim, 16.dp)
             }
             if (w != null) Row(Modifier.clip(CircleShape).pressable(haptic = Haptic.CONFIRM) { p.copyAddress(w.address.toBase58()) }.testTag("copy-address"), verticalAlignment = Alignment.CenterVertically) {
@@ -453,7 +454,7 @@ private fun BalanceHeader(c: AppController) {
             sheets.show { CurrencySheet(c) }
         }.testTag("price"), contentAlignment = Alignment.Center) {
             when {
-                loading -> Skeleton(Modifier.size(220.dp, 56.dp), RoundedCornerShape(16.dp))
+                loading -> Skeleton(Modifier.fillMaxWidth(0.62f).height(56.dp), RoundedCornerShape(16.dp))
                 hidden -> Text("••••••", color = C.text, fontSize = 52.sp, fontWeight = FontWeight.Black)
                 v.value != null && v.fiat != null -> AnimatedNumber(formatFiat(v.value, v.fiat), 52)
                 (v.total ?: v.lamports) != null -> AnimatedNumber(Fmt.sol(v.total ?: v.lamports!!) + " SOL", 44)
@@ -514,15 +515,37 @@ private fun BalanceBreakdown(v: Valuation) {
     }
 }
 
-/** Rolling digits: each changed character slides vertically with a spring. */
+/**
+ * Home shortcut to the confidential balance (Solana Privacy Rings, Default Ring). It replaces the old
+ * action tiles, which duplicated the buttons right above it, the tabs right below and the FAB menu.
+ * The Ajustes sheet stays the configuration hub: configured and eligible goes straight into the flow
+ * (fail-closed checks in ChainModel.enterPrivacy), otherwise the sheet explains and collects the endpoint.
+ */
 @Composable
-private fun ActionTiles(c: AppController) = Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-    listOf(Triple("Enviar", Ic.SEND) { c.error = null; c.go(Screen.Send()) }, Triple("Receber", Ic.RECEIVE) { c.go(Screen.Receive) },
-        Triple("Stake", Ic.STAKE) { c.tab = Tab.STAKE }, Triple("dApps", Ic.APPS) { c.tab = Tab.CONNECT }).forEach { (label, ic, go) ->
-        Column(Modifier.weight(1f).glass(RoundedCornerShape(20.dp)).pressable { go() }.padding(vertical = 14.dp).testTag("tile-$label"),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(ic, size = 22.dp); FitText(label, C.text, 12.sp, FontWeight.SemiBold)
+private fun PrivacyEntryCard(c: AppController) {
+    val sheets = LocalSheets.current
+    val w = c.chain.wallet()
+    val eligible = w != null && w.provider == com.lockwallet.custody.local.api.CustodyProviderId.LOCAL_SECURE && w.role != com.lockwallet.custody.local.storage.WalletRole.CONNECT
+    val configured = c.prefs.customSpr
+    Row(Modifier.fillMaxWidth().glass().pressable(haptic = Haptic.TICK) {
+        c.error = null; c.chain.notice = null
+        if (eligible && !configured) sheets.show { PrivacyRingSheet(c) } else c.chain.enterPrivacy()
+    }.padding(16.dp).testTag("privacy-entry"), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) { Icon(Ic.LOCK, size = 20.dp) }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Saldo confidencial", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                when {
+                    !eligible -> "Requer carteira Local Secure"
+                    !configured -> "Default Ring · configurar endpoint Helius"
+                    else -> "Default Ring · pronto para usar"
+                },
+                color = C.dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
+        Spacer(Modifier.width(8.dp))
+        Icon(Ic.CHEVRON, C.dim, 18.dp)
     }
 }
 
@@ -542,11 +565,11 @@ private fun BackupCard(c: AppController, w: WalletInfo) =
     }
 
 @Composable
-fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+fun Segmented(options: List<String>, selected: Int, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
     var widthPx by remember { mutableIntStateOf(0) }
     val seg = if (options.isEmpty()) 0 else widthPx / options.size
     val x by androidx.compose.animation.core.animateIntAsState(seg * selected, spring(dampingRatio = 0.75f, stiffness = 500f), label = "seg")
-    Box(Modifier.fillMaxWidth().height(44.dp).glass(CircleShape).padding(4.dp).onSizeChanged { widthPx = it.width }) {
+    Box(Modifier.fillMaxWidth().height(44.dp).glass(CircleShape).padding(4.dp).onSizeChanged { widthPx = it.width }.then(modifier)) {
         Box(Modifier.offset { IntOffset(x, 0) }.fillMaxHeight().fillMaxWidth(1f / options.size).clip(CircleShape).background(C.text))
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, o ->

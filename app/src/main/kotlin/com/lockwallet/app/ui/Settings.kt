@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,7 +68,7 @@ fun SettingsTab(c: AppController, p: Platform) {
     Group("Privacidade e segurança") {
         ListRow("Central de Segurança", Ic.SHIELD, help = Help.SECURITY_CENTER, tag = "security-center") { c.go(Screen.SecurityCenter) }
         Divider()
-        ListRow("Saldo confidencial · SOL", Ic.LOCK, value = if (c.prefs.customSpr) "Configurado" else "Default Ring", help = Help.PRIVACY_RING, tag = "privacy-ring") {
+        ListRow("Saldo confidencial · SOL", Ic.LOCK, value = if (c.prefs.customSpr) "Configurado" else "Não configurado", help = Help.PRIVACY_RING, tag = "privacy-ring") {
             c.error = null; c.chain.notice = null
             sheets.show { PrivacyRingSheet(c) }
         }
@@ -86,9 +87,9 @@ fun SettingsTab(c: AppController, p: Platform) {
             val w = c.bioWindowHours
             if (c.bioEnabled && w != null) {
                 Divider()
-                Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) { Label("Pedir o PIN pelo menos a cada", modifier = Modifier.weight(1f)); HelpIcon(Help.BIO_WINDOW, 14.dp) }
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Label("Pedir o PIN pelo menos a cada", modifier = Modifier.weight(1f)); HelpIcon(Help.BIO_WINDOW, 14.dp) }
                 val opts = com.lockwallet.custody.local.bio.BioVault.WINDOWS_H
-                Segmented(opts.map { "$it h" }, opts.indexOf(w).coerceAtLeast(0)) { c.setBioWindow(opts[it]) }
+                Segmented(opts.map { "$it h" }, opts.indexOf(w).coerceAtLeast(0), Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) { c.setBioWindow(opts[it]) }
             }
         }
         if (c.vaultPresent) { Divider(); ListRow("Bloquear agora", Ic.LOCK, help = Help.LOCKDOWN, tag = "lock-now") { c.lockdown() } }
@@ -105,10 +106,10 @@ fun SettingsTab(c: AppController, p: Platform) {
 /**
  * Privacy Rings sheet — the Default Ring hub: explains the route and holds the dedicated Helius
  * endpoint (validated, fail-closed; ADR 0026). Confidential operations use this endpoint only,
- * never the app-wide RPC.
+ * never the app-wide RPC. Opened from Ajustes and from the home shortcut when the endpoint is missing.
  */
 @Composable
-private fun PrivacyRingSheet(c: AppController) {
+fun PrivacyRingSheet(c: AppController) {
     val sheets = LocalSheets.current
     var spr by remember { mutableStateOf(c.prefs.sprEndpoint ?: "") }
     var currentHost by remember { mutableStateOf(c.prefs.sprEndpoint?.let { java.net.URI(it).host } ?: "") }
@@ -123,7 +124,7 @@ private fun PrivacyRingSheet(c: AppController) {
     }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).glass(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(44.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Ic.LOCK, size = 21.dp)
             }
             Column(Modifier.weight(1f)) {
@@ -223,15 +224,19 @@ fun NetworkScreen(c: AppController) {
         Group {
             ListRow("Rede", Ic.GLOBE, value = "Solana", help = Help.GENESIS, chevron = false)
             Divider()
-            ListRow("Principal", Ic.LINK, cfg.primaryUrl.removePrefix("https://").take(48), chevron = false)
+            ListRow("Principal", Ic.LINK, hostLabel(cfg.primaryUrl), chevron = false)
             Divider()
-            ListRow("Reserva", Ic.LINK, cfg.secondaryUrl?.removePrefix("https://")?.take(48) ?: "nenhuma", chevron = false)
+            ListRow("Reserva", Ic.LINK, hostLabel(cfg.secondaryUrl), chevron = false)
         }
         Label("Servidor próprio (opcional)")
         Field(primary, { primary = it.trim().take(512) }, "Principal — vazio = padrão", keyboard = KeyboardType.Uri, mono = true)
         Body("Servidor de reserva fixo e independente; não pode ser substituído por uma URL personalizada.")
     }
 }
+
+/** Host shown in the network rows: truncated with an ellipsis so a cut URL never reads as a shorter one. */
+private fun hostLabel(url: String?, max: Int = 48): String =
+    url?.removePrefix("https://")?.let { if (it.length > max) it.take(max - 1) + "…" else it } ?: "nenhuma"
 
 // ======================================================================= security center
 

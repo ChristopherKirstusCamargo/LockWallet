@@ -110,6 +110,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -314,7 +315,7 @@ fun Chip(text: String, modifier: Modifier = Modifier, icon: Ic? = null, inverted
         .then(if (onClick != null) Modifier.pressable { onClick() } else Modifier).padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { Icon(icon, fg, 14.dp); Spacer(Modifier.width(5.dp)) }
-        Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

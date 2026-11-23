@@ -106,7 +106,7 @@ fun PrivacyDisclosureCard(review: Boolean = false) {
             if (review) "Nesta transação, os endereços, o ativo e a quantidade ficam visíveis na rede Solana."
             else "No modo atual, os endereços, o ativo e a quantidade serão visíveis na rede Solana."
         )
-        Body("Saldos confidenciais ainda estão em integração e não podem ser usados nesta versão.")
+        Body("Para ocultar ativo e valor, use o Saldo confidencial (Default Ring), acessível na tela inicial.")
     }
 }
 
@@ -396,7 +396,7 @@ fun PrivacyScreen(c: AppController, p: Platform) {
         }
     }) {
         Group("Saldo no Default Ring", Help.PRIVACY_RING) {
-            Column(Modifier.fillMaxWidth().glass().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("SOL confidencial", color = C.dim, fontSize = 13.sp)
                 Text(
                     balance?.let { Fmt.sol(it) + " SOL" } ?: "Saldo indisponível",
@@ -411,11 +411,17 @@ fun PrivacyScreen(c: AppController, p: Platform) {
                 )
             }
             if (address != null) {
-                Label("Endereço Shielded para receber")
-                Mono(address, C.text, 12, Modifier.fillMaxWidth())
-                Secondary("Copiar endereço confidencial", icon = Ic.COPY, tag = "privacy-copy-address") {
-                    p.copyAddress(address)
+                Divider()
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("Endereço Shielded para receber")
+                    // Grouped like every full address in the app: comparable by eye, wraps instead of clipping.
+                    Mono(groupedAddress(address), C.text, 12, Modifier.fillMaxWidth())
                 }
+            }
+        }
+        if (address != null) {
+            Secondary("Copiar endereço confidencial", icon = Ic.COPY, tag = "privacy-copy-address") {
+                p.copyAddress(address)
             }
         }
 

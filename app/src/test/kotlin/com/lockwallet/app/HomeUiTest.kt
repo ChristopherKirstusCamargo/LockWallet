@@ -205,6 +205,21 @@ class MainUiTest {
         rule.onNodeWithText("Nenhum app conectado.").performScrollTo().assertExists()
     }
 
+    /**
+     * 5.0.8: the home shortcut to the Default Ring sits right under the send/receive buttons and
+     * replaces the old action tiles (which duplicated those buttons, the tabs and the FAB). Without
+     * an endpoint it opens the configuration hub sheet; the tiles are gone.
+     */
+    @Test fun privacyEntryOnHomeOpensTheConfigSheet() {
+        val c = start()
+        waitFor { c.chain.balance is Loadable.Ready }
+        rule.onNodeWithTag("tile-Enviar").assertDoesNotExist()
+        rule.onNodeWithTag("privacy-entry").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("sheet").assertExists()
+        rule.onNodeWithText("Continuar para o Default Ring").performScrollTo().assertExists()
+    }
+
     @Test fun reviewShowsFeeAndSignNeedsAckForNewRecipient() {
         val c = start()
         waitFor { c.chain.balance is Loadable.Ready }

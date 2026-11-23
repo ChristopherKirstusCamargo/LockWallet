@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockwallet.app.AppController
@@ -234,7 +235,7 @@ fun ConnectTab(c: AppController) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 TokenAvatar(s.name.ifBlank { "?" }, 40.dp); Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(s.name.ifBlank { "App sem nome" }, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(s.name.ifBlank { "App sem nome" }, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text((s.uri ?: "sem endereço").take(40), color = C.dim, fontSize = 12.sp)
                     Text("${shortAddress(s.address)} · expira em ${((s.expiresAtMs - System.currentTimeMillis()) / 3_600_000).coerceAtLeast(0)} h", color = C.dim, fontSize = 12.sp)
                 }

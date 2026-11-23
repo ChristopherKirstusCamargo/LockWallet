@@ -140,7 +140,7 @@ fun StakeNew(c: AppController) {
     }) {
         val bal = c.chain.balance.valueOrNull()
         AmountEntry(amount, { amount = it }, "SOL", "stake-amount", fiatHint = bal?.let { "Disponível: ${Fmt.sol(it)} SOL" }, onMax = null)
-        Row(verticalAlignment = Alignment.CenterVertically) { Body("Mínimo", modifier = Modifier.weight(1f)); HelpIcon(Help.MIN_STAKE, 16.dp) }
+        Row(verticalAlignment = Alignment.CenterVertically) { Label("Mínimo", modifier = Modifier.weight(1f)); HelpIcon(Help.MIN_STAKE, 16.dp) }
         Row(verticalAlignment = Alignment.CenterVertically) { Label("Recomendados", modifier = Modifier.weight(1f)); HelpIcon(Help.CURATED_ORDER, 16.dp); HelpIcon(Help.CURATED, 16.dp) }
         val vs = c.chain.validators
         when {
@@ -196,7 +196,7 @@ private fun CuratedRow(v: CuratedView, index: Int, selected: Boolean, onClick: (
         TokenAvatar(v.entry.vote, 40.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(v.entry.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(v.entry.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if (live != null) {
                 val votes = v.creditRatio?.let { " · desempenho ${Fmt.pct1(it)}" } ?: ""
                 Text("comissão ${Fmt.bps(v.effectiveBps ?: live.commission * 100)}$votes", color = C.dim, fontSize = 12.sp, maxLines = 1)
