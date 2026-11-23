@@ -686,7 +686,7 @@ class AppController(
         else go(Screen.Authorize(AuthPurpose.SetBioWindow(hours)))
     }
 
-    /** Manual lock and lifecycle lock share the same PIN-only policy. */
+    /** Explicit emergency action: persist PIN-only biometric lockdown until the next correct PIN. */
     fun lockdown() = lockAndRequirePin()
 
     /** Settings toggle: on ⇒ PIN screen (EnableBiometric); off ⇒ immediate. */
