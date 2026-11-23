@@ -135,13 +135,18 @@ open class MainActivity : FragmentActivity() {
                 },
                 pasteSecret = { readAndClearClipboard(this, 400) },
                 haptics = { controller.prefs.haptics },
-                pickProfilePhoto = { callback ->
-                    // Unlike a document transaction flow, photo selection does not bypass background locking.
-                    onProfilePhotoPicked.value = callback
+                pickProfilePhoto = { walletId, callback ->
+                    // The picker is allowed to background the app; the return path is shown only after a fresh PIN.
+                    controller.profilePhotoReturnWalletId = walletId
+                    onProfilePhotoPicked.value = { bytes ->
+                        if (bytes == null) controller.profilePhotoReturnWalletId = null
+                        callback(bytes)
+                    }
                     try {
                         photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     } catch (_: Exception) {
                         onProfilePhotoPicked.value = null
+                        controller.profilePhotoReturnWalletId = null
                         callback(null)
                     }
                 },

@@ -274,6 +274,16 @@ class AppController(
     var bioReady by mutableStateOf(false)
         private set
 
+    /** Background transitions require a real PIN, even when the biometric time window is otherwise valid. */
+    var pinRequiredAfterBackground by mutableStateOf(false)
+        private set
+    val canUseBiometric: Boolean get() = bioReady && !pinRequiredAfterBackground
+    private var backgroundLockPersisting = false
+
+    /** The photo picker returns to this wallet's profile only after the PIN has been verified again. */
+    var profilePhotoReturnWalletId: String? = null
+        internal set
+
     /** Durable KDF status is derived from each authenticated local envelope, not a transient UI flag. */
     var legacyKdfWalletCount by mutableStateOf(-1)
         private set
@@ -376,9 +386,35 @@ class AppController(
         screen = if (hasVault()) Screen.Lock else Screen.Home
     }
 
-    /** Losing foreground focus locks immediately; external system pickers remain a deliberate, narrow exception. */
-    fun onPause() { foreground = false; actionsOpen = false; if (!externalPicker) lockNow() }
-    fun onStop() { foreground = false; actionsOpen = false; if (!externalPicker) lockNow() }
+    /**
+     * Backgrounding is stricter than the ordinary biometric time window: the next unlock must use the PIN.
+     * Local UI/session lock happens synchronously. The authenticated policy write waits for an in-flight operation
+     * to finish, preventing a late successful PIN operation from clearing the lockdown after this transition.
+     */
+    private fun lockForBackground() {
+        if (externalPicker) return
+        if (pinRequiredAfterBackground && locked) return
+        pinRequiredAfterBackground = true
+        lockNow()
+        if (backgroundLockPersisting) return
+        backgroundLockPersisting = true
+        scope.launch {
+            try {
+                while (busy) kotlinx.coroutines.delay(16)
+                io { provider.biometricLockdown() }
+            } catch (_: Exception) {
+                // The in-memory PIN gate remains active and no biometric button is offered in this process.
+                bioReady = false
+                error = "Não foi possível gravar o bloqueio biométrico. A carteira permanece bloqueada por PIN nesta sessão."
+            } finally {
+                backgroundLockPersisting = false
+                refreshBiometric()
+            }
+        }
+    }
+
+    fun onPause() { foreground = false; actionsOpen = false; lockForBackground() }
+    fun onStop() { foreground = false; actionsOpen = false; lockForBackground() }
     fun onStart() { foreground = true }
     fun onResume() { foreground = true }
 
@@ -597,7 +633,7 @@ class AppController(
      * A cancelled or refused biometric prompt leaves the lock screen unchanged.
      */
     fun submitBiometric(purpose: AuthPurpose?) {
-        if (!purpose.biometricAllowed() || !bioReady) return
+        if (!purpose.biometricAllowed() || !canUseBiometric) return
         val requestEpoch = lifecycleEpoch
         launchOp {
             try {
@@ -638,12 +674,15 @@ class AppController(
     }
 
     /** Persist the biometric lockdown first; lock locally even if persistence fails, and surface that failure. */
-    fun lockdown() = launchOp {
+    fun lockdown() {
+        pinRequiredAfterBackground = true
+        launchOp {
         try {
             io { provider.biometricLockdown() }
         } finally {
             lockNow()
             refreshBiometric()
+        }
         }
     }
 
@@ -654,6 +693,7 @@ class AppController(
     }
 
     private suspend fun onUnlocked(s: UnlockedWallet, purpose: AuthPurpose?) {
+        if (s.viaPin) pinRequiredAfterBackground = false
         unlocked = true
         when (purpose) {
             is AuthPurpose.SetBioWindow -> {
@@ -664,7 +704,14 @@ class AppController(
                 try { io { provider.enableBiometricUnlock(s) } } finally { s.close() }
                 refresh(); tab = Tab.SETTINGS; go(Screen.Home)
             }
-            null -> { s.close(); refresh(); go(Screen.Home) }
+            null -> {
+                s.close()
+                refresh()
+                val returnWallet = profilePhotoReturnWalletId
+                profilePhotoReturnWalletId = null
+                if (returnWallet != null && wallets.any { it.id == returnWallet }) go(Screen.Detail(returnWallet))
+                else go(Screen.Home)
+            }
             AuthPurpose.SealDraft -> { val v = s.pinVerification(); s.close(); sealWithVerification(v) }
             is AuthPurpose.RevealPhrase -> { closeOpened(); opened = OpenedSession(s); go(Screen.Reveal(purpose.walletId)) }
             is AuthPurpose.ExportLwrp -> { closeOpened(); opened = OpenedSession(s); go(Screen.Export(purpose.walletId)) }

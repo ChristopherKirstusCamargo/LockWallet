@@ -504,7 +504,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
     }
     val sub = when (purpose) {
         null -> when {
-            c.bioReady -> "A digital desta tela libera apenas a consulta. Para enviar, assinar ou autorizar dApps, digite o PIN e confirme a biometria da chave principal."
+            c.canUseBiometric -> "A digital desta tela libera apenas a consulta. Para enviar, assinar ou autorizar dApps, digite o PIN e confirme a biometria da chave principal."
             c.bioEnabled -> "A digital para consulta está ativada, mas o PIN é exigido após reinício, expiração do prazo, tentativas erradas ou bloqueio manual."
             else -> S.PIN_ENTER
         }
@@ -536,7 +536,7 @@ fun LockScreen(c: AppController, purpose: com.lockwallet.app.AuthPurpose?) {
             Spacer(Modifier.weight(1f))
         } else if (c.busy) { Busy(S.UNLOCKING); Spacer(Modifier.weight(1f)) }
         else {
-            val bio = c.bioReady && purpose.biometricAllowed()
+            val bio = c.canUseBiometric && purpose.biometricAllowed()
             // Biometric first when allowed (once per appearance); the PIN pad stays as the fallback, with a finger key.
             LaunchedEffect(purpose, bio) { if (bio) c.autoBiometric(purpose) }
             PinPad(title, c.lockMessage ?: c.error, subtitle = sub, onBiometric = if (bio) ({ c.submitBiometric(purpose) }) else null, digits = c.pinLength) { pin -> c.submitPin(pin, purpose) }

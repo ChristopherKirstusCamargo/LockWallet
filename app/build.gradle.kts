@@ -19,7 +19,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = 17
-        versionName = "Final"
+        versionName = "5.0.9"
     }
 
     // Release signing is opt-in: pass -Plockwallet.signingProps=/path/outside/repo/signing.properties.

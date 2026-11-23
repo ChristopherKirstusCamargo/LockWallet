@@ -150,10 +150,16 @@ class AppFlowTest {
         c.onPause()
         assertFalse(c.unlocked)
         assertTrue(c.locked)
+        assertTrue(c.pinRequiredAfterBackground)
+        assertFalse(c.canUseBiometric)
         assertEquals(Screen.Lock, c.screen)
 
         c.onStart()
         assertTrue(c.locked) // returning to foreground never unlocks by itself
+        c.submitPin(pin(listOf(8, 3, 5 + 4, 2 - 1, 14 - 7, 2 * 2).joinToString("")), null)
+        c.await()
+        assertTrue(c.unlocked)
+        assertFalse(c.pinRequiredAfterBackground)
     }
 
     @Test fun createLockUnlockAndAddSecondWallet() {
