@@ -117,7 +117,11 @@ private fun StakeRow(c: AppController, v: StakeView, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(v.state.voter?.let { "Validador " + TxText.short(it) } ?: "Sem delegação", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(S.lifecycle(v.lifecycle) + (v.lastReward?.let { " · +${Fmt.sol(it.amount)} SOL na última época" } ?: ""), color = C.dim, fontSize = 12.sp)
+            Text(
+                S.lifecycle(v.lifecycle) + (v.lastReward?.let { " · " + if (c.hideBalance) "••••" else "+${Fmt.sol(it.amount)} SOL na última época" } ?: ""),
+                color = C.dim,
+                fontSize = 12.sp,
+            )
         }
         Text(if (c.hideBalance) "••••" else Fmt.sol(v.lamports), color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }

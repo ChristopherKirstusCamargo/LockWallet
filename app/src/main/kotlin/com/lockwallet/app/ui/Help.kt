@@ -319,7 +319,7 @@ object Help {
         "Receber SOL e tokens da rede Solana principal. Só a rede Solana: não envie de outras redes para este endereço.",
         "Mostre o QR para um amigo ou cole o endereço numa corretora para sacar SOL para você.")
     val HIDE_BALANCE = t("Ocultar saldo",
-        "Oculta os valores financeiros nas telas da carteira. O mesmo estado é controlado pelo ícone de olho e por este ajuste.",
+        "Oculta saldos e quantidades nas telas da carteira. O ícone de olho e este ajuste controlam o mesmo estado. Valores digitados e exibidos na revisão de uma operação continuam visíveis para permitir a conferência.",
         "Privacidade em público: consultar a carteira sem expor quanto você tem para quem está ao lado.",
         "No ônibus, toque no olho para ocultar; o ajuste em Configurações reflete o mesmo estado.")
     val HAPTICS = t("Vibração",
