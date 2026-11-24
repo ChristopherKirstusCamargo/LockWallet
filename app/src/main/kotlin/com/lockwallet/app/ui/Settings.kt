@@ -213,7 +213,7 @@ fun PrivacyRingSheet(c: AppController) {
     }
 }
 
-const val APP_VERSION = "5.0.11"
+const val APP_VERSION = "5.0.12"
 
 /** pt-BR currency names (settings list and value). */
 fun fiatName(f: Fiat): String = when (f) {
