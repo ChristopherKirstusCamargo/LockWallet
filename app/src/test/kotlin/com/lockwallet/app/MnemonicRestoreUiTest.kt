@@ -63,6 +63,7 @@ class MnemonicRestoreUiTest {
         rule.onNodeWithTag("role-vault").performClick()
         rule.onNodeWithTag("r-phrase").performClick()
         rule.onNodeWithTag("phrase-input").performTextInput("neither lonely fla")
+        rule.onNodeWithTag("mnemonic-suggestions").assertIsDisplayed()
         rule.onNodeWithTag("mnemonic-suggestion-flavor").assertIsDisplayed().performClick()
         // The recovery field is intentionally a secret semantics node; never inspect its plaintext in accessibility.
         // The selected exact candidate must disappear from the suggestion list after completion.

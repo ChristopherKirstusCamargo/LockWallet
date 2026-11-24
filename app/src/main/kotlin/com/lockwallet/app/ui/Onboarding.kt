@@ -17,6 +17,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -320,7 +322,27 @@ fun RestoreInput(c: AppController, p: Platform, kind: RestoreKind) {
     val suggestions = remember(text, kind) {
         if (kind == RestoreKind.PHRASE) MnemonicPhraseInput.suggestions(text) else emptyList()
     }
-    Screen(title, onBack = { c.go(Screen.RestoreMethod) }, help = help, bottom = {
+    Screen(title, onBack = { c.go(Screen.RestoreMethod) }, help = help, imeAware = kind == RestoreKind.PHRASE, bottom = {
+        // Fixed bottom slot + IME insets: suggestions remain visible directly above the open keyboard.
+        if (kind == RestoreKind.PHRASE && suggestions.isNotEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().testTag("mnemonic-suggestions"),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("Sugestões BIP-39", color = C.dim, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    suggestions.forEach { word ->
+                        Chip(word, Modifier.testTag("mnemonic-suggestion-$word"), onClick = {
+                            text = MnemonicPhraseInput.complete(text, word)
+                        })
+                    }
+                }
+            }
+        }
         ErrorText(c.error)
         if (c.busy) Busy() else Primary(S.CONTINUE, enabled = valid, tag = "restore-continue") {
             val chars = text.toCharArray(); text = ""
@@ -349,21 +371,6 @@ fun RestoreInput(c: AppController, p: Platform, kind: RestoreKind) {
                 }
                 val n = text.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
                 Text(if (n == 0) "0 palavras" else "$n palavra(s)" + if (valid) " ✓" else "", color = C.dim, fontSize = 13.sp)
-                if (suggestions.isNotEmpty()) {
-                    Column(Modifier.fillMaxWidth().testTag("mnemonic-suggestions"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Sugestões BIP-39 em inglês", color = C.dim, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("A partir de 3 letras. As 4 primeiras identificam a palavra na lista oficial.", color = C.dim, fontSize = 12.sp)
-                        suggestions.chunked(4).forEach { rowWords ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                rowWords.forEach { word ->
-                                    Chip(word, Modifier.testTag("mnemonic-suggestion-$word"), onClick = {
-                                        text = MnemonicPhraseInput.complete(text, word)
-                                    })
-                                }
-                            }
-                        }
-                    }
-                }
                 Notice(S.BIP39_PASSPHRASE_UNSUPPORTED, Ic.WARN, strong = true)
             }
             RestoreKind.PRIVATE_KEY -> Field(text, { text = it.trim().take(100) }, S.PRIVKEY_INPUT, secret = true, mono = true, trailing = { pasteChip() })

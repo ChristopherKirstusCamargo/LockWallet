@@ -328,8 +328,8 @@ fun Chip(text: String, modifier: Modifier = Modifier, icon: Ic? = null, inverted
 @Composable
 fun Screen(title: String, onBack: (() -> Unit)? = null, scroll: Boolean = true, help: HelpTopic? = null,
            actions: @Composable RowScope.() -> Unit = {}, bottom: (@Composable ColumnScope.() -> Unit)? = null,
-           content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+           imeAware: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().then(if (imeAware) Modifier.imePadding() else Modifier)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) CircleButton(Ic.BACK, S.BACK, tag = "back", onClick = onBack) else Spacer(Modifier.size(44.dp))
             Spacer(Modifier.weight(1f)); actions()
