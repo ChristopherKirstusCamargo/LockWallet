@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "id": "LW-ORACLE-AESGCM-1",
+    "purpose": "AES-256-GCM, 96-bit nonce, 128-bit tag",
+    "source": "pycryptodome",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2",
+      "pycryptodome": "3.24.1"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "cases": [
+    {
+      "key_hex": "628ce1944ae4fa2cdd8e109e536eee9e97c963924e934ad87dc2f43ab9f61447",
+      "nonce_hex": "c7baf4a8b8e87c90d84f33c2",
+      "aad_hex": "",
+      "pt_hex": "",
+      "ct_hex": "1d5ab5449bed5fc24ecea91855f2cf05"
+    },
+    {
+      "key_hex": "047f417e470f54341aac100a967c74119a6ee44e34a687a32c6647ce3950394f",
+      "nonce_hex": "14ed1e9020e8470bb9286595",
+      "aad_hex": "c2",
+      "pt_hex": "23",
+      "ct_hex": "3cdeb9cbc944c68dccfc671fab4fca9cb0"
+    },
+    {
+      "key_hex": "03010083c7f692844a6bdebc71addb28d5e821e2ecfcccb0586ebecd758587fc",
+      "nonce_hex": "9321f9b8071414c89c65e95f",
+      "aad_hex": "acc2a76ca9ac5ad67eed5082749d9dac",
+      "pt_hex": "d0ea4ad313f5fae35fd04611458e0512",
+      "ct_hex": "055b1750cf928c03b49c80d4bb41d8b7f4aaf14a8c59f033852eaf0b8a48b427"
+    },
+    {
+      "key_hex": "3fc55ad1a6136f9bfaef49bc0f60c29a891138421abe3224b31a4dc805365cd8",
+      "nonce_hex": "c52108d4d39a74a9e1b273b5",
+      "aad_hex": "8bf2c30c3509b5b3a301e3ccfb81fd8f55342d954e66eda5284304e09a440a6c82",
+      "pt_hex": "09e5cc0b7e31ae4f96f4656d975b1180b4066903bac3718653f778485bcbb68774",
+      "ct_hex": "f61268181999f0e4aefca211ce3e82e9b5641b6c1f24de90fb9f0f7ca3859c9fb841c4f78e023fec96cae698b6a67ddbda"
+    },
+    {
+      "key_hex": "87ae3e7ebf6855c307778120bdd14a1333e605eb5c2bf0f527d017d5b8dba1af",
+      "nonce_hex": "e7ea354e960e0b5ba6a56818",
+      "aad_hex": "cf0d0c7da76358bafe4395df9affe97c5c9bc7debc6ebd58",
+      "pt_hex": "c00bb2876dd5f0fe26b753a8a9a76c4a753815ccad444a3d27ac272c23e1a45d3d13d6c6c3fc30aa023e0d2bb194938d4b8c1b0e08ef73668d6f9e63c6475f54",
+      "ct_hex": "9a7e722a35041ceb97aeac746b34d63e7f5f383418b19f0d4a97ced5432d91c37760680d526166eb1a5a1f75943f981b5856fa963f4806d87d6de52d5ff7c4086220945fe2be750225c20af9b9f84651"
+    }
+  ]
+}

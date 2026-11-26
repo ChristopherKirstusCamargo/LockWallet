@@ -1,0 +1,26 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+__pycache__/
+tools/oracle/venv/
+
+# Private release-signing material must never be committed (encrypted or plaintext)
+signing/
+lockwallet-signing/
+*.p12
+*.p12.enc
+signing.properties
+
+# Release binaries are published only as GitHub Release assets
+*.idsig
+dist/
+release/

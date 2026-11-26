@@ -1,0 +1,789 @@
+package com.lockwallet.custody.local
+
+import com.lockwallet.core.crypto.SecretBytes
+import com.lockwallet.core.crypto.lwrp.LwrpCipher
+import com.lockwallet.core.crypto.lwrp.LwrpFormatException
+import com.lockwallet.core.crypto.lwrp.LwrpOpenException
+import com.lockwallet.core.crypto.lwrp.LwrpPasswordException
+import com.lockwallet.core.crypto.lwrp.LwrpPayload
+import com.lockwallet.core.crypto.lwrp.MaterialKind
+import com.lockwallet.core.crypto.DerivationProfile
+import com.lockwallet.core.crypto.wipe
+import com.lockwallet.core.solana.SolanaPublicKey
+import com.lockwallet.core.solana.analyzer.TransactionAnalyzer
+import com.lockwallet.custody.local.privacy.PrivacyRingNative
+import com.lockwallet.custody.local.api.CustodyProviderId
+import com.lockwallet.custody.local.api.KeyCustodyProvider
+import com.lockwallet.custody.local.api.ProviderCapabilities
+import com.lockwallet.custody.local.api.RecoveryException
+import com.lockwallet.custody.local.api.WalletInfo
+import com.lockwallet.custody.local.envelope.EnvelopeAuthException
+import com.lockwallet.custody.local.envelope.EnvelopeCrypto
+import com.lockwallet.custody.local.envelope.EnvelopeError
+import com.lockwallet.custody.local.envelope.EnvelopeFormatException
+import com.lockwallet.custody.local.envelope.LocalEnvelope
+import com.lockwallet.custody.local.envelope.SealRandomness
+import com.lockwallet.custody.local.keystore.AuthMode
+import com.lockwallet.custody.local.keystore.KekException
+import com.lockwallet.custody.local.keystore.KekOperation
+import com.lockwallet.custody.local.keystore.KekStore
+import com.lockwallet.custody.local.keystore.KeySecurityLevel
+import com.lockwallet.custody.local.material.AccountProfile
+import com.lockwallet.custody.local.material.DiscoveredAccount
+import com.lockwallet.custody.local.material.PendingMaterial
+import com.lockwallet.custody.local.pin.AttemptClock
+import com.lockwallet.custody.local.pin.AttemptGate
+import com.lockwallet.custody.local.pin.Pin
+import com.lockwallet.custody.local.pin.PinAttemptLimiter
+import com.lockwallet.custody.local.storage.AtomicFiles
+import com.lockwallet.custody.local.storage.VaultConfig
+import com.lockwallet.custody.local.storage.WalletEntry
+import com.lockwallet.custody.local.storage.WalletRegistry
+import com.lockwallet.custody.local.storage.WalletState
+import java.io.File
+import java.security.SecureRandom
+import javax.crypto.Cipher
+
+/** Failure classes the UI can act on. Messages are generic by design. */
+class CustodyException(val reason: Reason) : Exception("custody: $reason") {
+    enum class Reason {
+        NO_VAULT, VAULT_EXISTS, UNKNOWN_WALLET, QUARANTINED, KEY_INVALIDATED, KEY_MISSING, AUTH_REQUIRED,
+        UNSUPPORTED_VERSION, CORRUPTED, DUPLICATE_WALLET, BAD_NAME, BAD_PIN_FORMAT, WEAK_PIN,
+        BAD_ACCOUNT, STORAGE, KEYSTORE, NOT_APPROVED,
+        BAD_SIGNATURE,
+        /** Biometric unlock: PIN required now (restart, 72 h, PIN errors), not set up for this wallet, or the OS invalidated it. */
+        BIO_PIN_REQUIRED, BIO_NOT_ENROLLED, BIO_INVALIDATED,
+    }
+}
+
+/** A pending Keystore operation. If [needsBiometric], pass [cipher] to BiometricPrompt.CryptoObject first. */
+class KekTicket internal constructor(internal val op: KekOperation, internal val walletId: String?, internal val newVault: NewVault?) {
+    val cipher: Cipher? get() = op.cipher
+    val needsBiometric: Boolean get() = op.requiresUserAuth
+    internal class NewVault(val vaultId: ByteArray, val aliasId: ByteArray, val mode: AuthMode)
+}
+
+/** A pending biometric unlock: pass [cipher] to BiometricPrompt.CryptoObject, then call completeBiometricUnlock. */
+class BioTicket internal constructor(internal val op: com.lockwallet.custody.local.keystore.BioOperation, internal val walletId: String, internal val record: com.lockwallet.custody.local.bio.BioRecord) {
+    val cipher: Cipher get() = op.cipher
+}
+
+/** One-shot v1→v2 KDF migration. Secrets remain in custody and are wiped whether migration succeeds or is deferred. */
+class KdfMigrationTicket internal constructor(
+    internal val walletId: String,
+    internal val originalEnvelope: ByteArray,
+    internal val envelope: LocalEnvelope,
+    internal val dek: SecretBytes,
+    internal val material: SecretBytes,
+    internal val strongPinKey: SecretBytes,
+    internal val op: KekOperation,
+) : AutoCloseable {
+    val needsUserAuth: Boolean get() = op.requiresUserAuth
+    val cipher: Cipher? get() = op.cipher
+    override fun close() {
+        originalEnvelope.wipe(); dek.close(); material.close(); strongPinKey.close()
+    }
+}
+
+/** Single-use proof that the vault PIN was just verified: the derived pin_key for the vault salt. */
+class PinVerification internal constructor(internal val pinKey: SecretBytes, internal val pinSalt: ByteArray) : AutoCloseable {
+    override fun close() = pinKey.close()
+    override fun toString() = "PinVerification(REDACTED)"
+}
+
+sealed class UnlockResult {
+    class Success(val session: UnlockedWallet, val migration: KdfMigrationTicket? = null) : UnlockResult()
+    /** Wrong PIN *or* tampered envelope (indistinguishable). */
+    data class Failed(val failures: Int, val attemptsBeforeLockout: Int, val lockoutMs: Long) : UnlockResult()
+    data class LockedOut(val remainingMs: Long) : UnlockResult()
+}
+
+/** Opened wallet. Holds the material until [close]; the UI must close it as soon as the action is done. */
+class UnlockedWallet internal constructor(
+    val info: WalletInfo,
+    private val material: SecretBytes,
+    /** Null when opened by biometrics: such a session cannot vouch for the PIN (no sealing / adding accounts). */
+    private val pinKey: SecretBytes?,
+    private val pinSalt: ByteArray,
+    header: ByteArray = ByteArray(0),
+) : AutoCloseable {
+    internal var header: ByteArray = header
+        private set
+    @Volatile private var privacyHandle: Long = 0L
+
+    /** Opens the Default Ring's in-memory key session using only the TSPP derivation signature. */
+    @Synchronized
+    fun privacyShieldedAddress(): String = PrivacyRingNative.shieldedAddress(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacyScanSol(rpcUrl: String): String = PrivacyRingNative.scanSol(requirePrivacyHandle(), rpcUrl)
+
+    @Synchronized
+    fun privacyPrepareDepositSol(rpcUrl: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0)
+        return PrivacyRingNative.prepareDepositSol(requirePrivacyHandle(), rpcUrl, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPrepareTransferSol(rpcUrl: String, shieldedRecipient: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0 && shieldedRecipient.isNotBlank())
+        return PrivacyRingNative.prepareTransferSol(requirePrivacyHandle(), rpcUrl, shieldedRecipient, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPrepareWithdrawSol(rpcUrl: String, publicRecipient: String, amountLamports: Long): ByteArray {
+        require(amountLamports > 0 && publicRecipient.isNotBlank())
+        return PrivacyRingNative.prepareWithdrawSol(requirePrivacyHandle(), rpcUrl, publicRecipient, amountLamports)
+    }
+
+    @Synchronized
+    fun privacyPreparedReview(): String = PrivacyRingNative.preparedReview(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacyCancelPrepared() = PrivacyRingNative.cancelPrepared(requirePrivacyHandle())
+
+    @Synchronized
+    fun privacySessionHandle(): Long = requirePrivacyHandle()
+
+    /**
+     * Only the message held in the native session may cross this boundary.
+     * The native side matches the exact bytes, hash and operation before this
+     * custody session signs; no arbitrary V1 message signing is exposed.
+     */
+    @Synchronized
+    fun signPrivacyPrepared(handle: Long, message: ByteArray, approvedHash: ByteArray, operation: String): ByteArray {
+        requirePin()
+        if (message.isEmpty() || (message[0].toInt() and 0xff) != 0x81 || approvedHash.size != 32) {
+            throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        }
+        if (!PrivacyRingNative.verifyAndConsume(handle, message, approvedHash, operation)) {
+            throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        }
+        val pending = PendingMaterial.fromEnvelope(
+            if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR,
+            material.copy(),
+        )
+        return pending.use { it.signWith(info.profile, info.accountIndex, info.address, message) }
+    }
+
+    private fun requirePrivacyHandle(): Long {
+        requirePin()
+        privacyHandle.takeIf { it > 0L }?.let { return it }
+        val publicKey = info.address.toByteArray()
+        val derivationMessage = PrivacyRingNative.derivationMessage(publicKey)
+        val derivationSignature = try {
+            val pending = PendingMaterial.fromEnvelope(
+                if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR,
+                material.copy(),
+            )
+            pending.use { it.signWith(info.profile, info.accountIndex, info.address, derivationMessage) }
+        } finally {
+            derivationMessage.fill(0)
+        }
+        return try {
+            PrivacyRingNative.openWallet(publicKey, derivationSignature).also { privacyHandle = it }
+        } finally {
+            derivationSignature.fill(0)
+        }
+    }
+
+    /** True when opened with the PIN (not with biometrics). */
+    val viaPin: Boolean get() = pinKey != null
+    val isMnemonic: Boolean get() = info.isMnemonic
+
+    /** Biometric sessions are view-only; every signature and secret operation requires a PIN session. */
+    internal fun hasPin(): Boolean = pinKey != null
+    private fun requirePin() { if (pinKey == null) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED) }
+
+    /** Phrase words for re-view (each CharArray must be wiped by the caller). PIN sessions only. */
+    fun words(): List<CharArray> = requirePin().let { PendingMaterial }.fromEnvelope(PendingMaterial.KIND_BIP39, material.copy()).use { it.words() }
+
+    /** Copy of the material, e.g. to derive another account of the same seed. */
+    fun toPending(): PendingMaterial = requirePin().let { PendingMaterial }.fromEnvelope(
+        if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR, material.copy())
+
+    /** Single-use proof for sealing another wallet into this vault without asking the PIN twice. */
+    fun pinVerification(): PinVerification =
+        PinVerification((pinKey ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)).copy(), pinSalt.copyOf())
+
+    internal fun materialCopy(): SecretBytes = material.copy()
+    internal fun replaceHeader(value: ByteArray) { header = value.copyOf() }
+
+    /** Encrypted LWRP v1 for this wallet (password independent of the PIN). */
+    fun exportLwrp(password: CharArray): ByteArray {
+        requirePin()
+        val payload = material.withBytes { m ->
+            if (info.isMnemonic) LwrpPayload.bip39(m, DerivationProfile.ofId(info.profile.id)!!, info.accountIndex, info.address.toByteArray())
+            else LwrpPayload.keypair(m, info.address.toByteArray())
+        }
+        return payload.use {
+            try { LwrpCipher.seal(it, password) } catch (e: LwrpPasswordException) { throw RecoveryException.of(e) }
+        }
+    }
+
+    /**
+     * Signs exactly the bytes the user approved (ADR 0015/0018). Defence in depth inside custody: the hash must
+     * match the approval, the analyzer must accept the message statically with this wallet as the only signer
+     * and fee payer, and the derived key must equal the registered address. No blind signing: any doubt throws.
+     */
+    fun signApproved(message: ByteArray, approvedHash: ByteArray): ByteArray {
+        requirePin()
+        val a = TransactionAnalyzer.analyze(message, info.address)
+        if (!a.messageHash.contentEquals(approvedHash)) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        if (!a.signable) throw CustodyException(CustodyException.Reason.NOT_APPROVED)
+        val pending = PendingMaterial.fromEnvelope(if (info.isMnemonic) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR, material.copy())
+        return pending.use { it.signWith(info.profile, info.accountIndex, info.address, message) }
+    }
+
+    override fun close() { synchronized(this) { PrivacyRingNative.closeWallet(privacyHandle); privacyHandle = 0L }; material.close(); pinKey?.close() }
+    override fun toString() = "UnlockedWallet(${info.id}, REDACTED)"
+}
+
+/**
+ * Local secure custody (ADR 0001/0002/0009/0015). Blocking API: call off the main thread.
+ * Layout under [dir]: `registry.lwreg`, `envelopes/<id>.lwle`, `attempts.bin`, `attempts.mirror`.
+ */
+class LocalSecureProvider(
+    private val dir: File,
+    private val kek: KekStore,
+    clock: AttemptClock,
+    private val random: SecureRandom = SecureRandom(),
+    private val atomic: AtomicFiles = AtomicFiles(),
+    private val now: () -> Long = System::currentTimeMillis,
+    /** Biometric unlock key store (ADR 0021). Null = feature unavailable. */
+    bioKeys: com.lockwallet.custody.local.keystore.BioKeyStore? = null,
+) : KeyCustodyProvider {
+    private val envDir = File(dir, "envelopes")
+    private val registry = WalletRegistry(File(dir, "registry.lwreg"), atomic)
+    val attempts = PinAttemptLimiter(
+        File(dir, "attempts.bin"), File(dir, "attempts.mirror"), clock, atomic,
+        vaultExists = { hasVault() },
+        hmac = { data ->
+            val vault = snapshot().vault ?: throw KekException(KekException.Kind.NOT_FOUND)
+            kek.attemptMac(hex(vault.aliasIdHex), data)
+        },
+    )
+    private val bio = bioKeys?.let { com.lockwallet.custody.local.bio.BioVault(File(dir, "bio"), it, clock, atomic, random) }
+
+    init {
+        if (dir.exists()) { atomic.cleanup(dir); if (envDir.exists()) atomic.cleanup(envDir) }
+    }
+
+    override val id = CustodyProviderId.LOCAL_SECURE
+
+    override fun capabilities(): ProviderCapabilities {
+        val v = snapshot().vault
+        val level = v?.let { kek.securityLevel(hex(it.aliasIdHex)) }
+        return ProviderCapabilities(id, true, null, true, level)
+    }
+
+    override fun wallets(): List<WalletInfo> = snapshot().wallets.map { it.toInfo() }
+
+    fun hasVault(): Boolean = snapshot().let { s -> s.vault != null && s.wallets.any { it.state == WalletState.ACTIVE } }
+
+    fun vaultAuthMode(): AuthMode? = if (hasVault()) AuthMode.ofId(snapshot().vault!!.authModeId) else null
+
+    /** The vault stores one PIN length for every wallet; old registry records default to six. */
+    fun pinLength(): Int = snapshot().vault?.pinLength ?: Pin.LENGTH
+
+    fun keySecurityLevel(): KeySecurityLevel? = snapshot().vault?.let { kek.securityLevel(hex(it.aliasIdHex)) }
+
+    /** Number of active local envelopes still using the legacy KDF; derived from authenticated headers on disk. */
+    fun legacyKdfWalletCount(): Int = snapshot().wallets.count {
+        it.state == WalletState.ACTIVE && loadEnvelope(it).kdfProfile != LocalEnvelope.KDF_STRONG_V2
+    }
+
+    /**
+     * Keystore HMAC for the application-wide transaction journal. This key is deliberately independent
+     * of the current vault: deleting the last wallet and creating a new vault must not strand old journal data.
+     * The HMAC key is non-exportable and is lazily created once per app installation.
+     */
+    fun transactionJournalMac(payload: ByteArray): ByteArray {
+        val aliasId = TX_JOURNAL_KEY_ID
+        return try {
+            try {
+                kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+            } catch (missing: KekException) {
+                if (missing.kind != KekException.Kind.NOT_FOUND) throw missing
+                // Only NOT_FOUND may create the stable app-scoped key. Other failures fail closed.
+                try {
+                    kek.createAttemptMacKey(aliasId)
+                } catch (createFailure: KekException) {
+                    // A concurrent first use may have created it; accept only if the follow-up MAC succeeds.
+                    try {
+                        return kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+                    } catch (_: Exception) {
+                        throw createFailure
+                    }
+                }
+                kek.attemptMac(aliasId, TX_JOURNAL_MAC_DOMAIN + payload)
+            }
+        } catch (e: KekException) {
+            throw mapKek(e)
+        }
+    }
+
+    // ------------------------------------------------------------------ sealing
+
+    /** First wallet: creates a fresh KEK (new alias, never reusing one) and returns the encrypt ticket. */
+    fun beginNewVault(mode: AuthMode): KekTicket {
+        if (hasVault()) throw CustodyException(CustodyException.Reason.VAULT_EXISTS)
+        val vaultId = rand(16); val aliasId = rand(16)
+        try {
+            kek.create(aliasId, mode)
+            try {
+                kek.createAttemptMacKey(aliasId)
+            } catch (e: Exception) {
+                runCatching { kek.delete(aliasId) }
+                throw e
+            }
+            return KekTicket(kek.encryptor(aliasId), null, KekTicket.NewVault(vaultId, aliasId, mode))
+        } catch (e: KekException) {
+            throw mapKek(e)
+        }
+    }
+
+    /** Abandons a ticket. A KEK created by [beginNewVault] that never sealed anything is deleted (nothing references it). */
+    fun cancel(ticket: KekTicket) {
+        val nv = ticket.newVault ?: return
+        if (snapshot().vault?.aliasIdHex != hexOf(nv.aliasId)) {
+            runCatching { kek.deleteAttemptMacKey(nv.aliasId) }
+            runCatching { kek.delete(nv.aliasId) }
+        }
+    }
+
+    /** Additional wallet into the existing vault; needs a [PinVerification] at [seal]. */
+    fun beginSealExisting(): KekTicket {
+        val v = snapshot().vault?.takeIf { hasVault() } ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
+        try {
+            return KekTicket(kek.encryptor(hex(v.aliasIdHex)), null, null)
+        } catch (e: KekException) {
+            if (e.kind == KekException.Kind.INVALIDATED || e.kind == KekException.Kind.NOT_FOUND) quarantineAll()
+            throw mapKek(e)
+        }
+    }
+
+    /**
+     * Seals one account of [material] into a new envelope. For a new vault pass [newPin] (6–12 ASCII digits);
+     * otherwise pass [verification] from a just-opened wallet of this vault. Writes envelope then registry,
+     * each atomically; a crash between them leaves an orphan envelope that is ignored (never a dangling entry).
+     */
+    fun seal(
+        ticket: KekTicket, material: PendingMaterial, account: DiscoveredAccount, name: String,
+        newPin: CharArray? = null, verification: PinVerification? = null, enableBiometric: Boolean = false,
+    ): WalletInfo {
+        val cleanName = validName(name)
+        val snap = snapshot()
+        val pub = material.publicKeyFor(account.profile, account.index)
+        if (pub != account.address) throw CustodyException(CustodyException.Reason.BAD_ACCOUNT)
+        if (account.index < 0) throw CustodyException(CustodyException.Reason.BAD_ACCOUNT)
+        val active = snap.wallets.filter { it.state == WalletState.ACTIVE }
+        if (active.any { it.publicKeyHex == hexOf(pub.toByteArray()) }) throw CustodyException(CustodyException.Reason.DUPLICATE_WALLET)
+        val group = hexOf(material.groupFingerprint())
+
+        val vault: VaultConfig
+        val pinKey: SecretBytes
+        val salt: ByteArray
+        val nv = ticket.newVault
+        if (nv != null) {
+            val pin = newPin ?: throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+            if (!Pin.isValid(pin)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+            if (Pin.isTrivial(pin)) throw CustodyException(CustodyException.Reason.WEAK_PIN)
+            vault = VaultConfig(hexOf(nv.vaultId), hexOf(nv.aliasId), nv.mode.id, pin.size)
+            salt = rand(16)
+            pinKey = Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, salt) }
+        } else {
+            val ver = verification ?: throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+            vault = snap.vault ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
+            salt = ver.pinSalt.copyOf()
+            pinKey = ver.pinKey.copy()
+            ver.close()
+        }
+        val materialId = rand(16)
+        val idHex = hexOf(materialId)
+        val rnd = SealRandomness(rand(32), rand(12), rand(12))
+        try {
+            val env = material.copySecret().use { secret ->
+                EnvelopeCrypto.seal(hex(vault.vaultIdHex), materialId, material.kind, account.profile.id, account.index,
+                    pub.toByteArray(), salt, hex(vault.aliasIdHex), vault.authModeId, secret, pinKey, rnd, ticket.op)
+            }
+            val bytes = env.encode()
+            atomic.write(envFile(idHex), bytes) { b ->
+                val back = LocalEnvelope.parse(b)
+                check(back.expectedPubkey().contentEquals(pub.toByteArray()))
+                // Full read-back verification of the PIN + material layers (the KEK layer is checked by the tag at open).
+            }
+            val entry = WalletEntry(idHex, cleanName, material.kind, account.profile.id, account.index,
+                hexOf(pub.toByteArray()), group, id.code, now(), WalletState.ACTIVE)
+            registry.save(WalletRegistry.Snapshot(vault, snap.wallets.filter { nv == null || it.state != WalletState.ACTIVE } + entry))
+            if (nv != null) { attempts.recordSuccess(); runCatching { bio?.disable() } } // a new vault never inherits old biometric records
+            val b = bio
+            if (nv != null && enableBiometric && b != null) runCatching { b.enable() }
+            if (b != null && b.enabled()) runCatching { material.copySecret().use { b.write(materialId, env.header(), it) } }
+            return entry.toInfo()
+        } catch (e: KekException) {
+            throw mapKek(e)
+        } catch (e: CustodyException) {
+            throw e
+        } catch (e: Exception) {
+            throw CustodyException(CustodyException.Reason.STORAGE)
+        } finally {
+            rnd.wipe(); pinKey.close()
+        }
+    }
+
+    // ------------------------------------------------------------------ unlocking
+
+    fun beginUnlock(walletId: String): KekTicket {
+        val e = entry(walletId)
+        if (e.state != WalletState.ACTIVE) throw CustodyException(CustodyException.Reason.QUARANTINED)
+        val env = loadEnvelope(e)
+        try {
+            return KekTicket(kek.decryptor(env.aliasId(), env.hwIv()), walletId, null)
+        } catch (x: KekException) {
+            if (x.kind == KekException.Kind.INVALIDATED || x.kind == KekException.Kind.NOT_FOUND) quarantineAll()
+            throw mapKek(x)
+        }
+    }
+
+    /** Any active wallet — used to unlock the app and to verify the PIN before sealing another wallet. */
+    fun beginUnlockAny(): KekTicket {
+        val first = snapshot().wallets.firstOrNull { it.state == WalletState.ACTIVE } ?: throw CustodyException(CustodyException.Reason.NO_VAULT)
+        return beginUnlock(first.walletIdHex)
+    }
+
+    /**
+     * Write-ahead attempt accounting, then hardware unwrap (already biometric-authorised if required),
+     * Argon2id(PIN), DEK, material, pubkey check. Any cryptographic failure ⇒ [UnlockResult.Failed].
+     */
+    fun completeUnlock(ticket: KekTicket, pin: CharArray): UnlockResult {
+        val walletId = ticket.walletId ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        if (!Pin.isValid(pin)) throw CustodyException(CustodyException.Reason.BAD_PIN_FORMAT)
+        val e = entry(walletId)
+        val env = loadEnvelope(e)
+        val gate = try { attempts.gate() } catch (_: Exception) { throw CustodyException(CustodyException.Reason.STORAGE) }
+        if (gate is AttemptGate.LockedOut) return UnlockResult.LockedOut(gate.remainingMs)
+        gate as AttemptGate.Allowed
+        val failed = UnlockResult.Failed(gate.failuresIfWrong, (PinAttemptLimiter.FREE_ATTEMPTS - gate.failuresIfWrong).coerceAtLeast(0), gate.lockoutIfWrongMs)
+        val dekPin = try {
+            EnvelopeCrypto.unwrapHardware(env, ticket.op)
+        } catch (x: KekException) {
+            if (x.kind == KekException.Kind.BAD_TAG) return failed
+            if (x.kind == KekException.Kind.INVALIDATED || x.kind == KekException.Kind.NOT_FOUND) quarantineAll()
+            throw mapKek(x) // auth missing / keystore error: not a PIN failure — the counted attempt stays (fail closed)
+        }
+        try {
+            // Existing LWLE v1 files keep using their recorded KDF profile. A successful legacy unlock
+            // upgrades the in-memory PIN key immediately, so any newly sealed account is written as v2.
+            val unlockPinKey = Pin.encode(pin).use {
+                EnvelopeCrypto.derivePinKey(it, env.pinSalt(), env.kdfProfile)
+            }
+            val material = try {
+                EnvelopeCrypto.openWithPinKey(env, dekPin, unlockPinKey)
+            } catch (_: EnvelopeAuthException) {
+                unlockPinKey.close()
+                return failed
+            }
+            try {
+                attempts.recordSuccess()
+            } catch (_: Exception) {
+                material.close()
+                unlockPinKey.close()
+                throw CustodyException(CustodyException.Reason.STORAGE)
+            }
+            // Extract the DEK while the legacy PIN key is still available. The one-shot ticket will rewrap
+            // the current envelope only after any required second Keystore authorization succeeds.
+            val migrationDek = if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) null else
+                runCatching { EnvelopeCrypto.unwrapDek(env, dekPin, unlockPinKey) }.getOrNull()
+            val sessionPinKey = try {
+                if (env.kdfProfile == LocalEnvelope.KDF_STRONG_V2) unlockPinKey
+                else Pin.encode(pin).use { EnvelopeCrypto.derivePinKey(it, env.pinSalt(), LocalEnvelope.KDF_STRONG_V2) }
+            } catch (e: Exception) {
+                material.close()
+                migrationDek?.close()
+                throw e
+            } finally {
+                if (env.kdfProfile != LocalEnvelope.KDF_STRONG_V2) unlockPinKey.close()
+            }
+            bio?.let { b -> runCatching { b.notePin(); if (b.enabled() && !b.has(walletId)) b.write(env.materialId(), env.header(), material) } }
+            val session = UnlockedWallet(e.toInfo(), material, sessionPinKey, env.pinSalt(), env.header())
+            val migration = migrationDek?.let { dek ->
+                var copiedPinKey: SecretBytes? = null
+                try {
+                    copiedPinKey = sessionPinKey.copy()
+                    val migrationOp = kek.encryptor(env.aliasId())
+                    KdfMigrationTicket(walletId, env.encode(), env, dek, material.copy(), copiedPinKey, migrationOp)
+                        .also { copiedPinKey = null }
+                } catch (_: Exception) {
+                    dek.close()
+                    copiedPinKey?.close()
+                    null // The PIN unlock remains valid; a failed optional migration is retried next time.
+                }
+            }
+            return UnlockResult.Success(session, migration)
+        } finally {
+            dekPin.wipe()
+        }
+    }
+
+    /**
+     * Upgrade one legacy LWLE envelope after the PIN has already been verified. The previous file remains intact
+     * unless the complete v2 envelope passes validation and AtomicFiles successfully renames it into place.
+     * Failure/cancellation is non-destructive; the next PIN unlock can retry.
+     */
+    fun completeKdfMigration(ticket: KdfMigrationTicket, session: UnlockedWallet): Boolean {
+        try {
+            if (session.info.id != ticket.walletId || !session.viaPin) return false
+            val current = entry(ticket.walletId)
+            if (current.state != WalletState.ACTIVE) return false
+            val target = envFile(ticket.walletId)
+            if (!target.isFile || !target.readBytes().contentEquals(ticket.originalEnvelope)) return false
+
+            val migrated = EnvelopeCrypto.migrateToStrong(
+                ticket.envelope, ticket.dek, ticket.material, ticket.strongPinKey, ticket.op, random,
+            )
+            val bytes = migrated.encode()
+            atomic.write(target, bytes) { readBack ->
+                val parsed = LocalEnvelope.parse(readBack)
+                check(parsed.kdfProfile == LocalEnvelope.KDF_STRONG_V2)
+                check(parsed.materialId().contentEquals(ticket.envelope.materialId()))
+                check(parsed.expectedPubkey().contentEquals(ticket.envelope.expectedPubkey()))
+                check(parsed.aliasId().contentEquals(ticket.envelope.aliasId()))
+                check(parsed.authMode == ticket.envelope.authMode)
+                check(parsed.header().contentEquals(migrated.header()))
+            }
+            session.replaceHeader(migrated.header())
+            // A biometric view record is bound to the envelope header. Recreate it for the new AAD;
+            // if that optional write fails, the wallet remains usable by PIN.
+            bio?.let { b ->
+                runCatching {
+                    // AtomicFiles replaces the stale header-bound record in place. Do not delete the old
+                    // record first: a failed rewrite must leave the prior on-disk state untouched.
+                    if (b.enabled()) b.write(hex(ticket.walletId), migrated.header(), ticket.material)
+                }
+            }
+            return true
+        } catch (_: Exception) {
+            return false
+        } finally {
+            ticket.close()
+        }
+    }
+
+    // ------------------------------------------------------------------ biometric unlock (ADR 0021)
+
+    /** Whether biometrics can replace the PIN right now. Never READY with PIN errors pending, after a restart, after the window (24 h default) or in lockdown. */
+    fun biometricGate(): com.lockwallet.custody.local.bio.BioGate {
+        val b = bio ?: return com.lockwallet.custody.local.bio.BioGate.OFF
+        if (!hasVault()) return com.lockwallet.custody.local.bio.BioGate.OFF
+        val failures = runCatching { attempts.failures() }.getOrDefault(Int.MAX_VALUE)
+        val lock = runCatching { attempts.lockoutRemainingMs() }.getOrDefault(Long.MAX_VALUE)
+        return b.gate(failures, lock)
+    }
+
+    fun biometricEnabled(): Boolean = bio?.enabled() == true
+
+    /** Turns biometric unlock on. Only from a session opened with the PIN just now (proof of knowledge). */
+    fun enableBiometricUnlock(session: UnlockedWallet) {
+        val b = bio ?: throw CustodyException(CustodyException.Reason.KEYSTORE)
+        if (!session.viaPin) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+        try {
+            b.enable()
+            session.materialCopy().use { b.write(hex(session.info.id), session.header, it) }
+        } catch (e: KekException) { runCatching { b.disable() }; throw mapKek(e) }
+        catch (e: CustodyException) { throw e }
+        catch (e: Exception) { runCatching { b.disable() }; throw CustodyException(CustodyException.Reason.STORAGE) }
+    }
+
+    /** "Bloquear agora": persist the PIN-only state; never report success if the authenticated write fails. */
+    fun biometricLockdown() {
+        try { bio?.lockdown() }
+        catch (_: Exception) { throw CustodyException(CustodyException.Reason.STORAGE) }
+    }
+
+    fun biometricWindowHours(): Int? = runCatching { bio?.windowHours() }.getOrNull()
+
+    /** Shorter: always. Longer: only with a session opened by the PIN (a biometric session cannot extend itself). */
+    fun setBiometricWindow(hours: Int, session: UnlockedWallet?) {
+        val b = bio ?: throw CustodyException(CustodyException.Reason.KEYSTORE)
+        try { b.setWindow(hours, viaPin = session?.viaPin == true) }
+        catch (_: SecurityException) { throw CustodyException(CustodyException.Reason.AUTH_REQUIRED) }
+        catch (_: IllegalArgumentException) { throw CustodyException(CustodyException.Reason.STORAGE) }
+    }
+
+    /** Turns it off: records, policy state and the bio key are deleted (the PIN keeps working; wallets untouched). */
+    fun disableBiometricUnlock() { bio?.disable() }
+
+    /** Biometric unlock of [walletId] (or any enrolled active wallet). The ticket's cipher must go to BiometricPrompt. */
+    fun beginBiometricUnlock(walletId: String?): BioTicket {
+        val b = bio ?: throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED)
+        if (biometricGate() != com.lockwallet.custody.local.bio.BioGate.READY) throw CustodyException(CustodyException.Reason.BIO_PIN_REQUIRED)
+        val candidates = snapshot().wallets.filter { it.state == WalletState.ACTIVE && (walletId == null || it.walletIdHex == walletId) }
+        for (e in candidates) {
+            val env = try { loadEnvelope(e) } catch (_: CustodyException) { continue }
+            val rec = b.record(e.walletIdHex, env.header()) ?: continue
+            val op = try { b.decryptor() } catch (x: KekException) {
+                if (x.kind == KekException.Kind.INVALIDATED || x.kind == KekException.Kind.NOT_FOUND) {
+                    runCatching { b.disable() }; throw CustodyException(CustodyException.Reason.BIO_INVALIDATED)
+                }
+                throw mapKek(x)
+            }
+            return BioTicket(op, e.walletIdHex, rec)
+        }
+        throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED)
+    }
+
+    /** After a successful BiometricPrompt: unwraps and verifies the material (public key re-derived). Not a PIN attempt. */
+    fun completeBiometricUnlock(t: BioTicket): UnlockedWallet {
+        val b = bio ?: throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED)
+        if (biometricGate() != com.lockwallet.custody.local.bio.BioGate.READY) throw CustodyException(CustodyException.Reason.BIO_PIN_REQUIRED)
+        val e = entry(t.walletId)
+        if (e.state != WalletState.ACTIVE) throw CustodyException(CustodyException.Reason.QUARANTINED)
+        val env = loadEnvelope(e)
+        val material = try { b.open(t.op, t.record) } catch (x: KekException) {
+            if (x.kind == KekException.Kind.INVALIDATED) { runCatching { b.disable() }; throw CustodyException(CustodyException.Reason.BIO_INVALIDATED) }
+            throw mapKek(x)
+        } catch (_: Exception) {
+            b.remove(t.walletId); throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED) // tampered record: dropped, PIN still works
+        }
+        if (material.size != env.materialLength || !EnvelopeCrypto.pubkeyMatches(env, material)) {
+            material.close(); b.remove(t.walletId); throw CustodyException(CustodyException.Reason.BIO_NOT_ENROLLED)
+        }
+        return UnlockedWallet(e.toInfo(), material, null, env.pinSalt(), env.header())
+    }
+
+    // ------------------------------------------------------------------ LWRP import
+
+    /**
+     * Opens an LWRP file (exact size/structure before KDF). Password errors are reported before the KDF;
+     * everything after the KDF is one generic failure.
+     */
+    fun openRecoveryPackage(file: ByteArray, password: CharArray): PendingMaterial {
+        val payload = try {
+            LwrpCipher.open(file, password)
+        } catch (e: LwrpPasswordException) {
+            throw RecoveryException.of(e)
+        } catch (_: LwrpFormatException) {
+            throw RecoveryException(RecoveryException.Reason.NOT_A_PACKAGE)
+        } catch (_: LwrpOpenException) {
+            throw RecoveryException(RecoveryException.Reason.OPEN_FAILED)
+        }
+        payload.use { p ->
+            val kind = if (p.kind == MaterialKind.BIP39_ENTROPY) PendingMaterial.KIND_BIP39 else PendingMaterial.KIND_KEYPAIR
+            val profile = if (kind == PendingMaterial.KIND_BIP39) AccountProfile.ofId(p.derivationProfile!!.id)!! else AccountProfile.NONE
+            val acct = DiscoveredAccount(profile, p.accountIndex, SolanaPublicKey.of(p.expectedPubkey()))
+            return PendingMaterial.fromLwrp(kind, p.material.copy(), acct)
+        }
+    }
+
+    /** Verify-after-export: re-open the bytes read back from the destination and compare the public key. */
+    fun verifyRecoveryPackage(readBack: ByteArray, password: CharArray, expected: SolanaPublicKey): Boolean = try {
+        openRecoveryPackage(readBack, password).use { it.suggested?.address == expected }
+    } catch (_: Exception) {
+        false
+    }
+
+    // ------------------------------------------------------------------ management
+
+    fun rename(walletId: String, name: String) {
+        val clean = validName(name)
+        val s = snapshot()
+        if (s.wallets.none { it.walletIdHex == walletId }) throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        registry.save(s.copy(wallets = s.wallets.map { if (it.walletIdHex == walletId) it.copy(name = clean) else it }))
+    }
+
+    /**
+     * Deletes the wallet [session] belongs to, on explicit user request, with a PIN session only (never biometrics).
+     * Order is crash-safe: the registry entry goes first (atomic rename), then the envelope is overwritten and deleted.
+     * Dying in between leaves an orphan ciphertext that no entry references — never a listed wallet without material.
+     * Other wallets, the vault key and the PIN/attempt counters are untouched. Biometrics are disabled with the last wallet.
+     */
+    fun removeWallet(session: UnlockedWallet) {
+        if (!session.hasPin()) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+        val id = session.info.id
+        val s = snapshot()
+        val e = s.wallets.firstOrNull { it.walletIdHex == id } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        registry.save(s.copy(wallets = s.wallets - e))
+        val f = envFile(id)
+        if (f.exists()) { runCatching { java.io.RandomAccessFile(f, "rws").use { r -> r.write(ByteArray(r.length().toInt())) } }; f.delete() }
+        runCatching { bio?.remove(id) }
+        if (snapshot().wallets.none { it.state == WalletState.ACTIVE }) runCatching { bio?.disable() }
+    }
+
+    /** Removes a QUARANTINED wallet entry and its unusable envelope, on explicit user request only. */
+    fun removeQuarantined(walletId: String) {
+        val s = snapshot()
+        val e = s.wallets.firstOrNull { it.walletIdHex == walletId } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+        if (e.state != WalletState.QUARANTINED) throw CustodyException(CustodyException.Reason.AUTH_REQUIRED)
+        registry.save(s.copy(wallets = s.wallets - e))
+        envFile(walletId).delete()
+        bio?.remove(walletId)
+    }
+
+    // ------------------------------------------------------------------ internals
+
+    private fun snapshot(): WalletRegistry.Snapshot = try {
+        registry.load()
+    } catch (_: Exception) {
+        throw CustodyException(CustodyException.Reason.CORRUPTED)
+    }
+
+    private fun entry(id: String) = snapshot().wallets.firstOrNull { it.walletIdHex == id } ?: throw CustodyException(CustodyException.Reason.UNKNOWN_WALLET)
+
+    private fun loadEnvelope(e: WalletEntry): LocalEnvelope {
+        val f = envFile(e.walletIdHex)
+        if (!f.exists()) throw CustodyException(CustodyException.Reason.CORRUPTED)
+        val env = try {
+            LocalEnvelope.parse(f.readBytes())
+        } catch (x: EnvelopeFormatException) {
+            // A newer envelope version is refused without touching the file (no downgrade rewrite).
+            throw CustodyException(if (x.error == EnvelopeError.UNSUPPORTED_VERSION) CustodyException.Reason.UNSUPPORTED_VERSION else CustodyException.Reason.CORRUPTED)
+        }
+        val v = snapshot().vault
+        // Binding checks: the file must belong to this registry entry (no swapping/mixing of envelopes).
+        if (hexOf(env.materialId()) != e.walletIdHex || hexOf(env.expectedPubkey()) != e.publicKeyHex ||
+            env.materialKind != e.materialKind || env.derivationProfile != e.derivationProfile || env.accountIndex != e.accountIndex ||
+            (e.state == WalletState.ACTIVE && v != null && (hexOf(env.vaultId()) != v.vaultIdHex || hexOf(env.aliasId()) != v.aliasIdHex))
+        ) throw CustodyException(CustodyException.Reason.CORRUPTED)
+        return env
+    }
+
+    private fun quarantineAll() {
+        val s = snapshot()
+        registry.save(s.copy(wallets = s.wallets.map { if (it.state == WalletState.ACTIVE) it.copy(state = WalletState.QUARANTINED) else it }))
+    }
+
+    private fun mapKek(e: KekException) = CustodyException(
+        when (e.kind) {
+            KekException.Kind.INVALIDATED -> CustodyException.Reason.KEY_INVALIDATED
+            KekException.Kind.NOT_FOUND -> CustodyException.Reason.KEY_MISSING
+            KekException.Kind.AUTH_REQUIRED -> CustodyException.Reason.AUTH_REQUIRED
+            KekException.Kind.BAD_TAG -> CustodyException.Reason.CORRUPTED
+            KekException.Kind.UNAVAILABLE -> CustodyException.Reason.KEYSTORE
+        },
+    )
+
+    private fun WalletEntry.toInfo() = WalletInfo(
+        walletIdHex, name, CustodyProviderId.entries.first { it.code == providerId }, materialKind == PendingMaterial.KIND_BIP39,
+        AccountProfile.ofId(derivationProfile) ?: AccountProfile.NONE, accountIndex, SolanaPublicKey.of(hex(publicKeyHex)),
+        seedGroupHex, createdAtMs, state,
+    )
+
+    private fun envFile(idHex: String) = File(envDir, "$idHex.lwle")
+    private fun rand(n: Int) = ByteArray(n).also(random::nextBytes)
+
+    private fun validName(name: String): String {
+        val t = name.trim()
+        if (t.isEmpty() || t.length > WalletRegistry.MAX_NAME || t.any { it.isISOControl() }) throw CustodyException(CustodyException.Reason.BAD_NAME)
+        return t
+    }
+
+    companion object {
+        /** Reserved 16-byte alias ID, independent of random per-vault aliases. */
+        private val TX_JOURNAL_KEY_ID = "lw.tx.journal.v1".toByteArray(Charsets.US_ASCII)
+        private val TX_JOURNAL_MAC_DOMAIN = "LockWallet/TxJournal/v1\u0000".toByteArray(Charsets.US_ASCII)
+
+        internal fun hexOf(b: ByteArray) = b.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        internal fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+    }
+}

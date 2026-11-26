@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "id": "LW-SPEC-23.1",
+    "purpose": "Spec \u00a723.1 public test mnemonic; NEVER fund these addresses.",
+    "source": "LOCK WALLET Especifica\u00e7\u00e3o Mestre v2.0 \u00a723.1 (expected addresses transcribed from the PDF)",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "mnemonic": "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+  "passphrase": "",
+  "entropy_hex": "9430756285c65f6b944ee90ffa5bb93a",
+  "seed_hex": "e97ab93c4961c77c62521f305aac17851bea814d05a78d3b5c254a3e5007456c856506c09f956d67808fb0e429ec6393825359bbd94d1a0e291aa468815f394b",
+  "master_private_key_hex": "12bb3f77a0cb93bf9fe2ec19f938050ab24c4956418bdf97162d6bd697cfb98d",
+  "master_chain_code_hex": "700cdc5ad1b8cc120f7cdfd4a4b3a66a2c035ab9f1737ac6b55f8a5d8d248473",
+  "derivations": [
+    {
+      "path": "m/44'/501'/0'/0'",
+      "profile": "PRIMARY",
+      "account_index": 0,
+      "private_key_hex": "95756468025e5f69cf191815b443d5aedf7f6d613ef729b3e2a3031fd7aa4f31",
+      "chain_code_hex": "9e2f8845d9be8c4c55cb3865c3c9766b3e7fed04389cfdc54c506dbb36eebdaa",
+      "public_key_hex": "492e7fa00d302220c584be142f776d1a59317ab2b6f04c9f02bc3f7e931da253",
+      "address": "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N",
+      "address_oracle1_bip_utils": "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N",
+      "address_oracle2_solders": "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N"
+    },
+    {
+      "path": "m/44'/501'/1'/0'",
+      "profile": "PRIMARY",
+      "account_index": 1,
+      "private_key_hex": "f9fad078ccaaf271c2c46e98ea7af7f1b2924bbf32ec583481bea8a205037de8",
+      "chain_code_hex": "9efb74c239d133572c37f1ec91dffb7d00b40e6ffcdd937bcec6f4fe17cfb1cf",
+      "public_key_hex": "e7f93aa341ce1445f8e82e500a6cb64a5515e519589d455c617c007d993f43b1",
+      "address": "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv",
+      "address_oracle1_bip_utils": "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv",
+      "address_oracle2_solders": "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv"
+    },
+    {
+      "path": "m/44'/501'/0'",
+      "profile": "COMPATIBILITY",
+      "account_index": 0,
+      "private_key_hex": "c43957a8620fef223a05b2648bfba26a1e02d2339d606721236fc898671f6430",
+      "chain_code_hex": "cd03b9942a69531c30988bb99269e7578f29b5511083fc88d89c2d19ec1cb432",
+      "public_key_hex": "086cc16bf08af81489d3ae6b0303ba9719358511e092e139e5380e7eee0eb051",
+      "address": "ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4",
+      "address_oracle1_bip_utils": "ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4",
+      "address_oracle2_solders": "ZtSqp8BQkKFvahawCS9Mf15gzFuedeWWDkYap3qQEe4"
+    }
+  ]
+}

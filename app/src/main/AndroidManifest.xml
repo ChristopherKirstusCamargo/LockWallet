@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LOCK WALLET — manifest (spec §2.3, §4.1, §16; v2.2 §8.4 / SEC-08 / SEC-09).
+  * Permissions (all "normal", no runtime prompt): USE_BIOMETRIC (BiometricPrompt + CryptoObject) and
+    HIDE_OVERLAY_WINDOWS (Window.setHideOverlayWindows, anti-tapjacking). USE_FINGERPRINT, merged in by
+    androidx.biometric for API < 28, is removed (minSdk 31). INTERNET: HTTPS-only public SOL price (ADR 0016);
+    Solana RPC (Mainnet) uses it too.
+  * Backup disabled AND every extraction path excluded: on Android 12+ allowBackup=false alone does not
+    stop device-to-device transfer on some OEMs (docs/verification-log.md G-BKP-1).
+  * Cleartext forbidden; only system CAs trusted (no user-installed CAs, even in debug).
+  * Exported: only the launcher activity (accepts no data/extras).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
+    <!-- QR of a recipient address. Runtime permission, requested only when "Ler QR" is tapped. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Never needed: the app makes no network-state checks. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+
+    <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:hasFragileUserData="false"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.LockWallet"
+        tools:targetApi="36">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density|fontScale|locale|layoutDirection">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+
+        <!-- androidx.profileinstaller (pulled in transitively by Compose) adds an exported receiver
+             guarded by DUMP. Removed to keep the exported surface to the launcher only (v2.2 §8.4).
+             Lint cannot resolve the runtime-only transitive class, hence MissingClass is ignored here. -->
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            tools:ignore="MissingClass"
+            tools:node="remove" />
+
+    </application>
+</manifest>

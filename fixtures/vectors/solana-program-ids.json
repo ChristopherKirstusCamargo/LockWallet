@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "id": "LW-ORACLE-PROGRAM-IDS-1",
+    "purpose": "Program IDs of the MVP allowlist (v2.1 \u00a75)",
+    "source": "solders constants; ATA id proven by re-deriving solders' get_associated_token_address",
+    "generator": "tools/oracle/generate_fixtures.py",
+    "oracle_versions": {
+      "mnemonic": "0.21",
+      "bip_utils": "2.12.3",
+      "solders": "0.29.0",
+      "PyNaCl": "1.6.2"
+    },
+    "generated": "2026-11-19",
+    "platform": "CPython 3.13"
+  },
+  "programs": {
+    "system": "11111111111111111111111111111111",
+    "spl_token_legacy": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "associated_token": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "compute_budget": "ComputeBudget111111111111111111111111111111"
+  },
+  "ata_check": {
+    "owner": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+    "mint": "9C6hybhQ6Aycep9jaUnP6uL9ZYvDjUp1aSkFWPUFJtpj",
+    "ata": "851hW1VhCYHLqCU3nSa1sKAu61L7pazjXCvkraBfUtwD"
+  }
+}
