@@ -44,7 +44,9 @@ open class MainActivity : FragmentActivity() {
     private var pendingPermission: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        if (!BuildConfig.SCREENSHOT_CAPTURE_ALLOWED) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         // Normal permission, granted at install; if a ROM refuses it we keep running and say so in the Security Center.
         val overlaysHidden = try { window.setHideOverlayWindows(true); true } catch (_: SecurityException) { false }
         super.onCreate(savedInstanceState)

@@ -68,7 +68,15 @@ class ManifestAndWindowSecurityTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val flags = activity.window.attributes.flags
-                assertTrue("FLAG_SECURE missing", flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+                val secureFlagEnabled = flags and WindowManager.LayoutParams.FLAG_SECURE != 0
+                assertEquals(
+                    "Screenshot policy must match the selected build variant",
+                    !BuildConfig.SCREENSHOT_CAPTURE_ALLOWED,
+                    secureFlagEnabled
+                )
+                if (BuildConfig.SCREENSHOT_CAPTURE_ALLOWED) {
+                    assertEquals("com.lockwallet.app.test", context.packageName)
+                }
                 assertTrue(activity.window.decorView.filterTouchesWhenObscured)
             }
         }

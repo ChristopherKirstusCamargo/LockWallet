@@ -8,6 +8,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Screenshot capture is enabled only for the isolated, explicitly requested inspection build.
+// Release builds always keep FLAG_SECURE, regardless of supplied Gradle properties.
+val testBuild = providers.gradleProperty("lockwallet.testBuild").orNull == "true"
+val inspectionBuild = testBuild &&
+    providers.gradleProperty("lockwallet.inspectionBuild").orNull == "true"
+
 android {
     namespace = "com.lockwallet.app"
     compileSdk = 36 // Gate 0, see docs/verification-log.md (G0-*)
@@ -16,7 +22,7 @@ android {
         // Application id fixed since 2.0.0 (Mainnet); never changes, so updates install in place. Spec §2.3 still holds:
         // the network is never switched by a hidden flag / remote config / dev build.
         // Production keeps its permanent package ID; the temporary test APK is isolated.
-        applicationId = if (providers.gradleProperty("lockwallet.testBuild").orNull == "true") {
+        applicationId = if (testBuild) {
             "com.lockwallet.app.test"
         } else {
             "com.lockwallet.app"
@@ -47,7 +53,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "SCREENSHOT_CAPTURE_ALLOWED", inspectionBuild.toString())
+        }
         release {
+            // Never disable screenshot protection in a release variant.
+            buildConfigField("boolean", "SCREENSHOT_CAPTURE_ALLOWED", "false")
             if (signingProps != null) signingConfig = signingConfigs.getByName("lockRelease")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -63,7 +74,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = false
+        buildConfig = true
     }
 
     // Do not embed the Google-encrypted dependency metadata blob (supply-chain transparency, ADR 0014).
